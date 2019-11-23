@@ -1,8 +1,7 @@
 module AbstractMCMC
 
-
-using Random: GLOBAL_RNG, AbstractRNG, seed!
-using ProgressMeter
+using Random, ProgressMeter
+import Random: GLOBAL_RNG, AbstractRNG, seed!
 
 export AbstractSampler,
     AbstractChains,
