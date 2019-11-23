@@ -2,6 +2,7 @@ module AbstractMCMC
 
 using Random, ProgressMeter
 import Random: GLOBAL_RNG, AbstractRNG, seed!
+import Distributions: sample
 
 export AbstractSampler,
     AbstractChains,
@@ -35,6 +36,7 @@ Base.cat(c::AbstractChains; dims=1) = error("Function not defined for type $(typ
 Base.vcat(c::AbstractChains...) = cat(c...; dims=1)
 Base.hcat(c::AbstractChains...) = cat(c...; dims=2)
 chainscat(c::AbstractChains...) = cat(c...; dims=3)
+Chains(args...; kwargs...) = error("Function not defined")
 
 """
     AbstractSampler
@@ -224,7 +226,7 @@ function sample(
     # Wrap up the sampler, if necessary.
     sample_end!(rng, ℓ, s, N, ts; kwargs...)
 
-    return Chains(rng, ℓ, s, N, ts; kwargs...)
+    return bundle_samples(rng, ℓ, s, N, ts; kwargs...)
 end
 
 """
@@ -288,6 +290,17 @@ function sample_end!(
     # Do nothing.
     debug && @warn "No sample_end! function has been implemented for objects
            of types $(typeof(ℓ)) and $(typeof(s))"
+end
+
+function bundle_samples(
+    rng::AbstractRNG, 
+    ℓ::AbstractModel, 
+    s::SamplerType, 
+    N::Integer, 
+    ts::Vector{T}; 
+    kwargs...
+) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler, T<:AbstractTransition}
+    error("No bundle_samples function defined")
 end
 
 """
