@@ -6,10 +6,11 @@ desc = "A lightweight interface for common MCMC methods."
 version = "0.1.0"
 
 [deps]
-Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
 ProgressMeter = "~1.2"
+StatsBase = "~0.32"
 julia = "~1"
