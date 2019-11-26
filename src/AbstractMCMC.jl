@@ -2,7 +2,7 @@ module AbstractMCMC
 
 using Random, ProgressMeter
 import Random: GLOBAL_RNG, AbstractRNG, seed!
-import Distributions: sample
+import StatsBase: sample
 
 export AbstractSampler,
     AbstractChains,
