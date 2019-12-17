@@ -19,7 +19,6 @@ export AbstractSampler,
     psample,
     AbstractModel,
     AbstractRNG,
-    Chains,
     step!
 
 """
@@ -36,7 +35,6 @@ Base.cat(c::AbstractChains; dims=1) = error("Function not defined for type $(typ
 Base.vcat(c::AbstractChains...) = cat(c...; dims=1)
 Base.hcat(c::AbstractChains...) = cat(c...; dims=2)
 chainscat(c::AbstractChains...) = cat(c...; dims=3)
-Chains(args...; kwargs...) = error("Function not defined")
 
 """
     AbstractSampler
