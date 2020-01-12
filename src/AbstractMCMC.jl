@@ -298,7 +298,7 @@ function bundle_samples(
     ts::Vector{T}; 
     kwargs...
 ) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler, T<:AbstractTransition}
-    error("No bundle_samples function defined")
+    return ts
 end
 
 """
