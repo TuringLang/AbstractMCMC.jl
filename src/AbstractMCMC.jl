@@ -198,7 +198,6 @@ function sample(
     s::SamplerType,
     N::Integer;
     progress::Bool=true,
-    chain_type::Type=Type{Any},
     kwargs...
 ) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler}
     # Perform any necessary setup.
@@ -225,11 +224,7 @@ function sample(
     # Wrap up the sampler, if necessary.
     sample_end!(rng, ℓ, s, N, ts; kwargs...)
 
-    if chain_type == Type{Any}
-        return bundle_samples(rng, ℓ, s, N, ts; kwargs...)
-    else
-        return bundle_samples(rng, ℓ, s, N, ts, chain_type; kwargs...)
-    end
+    return bundle_samples(rng, ℓ, s, N, ts; kwargs...)
 end
 
 """
@@ -304,18 +299,6 @@ function bundle_samples(
     kwargs...
 ) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler, T<:AbstractTransition}
     return ts
-end
-
-function bundle_samples(
-    rng::AbstractRNG, 
-    ℓ::AbstractModel, 
-    s::SamplerType, 
-    N::Integer, 
-    ts::Vector{T},
-    chain_type::Type; 
-    kwargs...
-) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler, T<:AbstractTransition}
-    error("No bundle_samples implementation for type $chain_type")
 end
 
 """
