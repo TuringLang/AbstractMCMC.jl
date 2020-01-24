@@ -24,7 +24,7 @@ end
 
 if VERSION ≥ v"1.3"
     @testset "Parallel sampling" begin
-        println("testing parallel sampling with ", Threads.nthreads(), " threads...")
+        println("testing parallel sampling with ", Threads.nthreads(), " thread(s)...")
 
         Random.seed!(1234)
         chains = psample(MyModel(), MySampler(), 10_000, 1_000)
