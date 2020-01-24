@@ -19,10 +19,13 @@ function AbstractMCMC.step!(
     model::MyModel,
     sampler::MySampler,
     N::Integer;
+    sleepy = false,
     kwargs...
 )
     a = rand(rng)
     b = randn(rng)
+
+    sleepy && sleep(0.001)
 
     return MyTransition(a, b)
 end
@@ -33,10 +36,13 @@ function AbstractMCMC.step!(
     sampler::MySampler,
     N::Integer,
     transition::Union{Nothing,MyTransition};
+    sleepy = false,
     kwargs...
 )
     a = rand(rng)
     b = randn(rng)
+
+    sleepy && sleep(0.001)
 
     return MyTransition(a, b)
 end

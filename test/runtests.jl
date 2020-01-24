@@ -8,7 +8,7 @@ include("interface.jl")
 
 @testset "Basic sampling" begin
     Random.seed!(1234)
-    chain = sample(MyModel(), MySampler(), 10_000)
+    chain = sample(MyModel(), MySampler(), 10_000; progress = true, sleepy = true)
 
     # test output type and size
     @test chain isa MyChain
