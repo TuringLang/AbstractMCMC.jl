@@ -473,66 +473,57 @@ Return the type of `AbstractTransition` that is to be returned by an
 transition_type(s::AbstractSampler) = AbstractTransition
 
 """
-    psample(ℓ::ModelType, s::SamplerType, N::Integer, n_chains::Integer; kwargs...)
-    psample(rng::AbstractRNG, ℓ::ModelType, s::SamplerType, N::Integer, n_chains::Integer; kwargs...)
+    psample([rng::AbstractRNG, ]model::AbstractModel, sampler::AbstractSampler, N::Integer,
+            nchains::Integer; kwargs...)
 
-Samples `n_chains` using the threads available, and combines the returned chains into a single 
-`Chains` struct.
+Sample `nchains` chains using the available threads, and combine them into a single chain.
 
-By default, the model and sampler types are deep copied for each thread to prevent contamination
-between threads. 
+By default, the random number generator, the model and the samplers are deep copied for each
+thread to prevent contamination between threads. 
 """
 function psample(
-    ℓ::ModelType,
-    s::SamplerType,
+    model::AbstractModel,
+    sampler::AbstractSampler,
     N::Integer,
-    n_chains::Integer;
+    nchains::Integer;
     kwargs...
-) where {
-    ModelType <: AbstractModel,
-    SamplerType <: AbstractSampler
-}
-    return psample(GLOBAL_RNG, ℓ, s, N, n_chains; kwargs...)
+)
+    return psample(GLOBAL_RNG, model, sampler, N, nchains; kwargs...)
 end
 
 function psample(
     rng::AbstractRNG,
-    ℓ::ModelType,
-    s::SamplerType,
+    model::AbstractModel,
+    sampler::AbstractSampler,
     N::Integer,
-    n_chains::Integer;
+    nchains::Integer;
     kwargs...
-) where {
-    ModelType <: AbstractModel,
-    SamplerType <: AbstractSampler
-}
+)
+    # Copy the random number generator, model, and sample for each thread
+    rngs = [deepcopy(rng) for _ in 1:Threads.nthreads()]
+    models = [deepcopy(model) for _ in 1:Threads.nthreads()]
+    samplers = [deepcopy(sampler) for _ in 1:Threads.nthreads()]
+
+    # Create a seed for each chain using the provided random number generator.
+    seeds = rand(rng, UInt, nchains)
+
     # Set up a chains vector.
-    chains = []
+    chains = Vector{Any}(undef, nchains)
 
-    # Create a thread lock. Used to add append chains to the vector.
-    c_lock = Threads.SpinLock()
+    Threads.@threads for i in 1:nchains
+        # Obtain the ID of the current thread.
+        id = Threads.threadid()
 
-    # Create a seed for each chain using rng.
-    seeds = rand(rng, UInt, n_chains)
-
-    Threads.@threads for i in 1:n_chains
-        # Generate a new RNG using the pre-made seeds.
-        sub_rng = seed!(seeds[i])
-
-        # Sample a chain.
-        chain = sample(sub_rng, deepcopy(ℓ), deepcopy(s), N; progress=false, kwargs...)
+        # Seed the thread-specific random number generator with the pre-made seed.
+        subrng = rngs[id]
+        seed!(subrng, seeds[i])
         
-        # Acquire the lock, add the chain to the vector.
-        lock(c_lock) do
-            push!(chains, (order=i, chain=chain))
-        end
+        # Sample a chain and save it to the vector.
+        chains[i] = sample(subrng, models[id] , samplers[id], N; progress=false, kwargs...)
     end
 
-    # Sort the chains by seed order, to ensure that all chains are always in the same order.
-    sort!(chains, by=x -> x.order)
-
     # Concatenate the chains together.
-    return chainscat([c.chain for c in chains]...)
+    return reduce(chainscat, chains)
 end
 
 end # module AbstractMCMC
