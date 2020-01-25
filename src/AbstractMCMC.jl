@@ -180,6 +180,7 @@ function sample(
     s::AbstractSampler,
     N::Integer;
     progress::Bool=true,
+    chain_type::Type=Any,
     kwargs...
 )
     # Perform any necessary setup.
@@ -206,7 +207,7 @@ function sample(
     # Wrap up the sampler, if necessary.
     sample_end!(rng, ℓ, s, N, ts; kwargs...)
 
-    return bundle_samples(rng, ℓ, s, N, ts; kwargs...)
+    return bundle_samples(rng, ℓ, s, N, ts, chain_type; kwargs...)
 end
 
 """
@@ -256,17 +257,13 @@ perform any clean-up or finalization.
 """
 function sample_end!(
     rng::AbstractRNG,
-    ℓ::ModelType,
-    s::SamplerType,
+    ℓ::AbstractModel,
+    s::AbstractSampler,
     N::Integer,
-    ts::Vector{TransitionType};
+    ts::Vector{<:AbstractTransition};
     debug::Bool=false,
     kwargs...
-) where {
-    ModelType<:AbstractModel,
-    SamplerType<:AbstractSampler,
-    TransitionType<:AbstractTransition
-}
+)
     # Do nothing.
     debug && @warn "No sample_end! function has been implemented for objects
            of types $(typeof(ℓ)) and $(typeof(s))"
@@ -275,11 +272,12 @@ end
 function bundle_samples(
     rng::AbstractRNG, 
     ℓ::AbstractModel, 
-    s::SamplerType, 
+    s::AbstractSampler, 
     N::Integer, 
-    ts::Vector{T}; 
+    ts::Vector{<:AbstractTransition},
+    chain_type::Type{Any}; 
     kwargs...
-) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler, T<:AbstractTransition}
+)
     return ts
 end
 
