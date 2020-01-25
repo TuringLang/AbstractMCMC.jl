@@ -231,34 +231,27 @@ function sample_init!(
 end
 
 """
-    sample_end!(
-        rng::AbstractRNG,
-        ℓ::ModelType,
-        s::SamplerType,
-        N::Integer,
-        ts::Vector{TransitionType};
-        kwargs...
-    )
+    sample_end!(rng, model, sampler, N, transitions[; kwargs...])
 
-Performs whatever finalizing the sampler requires. This function is not intended
-to return any value -- any set up should mutate the sampler or the model type in-place.
+Perform final modifications after sampling from the MCMC `sampler` for the provided `model`,
+resulting in the provided `transitions`.
 
-`sample_end!` is useful in cases where you might like to perform some transformation 
-on your vector of `AbstractTransitions`, save your sampler struct to disk, or otherwise
-perform any clean-up or finalization.
+This function is not intended to return any value, any set up should mutate the `sampler`
+or the `model` in-place.
+
+This function is useful in cases where you might want to transform the `transitions`,
+save the `sampler` to disk, or perform any clean-up or finalization.
 """
 function sample_end!(
-    rng::AbstractRNG,
-    ℓ::AbstractModel,
-    s::AbstractSampler,
-    N::Integer,
-    ts::Vector{<:AbstractTransition};
-    debug::Bool=false,
+    ::AbstractRNG,
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    ::Integer,
+    ::Vector{<:AbstractTransition};
     kwargs...
 )
-    # Do nothing.
-    debug && @warn "No sample_end! function has been implemented for objects
-           of types $(typeof(ℓ)) and $(typeof(s))"
+    @debug "the default `sample_end!` function is used" typeof(model) typeof(sampler)
+    return
 end
 
 function bundle_samples(
