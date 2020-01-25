@@ -165,41 +165,23 @@ function _generate_callback(
 end
 
 """
-    sample(
-        rng::AbstractRNG,
-        ℓ::AbstractModel,
-        s::AbstractSampler,
-        N::Integer;
-        kwargs...
-    )
+    sample([rng::AbstractRNG, ], model::AbstractModel, sampler::AbstractSampler,
+           N::Integer; kwargs...)
 
-    sample(
-        ℓ::ModelType,
-        s::SamplerType,
-        N::Integer;
-        kwargs...
-    )
-
-`sample` returns an `MCMCChains.Chains` object containing `N` samples from a given model and
-sampler. You may pass in any additional arguments through the use of keyword arguments.
+Sample `N` times from the `model` using the provided `sampler`.
 """
-function sample(
-    ℓ::ModelType,
-    s::SamplerType,
-    N::Integer;
-    kwargs...
-) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler}
-    return sample(GLOBAL_RNG, ℓ, s, N; kwargs...)
+function sample(model::AbstractModel, sampler::AbstractSampler, N::Integer; kwargs...)
+    return sample(GLOBAL_RNG, model, sampler, N; kwargs...)
 end
 
 function sample(
     rng::AbstractRNG,
-    ℓ::ModelType,
-    s::SamplerType,
+    ℓ::AbstractModel,
+    s::AbstractSampler,
     N::Integer;
     progress::Bool=true,
     kwargs...
-) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler}
+)
     # Perform any necessary setup.
     sample_init!(rng, ℓ, s, N; kwargs...)
 
@@ -207,7 +189,7 @@ function sample(
     ts = transitions_init(rng, ℓ, s, N; kwargs...)
 
     # Add a progress meter.
-    cb = progress ? _generate_callback(rng, ℓ, s, N; kwargs...) : nothing
+    progress && (cb = _generate_callback(rng, ℓ, s, N; kwargs...))
 
     # Step through the sampler.
     for i=1:N
