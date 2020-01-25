@@ -211,31 +211,23 @@ function sample(
 end
 
 """
-    sample_init!(
-        rng::AbstractRNG,
-        ℓ::ModelType,
-        s::SamplerType,
-        N::Integer;
-        kwargs...
-    )
+    sample_init!(rng, model, sampler, N[; kwargs...])
 
-Performs whatever initial setup is required for your sampler. This function is not intended
-to return any value -- any set up should mutate the sampler or the model type in-place.
+Perform the initial setup of the MCMC `sampler` for the provided `model`.
 
-A common use for `sample_init!` might be to instantiate a particle field for later use,
-or find an initial step size for a Hamiltonian sampler.
+This function is not intended to return any value, any set up should mutate the `sampler`
+or the `model` in-place. A common use for `sample_init!` might be to instantiate a particle
+field for later use, or find an initial step size for a Hamiltonian sampler.
 """
 function sample_init!(
-    rng::AbstractRNG,
-    ℓ::ModelType,
-    s::SamplerType,
-    N::Integer;
-    debug::Bool=false,
+    ::AbstractRNG,
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    ::Integer;
     kwargs...
-) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler}
-    # Do nothing.
-    debug && @warn "No sample_init! function has been implemented for objects
-           of types $(typeof(ℓ)) and $(typeof(s))"
+)
+    @debug "the default `sample_init!` function is used" typeof(model) typeof(sampler)
+    return
 end
 
 """
