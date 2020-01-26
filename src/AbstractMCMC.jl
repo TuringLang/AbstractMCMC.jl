@@ -211,62 +211,47 @@ function sample(
 end
 
 """
-    sample_init!(
-        rng::AbstractRNG,
-        ℓ::ModelType,
-        s::SamplerType,
-        N::Integer;
-        kwargs...
-    )
+    sample_init!(rng, model, sampler, N[; kwargs...])
 
-Performs whatever initial setup is required for your sampler. This function is not intended
-to return any value -- any set up should mutate the sampler or the model type in-place.
+Perform the initial setup of the MCMC `sampler` for the provided `model`.
 
-A common use for `sample_init!` might be to instantiate a particle field for later use,
-or find an initial step size for a Hamiltonian sampler.
+This function is not intended to return any value, any set up should mutate the `sampler`
+or the `model` in-place. A common use for `sample_init!` might be to instantiate a particle
+field for later use, or find an initial step size for a Hamiltonian sampler.
 """
 function sample_init!(
-    rng::AbstractRNG,
-    ℓ::ModelType,
-    s::SamplerType,
-    N::Integer;
-    debug::Bool=false,
+    ::AbstractRNG,
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    ::Integer;
     kwargs...
-) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler}
-    # Do nothing.
-    debug && @warn "No sample_init! function has been implemented for objects
-           of types $(typeof(ℓ)) and $(typeof(s))"
+)
+    @debug "the default `sample_init!` function is used" typeof(model) typeof(sampler)
+    return
 end
 
 """
-    sample_end!(
-        rng::AbstractRNG,
-        ℓ::ModelType,
-        s::SamplerType,
-        N::Integer,
-        ts::Vector{TransitionType};
-        kwargs...
-    )
+    sample_end!(rng, model, sampler, N, transitions[; kwargs...])
 
-Performs whatever finalizing the sampler requires. This function is not intended
-to return any value -- any set up should mutate the sampler or the model type in-place.
+Perform final modifications after sampling from the MCMC `sampler` for the provided `model`,
+resulting in the provided `transitions`.
 
-`sample_end!` is useful in cases where you might like to perform some transformation 
-on your vector of `AbstractTransitions`, save your sampler struct to disk, or otherwise
-perform any clean-up or finalization.
+This function is not intended to return any value, any set up should mutate the `sampler`
+or the `model` in-place.
+
+This function is useful in cases where you might want to transform the `transitions`,
+save the `sampler` to disk, or perform any clean-up or finalization.
 """
 function sample_end!(
-    rng::AbstractRNG,
-    ℓ::AbstractModel,
-    s::AbstractSampler,
-    N::Integer,
-    ts::Vector{<:AbstractTransition};
-    debug::Bool=false,
+    ::AbstractRNG,
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    ::Integer,
+    ::Vector{<:AbstractTransition};
     kwargs...
 )
-    # Do nothing.
-    debug && @warn "No sample_end! function has been implemented for objects
-           of types $(typeof(ℓ)) and $(typeof(s))"
+    @debug "the default `sample_end!` function is used" typeof(model) typeof(sampler)
+    return
 end
 
 function bundle_samples(
@@ -282,92 +267,28 @@ function bundle_samples(
 end
 
 """
-    step!(
-        rng::AbstractRNG,
-        ℓ::AbstractModel,
-        s::AbstractSampler,
-        N::Integer;
-        kwargs...
-    )
+    step!(rng, model, sampler[, N = 1, transition = nothing; kwargs...])
 
-    step!(
-        rng::AbstractRNG,
-        ℓ::AbstractModel,
-        s::AbstractSampler;
-        kwargs...
-    )
+Return the transition for the next step of the MCMC `sampler` for the provided `model`,
+using the provided random number generator `rng`.
 
-    step!(
-        rng::AbstractRNG,
-        ℓ::AbstractModel,
-        s::AbstractSampler,
-        N::Integer,
-        t::AbstractTransition;
-        kwargs...
-    )
+The `step!` function may modify the `model` or the `sampler` in-place. For example, the
+`sampler` may have a state variable that contains a vector of particles or some other value
+that does not need to be included in the returned transition.
 
-Returns a single `AbstractTransition` drawn using the provided random number generator, 
-model, and sampler. `step!` is the function that performs inference, and it is how
-a model moves from one sample to another.
-
-`step!` may modify the model or the sampler in-place. As an example, you may have a state
-variable in your sampler that contains a vector of particles or some other value that
-does not need to be included in the `AbstractTransition` struct returned.
-
-Every `step!` call after the first has access to the previous `AbstractTransition`.
+When sampling from the `sampler` using [`sample`](@ref), every `step!` call after the first
+has access to the previous `transition`. In the first call, `transition` is set to `nothing`.
 """
 function step!(
-    rng::AbstractRNG,
-    ℓ::ModelType,
-    s::SamplerType,
-    N::Integer;
-    debug::Bool=false,
+    ::AbstractRNG,
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    ::Integer = 1,
+    transition::Union{Nothing,AbstractTransition} = nothing;
     kwargs...
-) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler}
-    # Do nothing.
-    debug && @warn "No step! function has been implemented for objects of types \n- $(typeof(ℓ)) \n- $(typeof(s))"
-end
-
-function step!(
-    rng::AbstractRNG,
-    ℓ::ModelType,
-    s::SamplerType;
-    kwargs...
-) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler}
-    return step!(rng, ℓ, s, 1; kwargs...)
-end
-
-function step!(
-    rng::AbstractRNG,
-    ℓ::ModelType,
-    s::SamplerType,
-    N::Integer,
-    t::TransitionType;
-    kwargs...
-) where {ModelType<:AbstractModel,
-    SamplerType<:AbstractSampler,
-    TransitionType<:AbstractTransition
-}
-    # Do nothing.
-    # @warn "No step! function has been implemented for objects
-    #        of types $(typeof(ℓ)) and $(typeof(s))"
-    return step!(rng, ℓ, s, N; kwargs...)
-end
-
-function step!(
-    rng::AbstractRNG,
-    ℓ::ModelType,
-    s::SamplerType,
-    N::Integer,
-    t::Nothing;
-    debug::Bool=true,
-    kwargs...
-) where {ModelType<:AbstractModel,
-    SamplerType<:AbstractSampler,
-    TransitionType<:AbstractTransition
-}
-    debug && @warn "No transition type passed in, running normal step! function."
-    return step!(rng, ℓ, s, N; kwargs...)
+)
+    error("function `step!` is not implemented for models of type $(typeof(model)), ",
+        "samplers of type $(typeof(sampler)), and transitions of type $(typeof(transition))")
 end
 
 """
