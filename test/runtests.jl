@@ -14,15 +14,14 @@ include("interface.jl")
         chain = sample(MyModel(), MySampler(), N; progress = true, sleepy = true)
 
         # test output type and size
-        @test chain isa MyChain
-        @test length(chain.as) == N
-        @test length(chain.bs) == N
+        @test chain isa Vector{MyTransition}
+        @test length(chain) == N
 
         # test some statistical properties
-        @test mean(chain.as) ≈ 0.5 atol=1e-2
-        @test var(chain.as) ≈ 1 / 12 atol=5e-3
-        @test mean(chain.bs) ≈ 0.0 atol=5e-2
-        @test var(chain.bs) ≈ 1 atol=5e-2
+        @test mean(x.a for x in chain) ≈ 0.5 atol=1e-2
+        @test var(x.a for x in chain) ≈ 1 / 12 atol=5e-3
+        @test mean(x.b for x in chain) ≈ 0.0 atol=5e-2
+        @test var(x.b for x in chain) ≈ 1 atol=5e-2
     end
 
     if VERSION ≥ v"1.3"
@@ -30,7 +29,7 @@ include("interface.jl")
             println("testing parallel sampling with ", Threads.nthreads(), " thread(s)...")
 
             Random.seed!(1234)
-            chains = psample(MyModel(), MySampler(), 10_000, 1_000)
+            chains = psample(MyModel(), MySampler(), 10_000, 1000; chain_type = MyChain)
 
             # test output type and size
             @test chains isa Vector{MyChain}
@@ -45,7 +44,7 @@ include("interface.jl")
 
             # test reproducibility
             Random.seed!(1234)
-            chains2 = psample(MyModel(), MySampler(), 10_000, 1000)
+            chains2 = psample(MyModel(), MySampler(), 10_000, 1000; chain_type = MyChain)
 
             @test all(((x, y),) -> x.as == y.as && x.bs == y.bs, zip(chains, chains2))
         end
@@ -53,9 +52,9 @@ include("interface.jl")
 
     @testset "Chain constructors" begin
         chain1 = sample(MyModel(), MySampler(), 100; progress = true, sleepy = true)
-        chain2 = sample(MyModel(), MySampler(), 100; progress = true, sleepy = true, chain_type = Vector)
+        chain2 = sample(MyModel(), MySampler(), 100; progress = true, sleepy = true, chain_type = MyChain)
 
-        @test chain1 isa MyChain
-        @test chain2 isa Vector{MyTransition}
+        @test chain1 isa Vector{MyTransition}
+        @test chain2 isa MyChain
     end
 end

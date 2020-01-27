@@ -35,7 +35,7 @@ function AbstractMCMC.bundle_samples(
     sampler::MySampler,
     N::Integer,
     transitions::Vector{MyTransition},
-    chain_type::Type{Any};
+    chain_type::Type{MyChain};
     kwargs...
 )
     n = length(transitions)
@@ -48,18 +48,6 @@ function AbstractMCMC.bundle_samples(
     end
 
     return MyChain(as, bs)
-end
-
-function AbstractMCMC.bundle_samples(
-    rng::AbstractRNG,
-    model::MyModel,
-    sampler::MySampler,
-    N::Integer,
-    transitions::Vector{MyTransition},
-    chain_type::Type{Vector};
-    kwargs...
-)
-    return transitions
 end
 
 AbstractMCMC.chainscat(chains::Union{MyChain,Vector{<:MyChain}}...) = vcat(chains...)
