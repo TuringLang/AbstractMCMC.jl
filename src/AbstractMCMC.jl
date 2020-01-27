@@ -1,25 +1,10 @@
 module AbstractMCMC
 
-using Random, ProgressMeter
-import Random: GLOBAL_RNG, AbstractRNG, seed!
-import StatsBase: sample
+using ProgressMeter
+import StatsBase
+using StatsBase: sample
 
-export AbstractSampler,
-    AbstractChains,
-    AbstractTransition,
-    AbstractCallback,
-    init_callback,
-    callback,
-    chainscat,
-    transitions_init,
-    transition_type,
-    sample_init!,
-    sample_end!,
-    sample,
-    psample,
-    AbstractModel,
-    AbstractRNG,
-    step!
+using Random: GLOBAL_RNG, AbstractRNG, seed!
 
 """
     AbstractChains
@@ -296,9 +281,9 @@ function transitions_init(
     transition,
     ::AbstractModel,
     ::AbstractSampler,
-        N::Integer;
-        kwargs...
-    )
+    N::Integer;
+    kwargs...
+)
     return Vector{typeof(transition)}(undef, N)
 end
 

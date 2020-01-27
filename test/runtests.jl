@@ -1,4 +1,5 @@
 using AbstractMCMC
+using AbstractMCMC: sample, psample
 
 using Random
 using Statistics

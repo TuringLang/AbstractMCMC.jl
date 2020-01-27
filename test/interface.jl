@@ -1,13 +1,13 @@
-struct MyModel <: AbstractModel end
+struct MyModel <: AbstractMCMC.AbstractModel end
 
 struct MyTransition
     a::Float64
     b::Float64
 end
 
-struct MySampler <: AbstractSampler end
+struct MySampler <: AbstractMCMC.AbstractSampler end
 
-struct MyChain <: AbstractChains
+struct MyChain <: AbstractMCMC.AbstractChains
     as::Vector{Float64}
     bs::Vector{Float64}
 end
