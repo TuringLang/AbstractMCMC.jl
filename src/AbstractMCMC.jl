@@ -165,49 +165,63 @@ function _generate_callback(
 end
 
 """
-    sample([rng::AbstractRNG, ], model::AbstractModel, sampler::AbstractSampler,
-           N::Integer; kwargs...)
+    sample([rng, ]model, sampler, N; kwargs...)
 
-Sample `N` times from the `model` using the provided `sampler`.
+Return `N` samples from the MCMC `sampler` for the provided `model`.
 """
-function sample(model::AbstractModel, sampler::AbstractSampler, N::Integer; kwargs...)
+function StatsBase.sample(
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    N::Integer;
+    kwargs...
+)
     return sample(GLOBAL_RNG, model, sampler, N; kwargs...)
 end
 
-function sample(
+function StatsBase.sample(
     rng::AbstractRNG,
-    ℓ::AbstractModel,
-    s::AbstractSampler,
+    model::AbstractModel,
+    sampler::AbstractSampler,
     N::Integer;
     progress::Bool=true,
     chain_type::Type=Any,
     kwargs...
 )
-    # Perform any necessary setup.
-    sample_init!(rng, ℓ, s, N; kwargs...)
+    # Check the number of requested samples.
+    N > 0 || error("the number of samples must be ≥ 1")
 
-    # Preallocate the TransitionType vector.
-    ts = transitions_init(rng, ℓ, s, N; kwargs...)
+    # Perform any necessary setup.
+    sample_init!(rng, model, sampler, N; kwargs...)
 
     # Add a progress meter.
-    progress && (cb = _generate_callback(rng, ℓ, s, N; kwargs...))
+    progress && (cb = _generate_callback(rng, model, sampler, N; kwargs...))
+
+    # Obtain the initial transition.
+    transition = step!(rng, model, sampler, N; iteration=1, kwargs...)
+
+    # Save the transition.
+    transitions = transitions_init(transition, model, sampler, N; kwargs...)
+    transitions_save!(transitions, 1, transition, model, sampler, N; kwargs...)
+
+    # Update the progress meter.
+    progress && callback(rng, model, sampler, N, 1, transition, cb; kwargs...)
 
     # Step through the sampler.
-    for i=1:N
-        if i == 1
-            ts[i] = step!(rng, ℓ, s, N; iteration=i, kwargs...)
-        else
-            ts[i] = step!(rng, ℓ, s, N, ts[i-1]; iteration=i, kwargs...)
-        end
+    for i in 2:N
+        # Obtain the next transition.
+        transition = step!(rng, model, sampler, N, transition; iteration=i, kwargs...)
 
-        # Run a callback function.
-        progress && callback(rng, ℓ, s, N, i, ts[i], cb; kwargs...)
+        # Save the transition.
+        transitions_save!(transitions, i, transition, model, sampler, N; kwargs...)
+
+        # Update the progress meter.
+        progress && callback(rng, model, sampler, N, i, transition, cb; kwargs...)
     end
 
     # Wrap up the sampler, if necessary.
-    sample_end!(rng, ℓ, s, N, ts; kwargs...)
+    sample_end!(rng, model, sampler, N, transitions; kwargs...)
 
-    return bundle_samples(rng, ℓ, s, N, ts, chain_type; kwargs...)
+    return bundle_samples(rng, model, sampler, N, transitions, chain_type; kwargs...)
 end
 
 """
@@ -292,24 +306,38 @@ function step!(
 end
 
 """
-    transitions_init(
-        rng::AbstractRNG,
-        ℓ::ModelType,
-        s::SamplerType,
+    transitions_init(transition, model, sampler, N[; kwargs...])
+
+Generate a container for the `N` transitions of the MCMC `sampler` for the provided
+`model`, whose first transition is `transition`.
+"""
+function transitions_init(
+    transition,
+    ::AbstractModel,
+    ::AbstractSampler,
         N::Integer;
         kwargs...
     )
+    return Vector{typeof(transition)}(undef, N)
+end
 
-Generates a vector of `AbstractTransition` types of length `N`.
 """
-function transitions_init(
-    rng::AbstractRNG,
-    ℓ::ModelType,
-    s::SamplerType,
-    N::Integer;
+    transitions_save!(transitions, iteration, transition, model, sampler, N[; kwargs...])
+
+Save the `transition` of the MCMC `sampler` at the current `iteration` in the container of
+`transitions`.
+"""
+function transitions_save!(
+    transitions::AbstractVector,
+    iteration::Integer,
+    transition,
+    ::AbstractModel,
+    ::AbstractSampler,
+    ::Integer;
     kwargs...
-) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler}
-    return Vector{transition_type(s)}(undef, N)
+)
+    transitions[iteration] = transition
+    return
 end
 
 """
