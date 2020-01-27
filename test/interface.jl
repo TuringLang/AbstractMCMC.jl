@@ -1,13 +1,11 @@
 struct MyModel <: AbstractModel end
 
-struct MyTransition <: AbstractTransition
+struct MyTransition
     a::Float64
     b::Float64
 end
 
 struct MySampler <: AbstractSampler end
-
-AbstractMCMC.transition_type(::MySampler) = MyTransition
 
 struct MyChain <: AbstractChains
     as::Vector{Float64}

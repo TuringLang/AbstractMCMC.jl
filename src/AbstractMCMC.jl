@@ -57,28 +57,6 @@ An `AbstractModel` represents a generic model type that can be used to perform i
 abstract type AbstractModel end
 
 """
-    AbstractTransition
-
-The `AbstractTransition` type describes the results of a single step
-of a given sampler. As an example, one implementation of an
-`AbstractTransition` might include be a vector of parameters sampled from
-a prior distribution.
-
-Transition types should store a single draw from any sampler, since the
-interface will sample `N` times, and store the results of each step in an
-array of type `Array{Transition<:AbstractTransition, 1}`. If you were
-using a sampler that returned a `NamedTuple` after each step, your
-implementation might look like:
-
-```
-struct MyTransition <: AbstractTransition
-    draw :: NamedTuple
-end
-```
-"""
-abstract type AbstractTransition end
-
-"""
     AbstractCallback
 
 An `AbstractCallback` types is a supertype to be inherited from if you want to use custom callback 
@@ -261,23 +239,23 @@ function sample_end!(
     model::AbstractModel,
     sampler::AbstractSampler,
     ::Integer,
-    ::Vector{<:AbstractTransition};
+    transitions;
     kwargs...
 )
-    @debug "the default `sample_end!` function is used" typeof(model) typeof(sampler)
+    @debug "the default `sample_end!` function is used" typeof(model) typeof(sampler) typeof(transitions)
     return
 end
 
 function bundle_samples(
-    rng::AbstractRNG, 
-    ℓ::AbstractModel, 
-    s::AbstractSampler, 
-    N::Integer, 
-    ts::Vector{<:AbstractTransition},
-    chain_type::Type{Any}; 
+    ::AbstractRNG, 
+    ::AbstractModel, 
+    ::AbstractSampler, 
+    ::Integer, 
+    transitions,
+    ::Type{Any}; 
     kwargs...
 )
-    return ts
+    return transitions
 end
 
 """
@@ -285,6 +263,9 @@ end
 
 Return the transition for the next step of the MCMC `sampler` for the provided `model`,
 using the provided random number generator `rng`.
+
+Transitions describe the results of a single step of the `sampler`. As an example, a
+transition might include a vector of parameters sampled from a prior distribution.
 
 The `step!` function may modify the `model` or the `sampler` in-place. For example, the
 `sampler` may have a state variable that contains a vector of particles or some other value
@@ -298,7 +279,7 @@ function step!(
     model::AbstractModel,
     sampler::AbstractSampler,
     ::Integer = 1,
-    transition::Union{Nothing,AbstractTransition} = nothing;
+    transition = nothing;
     kwargs...
 )
     error("function `step!` is not implemented for models of type $(typeof(model)), ",
@@ -363,14 +344,13 @@ function callback(
     s::SamplerType,
     N::Integer,
     iteration::Integer,
-    t::TransitionType,
+    transition,
     cb::CallbackType;
     kwargs...
 ) where {
     ModelType<:AbstractModel,
     SamplerType<:AbstractSampler,
     CallbackType<:AbstractCallback,
-    TransitionType<:AbstractTransition
 }
     # Default callback behavior.
     ProgressMeter.next!(cb.p)
@@ -382,24 +362,15 @@ function callback(
     s::SamplerType,
     N::Integer,
     iteration::Integer,
-    t::TransitionType,
+    transition,
     cb::NoCallback;
     kwargs...
 ) where {
     ModelType<:AbstractModel,
     SamplerType<:AbstractSampler,
-    TransitionType<:AbstractTransition
 }
     # Do nothing.
 end
-
-"""
-    transition_type(s::AbstractSampler)
-
-Return the type of `AbstractTransition` that is to be returned by an 
-`AbstractSampler` after each `step!` call. 
-"""
-transition_type(s::AbstractSampler) = AbstractTransition
 
 """
     psample([rng::AbstractRNG, ]model::AbstractModel, sampler::AbstractSampler, N::Integer,
