@@ -1,25 +1,10 @@
 module AbstractMCMC
 
-using Random, ProgressMeter
-import Random: GLOBAL_RNG, AbstractRNG, seed!
-import StatsBase: sample
+using ProgressMeter
+import StatsBase
+using StatsBase: sample
 
-export AbstractSampler,
-    AbstractChains,
-    AbstractTransition,
-    AbstractCallback,
-    init_callback,
-    callback,
-    chainscat,
-    transitions_init,
-    transition_type,
-    sample_init!,
-    sample_end!,
-    sample,
-    psample,
-    AbstractModel,
-    AbstractRNG,
-    step!
+using Random: GLOBAL_RNG, AbstractRNG, seed!
 
 """
     AbstractChains
@@ -55,28 +40,6 @@ abstract type AbstractSampler end
 An `AbstractModel` represents a generic model type that can be used to perform inference.
 """
 abstract type AbstractModel end
-
-"""
-    AbstractTransition
-
-The `AbstractTransition` type describes the results of a single step
-of a given sampler. As an example, one implementation of an
-`AbstractTransition` might include be a vector of parameters sampled from
-a prior distribution.
-
-Transition types should store a single draw from any sampler, since the
-interface will sample `N` times, and store the results of each step in an
-array of type `Array{Transition<:AbstractTransition, 1}`. If you were
-using a sampler that returned a `NamedTuple` after each step, your
-implementation might look like:
-
-```
-struct MyTransition <: AbstractTransition
-    draw :: NamedTuple
-end
-```
-"""
-abstract type AbstractTransition end
 
 """
     AbstractCallback
@@ -165,49 +128,63 @@ function _generate_callback(
 end
 
 """
-    sample([rng::AbstractRNG, ], model::AbstractModel, sampler::AbstractSampler,
-           N::Integer; kwargs...)
+    sample([rng, ]model, sampler, N; kwargs...)
 
-Sample `N` times from the `model` using the provided `sampler`.
+Return `N` samples from the MCMC `sampler` for the provided `model`.
 """
-function sample(model::AbstractModel, sampler::AbstractSampler, N::Integer; kwargs...)
+function StatsBase.sample(
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    N::Integer;
+    kwargs...
+)
     return sample(GLOBAL_RNG, model, sampler, N; kwargs...)
 end
 
-function sample(
+function StatsBase.sample(
     rng::AbstractRNG,
-    ℓ::AbstractModel,
-    s::AbstractSampler,
+    model::AbstractModel,
+    sampler::AbstractSampler,
     N::Integer;
     progress::Bool=true,
     chain_type::Type=Any,
     kwargs...
 )
-    # Perform any necessary setup.
-    sample_init!(rng, ℓ, s, N; kwargs...)
+    # Check the number of requested samples.
+    N > 0 || error("the number of samples must be ≥ 1")
 
-    # Preallocate the TransitionType vector.
-    ts = transitions_init(rng, ℓ, s, N; kwargs...)
+    # Perform any necessary setup.
+    sample_init!(rng, model, sampler, N; kwargs...)
 
     # Add a progress meter.
-    progress && (cb = _generate_callback(rng, ℓ, s, N; kwargs...))
+    progress && (cb = _generate_callback(rng, model, sampler, N; kwargs...))
+
+    # Obtain the initial transition.
+    transition = step!(rng, model, sampler, N; iteration=1, kwargs...)
+
+    # Save the transition.
+    transitions = transitions_init(transition, model, sampler, N; kwargs...)
+    transitions_save!(transitions, 1, transition, model, sampler, N; kwargs...)
+
+    # Update the progress meter.
+    progress && callback(rng, model, sampler, N, 1, transition, cb; kwargs...)
 
     # Step through the sampler.
-    for i=1:N
-        if i == 1
-            ts[i] = step!(rng, ℓ, s, N; iteration=i, kwargs...)
-        else
-            ts[i] = step!(rng, ℓ, s, N, ts[i-1]; iteration=i, kwargs...)
-        end
+    for i in 2:N
+        # Obtain the next transition.
+        transition = step!(rng, model, sampler, N, transition; iteration=i, kwargs...)
 
-        # Run a callback function.
-        progress && callback(rng, ℓ, s, N, i, ts[i], cb; kwargs...)
+        # Save the transition.
+        transitions_save!(transitions, i, transition, model, sampler, N; kwargs...)
+
+        # Update the progress meter.
+        progress && callback(rng, model, sampler, N, i, transition, cb; kwargs...)
     end
 
     # Wrap up the sampler, if necessary.
-    sample_end!(rng, ℓ, s, N, ts; kwargs...)
+    sample_end!(rng, model, sampler, N, transitions; kwargs...)
 
-    return bundle_samples(rng, ℓ, s, N, ts, chain_type; kwargs...)
+    return bundle_samples(rng, model, sampler, N, transitions, chain_type; kwargs...)
 end
 
 """
@@ -247,23 +224,23 @@ function sample_end!(
     model::AbstractModel,
     sampler::AbstractSampler,
     ::Integer,
-    ::Vector{<:AbstractTransition};
+    transitions;
     kwargs...
 )
-    @debug "the default `sample_end!` function is used" typeof(model) typeof(sampler)
+    @debug "the default `sample_end!` function is used" typeof(model) typeof(sampler) typeof(transitions)
     return
 end
 
 function bundle_samples(
-    rng::AbstractRNG, 
-    ℓ::AbstractModel, 
-    s::AbstractSampler, 
-    N::Integer, 
-    ts::Vector{<:AbstractTransition},
-    chain_type::Type{Any}; 
+    ::AbstractRNG, 
+    ::AbstractModel, 
+    ::AbstractSampler, 
+    ::Integer, 
+    transitions,
+    ::Type{Any}; 
     kwargs...
 )
-    return ts
+    return transitions
 end
 
 """
@@ -271,6 +248,9 @@ end
 
 Return the transition for the next step of the MCMC `sampler` for the provided `model`,
 using the provided random number generator `rng`.
+
+Transitions describe the results of a single step of the `sampler`. As an example, a
+transition might include a vector of parameters sampled from a prior distribution.
 
 The `step!` function may modify the `model` or the `sampler` in-place. For example, the
 `sampler` may have a state variable that contains a vector of particles or some other value
@@ -284,7 +264,7 @@ function step!(
     model::AbstractModel,
     sampler::AbstractSampler,
     ::Integer = 1,
-    transition::Union{Nothing,AbstractTransition} = nothing;
+    transition = nothing;
     kwargs...
 )
     error("function `step!` is not implemented for models of type $(typeof(model)), ",
@@ -292,24 +272,38 @@ function step!(
 end
 
 """
-    transitions_init(
-        rng::AbstractRNG,
-        ℓ::ModelType,
-        s::SamplerType,
-        N::Integer;
-        kwargs...
-    )
+    transitions_init(transition, model, sampler, N[; kwargs...])
 
-Generates a vector of `AbstractTransition` types of length `N`.
+Generate a container for the `N` transitions of the MCMC `sampler` for the provided
+`model`, whose first transition is `transition`.
 """
 function transitions_init(
-    rng::AbstractRNG,
-    ℓ::ModelType,
-    s::SamplerType,
+    transition,
+    ::AbstractModel,
+    ::AbstractSampler,
     N::Integer;
     kwargs...
-) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler}
-    return Vector{transition_type(s)}(undef, N)
+)
+    return Vector{typeof(transition)}(undef, N)
+end
+
+"""
+    transitions_save!(transitions, iteration, transition, model, sampler, N[; kwargs...])
+
+Save the `transition` of the MCMC `sampler` at the current `iteration` in the container of
+`transitions`.
+"""
+function transitions_save!(
+    transitions::AbstractVector,
+    iteration::Integer,
+    transition,
+    ::AbstractModel,
+    ::AbstractSampler,
+    ::Integer;
+    kwargs...
+)
+    transitions[iteration] = transition
+    return
 end
 
 """
@@ -335,14 +329,13 @@ function callback(
     s::SamplerType,
     N::Integer,
     iteration::Integer,
-    t::TransitionType,
+    transition,
     cb::CallbackType;
     kwargs...
 ) where {
     ModelType<:AbstractModel,
     SamplerType<:AbstractSampler,
     CallbackType<:AbstractCallback,
-    TransitionType<:AbstractTransition
 }
     # Default callback behavior.
     ProgressMeter.next!(cb.p)
@@ -354,24 +347,15 @@ function callback(
     s::SamplerType,
     N::Integer,
     iteration::Integer,
-    t::TransitionType,
+    transition,
     cb::NoCallback;
     kwargs...
 ) where {
     ModelType<:AbstractModel,
     SamplerType<:AbstractSampler,
-    TransitionType<:AbstractTransition
 }
     # Do nothing.
 end
-
-"""
-    transition_type(s::AbstractSampler)
-
-Return the type of `AbstractTransition` that is to be returned by an 
-`AbstractSampler` after each `step!` call. 
-"""
-transition_type(s::AbstractSampler) = AbstractTransition
 
 """
     psample([rng::AbstractRNG, ]model::AbstractModel, sampler::AbstractSampler, N::Integer,
