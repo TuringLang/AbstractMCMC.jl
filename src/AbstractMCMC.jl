@@ -411,4 +411,57 @@ function psample(
     return reduce(chainscat, chains)
 end
 
+
+##################
+# Iterator tools #
+##################
+struct Stepper{ModelType<:AbstractModel, SamplerType<:AbstractSampler, T, K}
+    rng::AbstractRNG
+    model::ModelType
+    s::SamplerType
+    t::T
+    kwargs::K
+end
+
+function Base.iterate(stp::Stepper, state=(stp.t, 0))
+    t, i = state
+    new_t = step!(stp.rng, stp.model, stp.s, 1, t; stp.kwargs...)
+    
+    return t, (new_t, i+1)
+end
+
+"""
+    steps!([rng::AbstractRNG, ]model::AbstractModel, s::AbstractSampler, kwargs...)
+
+`steps!` returns an iterator that returns samples continuously, after calling `sample_init!`.
+
+Usage:
+
+```julia
+for transition in steps!(MyModel(), MySampler())
+    println(transition)
+
+    # Do other stuff with transition below.
+end
+```
+"""
+function steps!(
+    model::AbstractModel,
+    s::AbstractSampler,
+    kwargs...
+)
+    return steps!(GLOBAL_RNG, model, s; kwargs...)
+end
+
+function steps!(
+    rng::AbstractRNG,
+    model::AbstractModel,
+    s::AbstractSampler,
+    kwargs...
+)
+    sample_init!(rng, model, s, 0)
+    iterable = Stepper(rng, model, s, step!(rng, model, s, 1, nothing; kwargs...), kwargs)
+end
+
+
 end # module AbstractMCMC
