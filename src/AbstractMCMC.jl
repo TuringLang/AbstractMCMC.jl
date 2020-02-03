@@ -430,6 +430,9 @@ function Base.iterate(stp::Stepper, state=(stp.t, 0))
     return t, (new_t, i+1)
 end
 
+Base.IteratorSize(::Type{<:Stepper}) = Base.IsInfinite()
+Base.eltype(::Type{<:Stepper{<:AbstractModel,<:AbstractSampler,T}}) where T = T
+
 """
     steps!([rng::AbstractRNG, ]model::AbstractModel, s::AbstractSampler, kwargs...)
 
