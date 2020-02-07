@@ -415,23 +415,20 @@ end
 ##################
 # Iterator tools #
 ##################
-struct Stepper{ModelType<:AbstractModel, SamplerType<:AbstractSampler, T, K}
+struct Stepper{ModelType<:AbstractModel, SamplerType<:AbstractSampler, K}
     rng::AbstractRNG
     model::ModelType
     s::SamplerType
-    t::T
     kwargs::K
 end
 
-function Base.iterate(stp::Stepper, state=(stp.t, 0))
-    t, i = state
-    new_t = step!(stp.rng, stp.model, stp.s, 1, t; stp.kwargs...)
-    
-    return t, (new_t, i+1)
+function Base.iterate(stp::Stepper, state=nothing)
+    t = step!(stp.rng, stp.model, stp.s, 1, state; stp.kwargs...)
+    return t, t
 end
 
 Base.IteratorSize(::Type{<:Stepper}) = Base.IsInfinite()
-Base.eltype(::Type{<:Stepper{<:AbstractModel,<:AbstractSampler,T}}) where T = T
+Base.IteratorEltype(::Type{<:Stepper}) = Base.EltypeUnknown()
 
 """
     steps!([rng::AbstractRNG, ]model::AbstractModel, s::AbstractSampler, kwargs...)
@@ -463,7 +460,7 @@ function steps!(
     kwargs...
 )
     sample_init!(rng, model, s, 0)
-    iterable = Stepper(rng, model, s, step!(rng, model, s, 1, nothing; kwargs...), kwargs)
+    iterable = Stepper(rng, model, s, kwargs)
 end
 
 
