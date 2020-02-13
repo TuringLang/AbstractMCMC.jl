@@ -14,11 +14,6 @@ parameter samples generated through a MCMC process.
 """
 abstract type AbstractChains end
 
-Base.getindex(c::AbstractChains, args...) = error("Function not defined for type $(typeof(c))")
-Base.setindex!(c::AbstractChains, args...) = error("Function not defined for type $(typeof(c))")
-Base.cat(c::AbstractChains; dims=1) = error("Function not defined for type $(typeof(c))")
-Base.vcat(c::AbstractChains...) = cat(c...; dims=1)
-Base.hcat(c::AbstractChains...) = cat(c...; dims=2)
 chainscat(c::AbstractChains...) = cat(c...; dims=3)
 
 """
