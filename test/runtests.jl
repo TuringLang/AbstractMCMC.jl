@@ -1,5 +1,5 @@
 using AbstractMCMC
-using AbstractMCMC: sample, psample
+using AbstractMCMC: sample, psample, steps!
 
 using Random
 using Statistics
@@ -56,5 +56,31 @@ include("interface.jl")
 
         @test chain1 isa Vector{MyTransition}
         @test chain2 isa MyChain
+    end
+
+    @testset "Iterator sampling" begin
+        Random.seed!(1234)
+        as = []
+        bs = []
+
+        iter = steps!(MyModel(), MySampler())
+
+        for (count, t) in enumerate(iter)
+            if count >= 1000
+                break
+            end
+
+            push!(as, t.a)
+            push!(bs, t.b)
+        end
+
+        @test mean(as) ≈ 0.5 atol=1e-2
+        @test var(as) ≈ 1 / 12 atol=5e-3
+        @test mean(bs) ≈ 0.0 atol=5e-2
+        @test var(bs) ≈ 1 atol=5e-2
+
+        println(eltype(iter))
+        @test Base.IteratorSize(iter) == Base.IsInfinite()
+        @test Base.IteratorEltype(iter) == Base.EltypeUnknown()
     end
 end
