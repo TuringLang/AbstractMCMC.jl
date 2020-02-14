@@ -415,8 +415,8 @@ end
 ##################
 # Iterator tools #
 ##################
-struct Stepper{ModelType<:AbstractModel, SamplerType<:AbstractSampler, K}
-    rng::AbstractRNG
+struct Stepper{A<:AbstractRNG, ModelType<:AbstractModel, SamplerType<:AbstractSampler, K}
+    rng::A
     model::ModelType
     s::SamplerType
     kwargs::K
@@ -460,8 +460,7 @@ function steps!(
     kwargs...
 )
     sample_init!(rng, model, s, 0)
-    iterable = Stepper(rng, model, s, kwargs)
+    return Stepper(rng, model, s, kwargs)
 end
-
 
 end # module AbstractMCMC
