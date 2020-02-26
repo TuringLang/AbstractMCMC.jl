@@ -1,5 +1,5 @@
 using AbstractMCMC
-using AbstractMCMC: sample, psample, steps!
+using AbstractMCMC: sample, psample, steps!, infer
 
 using Random
 using Statistics
@@ -82,5 +82,12 @@ include("interface.jl")
         println(eltype(iter))
         @test Base.IteratorSize(iter) == Base.IsInfinite()
         @test Base.IteratorEltype(iter) == Base.EltypeUnknown()
+    end
+
+    @testset "Infer function" begin
+        Random.seed!(1234)
+        chain = infer(MyModel(), MySampler())
+        bmean = mean(map(x -> x.b, chain))
+        @test isapprox(bmean, 0.0, atol=0.001) && length(chain) < 10_000
     end
 end
