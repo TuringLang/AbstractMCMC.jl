@@ -77,19 +77,15 @@ function StatsBase.sample(
     # Perform any necessary setup.
     sample_init!(rng, model, sampler, N; kwargs...)
 
-    # Generate ID for progress logging.
+    # Create a progress bar.
     if progress
         progressid = UUIDs.uuid4()
+        Logging.@logmsg(ProgressLogging.ProgressLevel, progressname, progress=NaN,
+                        _id=progressid)
     end
 
     local transitions
     try
-        # Create a progress bar.
-        if progress
-            Logging.@logmsg(ProgressLogging.ProgressLevel, progressname, progress=0,
-                            _id=progressid)
-        end
-
         # Obtain the initial transition.
         transition = step!(rng, model, sampler, N; iteration=1, kwargs...)
 
@@ -296,9 +292,11 @@ function psample(
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
 
-    # Generate ID and channel for progress logging.
+    # Create a progress bar and a channel for progress logging.
     if progress
         progressid = UUIDs.uuid4()
+        Logging.@logmsg(ProgressLogging.ProgressLevel, progressname, progress=NaN,
+                        _id=progressid)
         channel = Distributed.RemoteChannel(() -> Channel{Bool}(nchains), 1)
     end
 
@@ -306,10 +304,6 @@ function psample(
         Distributed.@sync begin
             if progress
                 Distributed.@async begin
-                    # Create a progress bar.
-                    Logging.@logmsg(ProgressLogging.ProgressLevel, progressname,
-                                    progress=0, _id=progressid)
-
                     # Update the progress bar.
                     progresschains = 0
                     while take!(channel)
@@ -330,7 +324,8 @@ function psample(
                     seed!(subrng, seeds[i])
   
                     # Sample a chain and save it to the vector.
-                    chains[i] = sample(subrng, models[id], samplers[id], N; progress = false, kwargs...)
+                    chains[i] = sample(subrng, models[id], samplers[id], N;
+                                       progress = false, kwargs...)
 
                     # Update the progress bar.
                     progress && put!(channel, true)
