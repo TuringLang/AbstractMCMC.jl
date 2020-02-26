@@ -1,9 +1,15 @@
 using AbstractMCMC
 using AbstractMCMC: sample, psample, steps!
+import TerminalLoggers
 
+import Logging
 using Random
 using Statistics
 using Test
+using Test: collect_test_logs
+
+# install progress logger
+Logging.global_logger(TerminalLoggers.TerminalLogger(right_justify=120))
 
 include("interface.jl")
 
@@ -11,17 +17,17 @@ include("interface.jl")
     @testset "Basic sampling" begin
         Random.seed!(1234)
         N = 1_000
-        chain = sample(MyModel(), MySampler(), N; progress = true, sleepy = true)
+        chain = sample(MyModel(), MySampler(), N; sleepy = true)
 
         # test output type and size
         @test chain isa Vector{MyTransition}
         @test length(chain) == N
 
         # test some statistical properties
-        @test mean(x.a for x in chain) ≈ 0.5 atol=1e-2
+        @test mean(x.a for x in chain) ≈ 0.5 atol=6e-2
         @test var(x.a for x in chain) ≈ 1 / 12 atol=5e-3
         @test mean(x.b for x in chain) ≈ 0.0 atol=5e-2
-        @test var(x.b for x in chain) ≈ 1 atol=5e-2
+        @test var(x.b for x in chain) ≈ 1 atol=6e-2
     end
 
     if VERSION ≥ v"1.3"
@@ -51,11 +57,26 @@ include("interface.jl")
     end
 
     @testset "Chain constructors" begin
-        chain1 = sample(MyModel(), MySampler(), 100; progress = true, sleepy = true)
-        chain2 = sample(MyModel(), MySampler(), 100; progress = true, sleepy = true, chain_type = MyChain)
+        chain1 = sample(MyModel(), MySampler(), 100; sleepy = true)
+        chain2 = sample(MyModel(), MySampler(), 100; sleepy = true, chain_type = MyChain)
 
         @test chain1 isa Vector{MyTransition}
         @test chain2 isa MyChain
+    end
+
+    @testset "Suppress output" begin
+        logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
+            sample(MyModel(), MySampler(), 100; progress = false, sleepy = true)
+        end
+        @test isempty(logs)
+
+        if VERSION ≥ v"1.3"
+            logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
+                psample(MyModel(), MySampler(), 10_000, 1000;
+                        progress = false, chain_type = MyChain)
+            end
+            @test isempty(logs)
+        end
     end
 
     @testset "Iterator sampling" begin
