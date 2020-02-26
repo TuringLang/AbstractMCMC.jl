@@ -1,14 +1,15 @@
 using AbstractMCMC
 using AbstractMCMC: sample, psample, steps!
-using TerminalLoggers: TerminalLogger
+import TerminalLoggers
 
-using Logging: global_logger
+import Logging
 using Random
 using Statistics
 using Test
+using Test: collect_test_logs
 
 # install progress logger
-global_logger(TerminalLogger(right_justify=120))
+Logging.global_logger(TerminalLoggers.TerminalLogger(right_justify=120))
 
 include("interface.jl")
 
@@ -64,10 +65,17 @@ include("interface.jl")
     end
 
     @testset "Suppress output" begin
-        sample(MyModel(), MySampler(), 100; progress = false, sleepy = true)
+        logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
+            sample(MyModel(), MySampler(), 100; progress = false, sleepy = true)
+        end
+        @test isempty(logs)
 
         if VERSION ≥ v"1.3"
-            psample(MyModel(), MySampler(), 10_000, 1000; progress = false, chain_type = MyChain)
+            logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
+                psample(MyModel(), MySampler(), 10_000, 1000;
+                        progress = false, chain_type = MyChain)
+            end
+            @test isempty(logs)
         end
     end
 
