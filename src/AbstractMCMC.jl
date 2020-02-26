@@ -1,10 +1,13 @@
 module AbstractMCMC
 
-using ProgressMeter
+import ProgressLogging
 import StatsBase
 using StatsBase: sample
 
+import Distributed
+import Logging
 using Random: GLOBAL_RNG, AbstractRNG, seed!
+import UUIDs
 
 """
     AbstractChains
@@ -37,95 +40,16 @@ An `AbstractModel` represents a generic model type that can be used to perform i
 abstract type AbstractModel end
 
 """
-    AbstractCallback
-
-An `AbstractCallback` types is a supertype to be inherited from if you want to use custom callback 
-functionality. This is used to report sampling progress such as parameters calculated, remaining
-samples to run, or even plot graphs if you so choose.
-
-In order to implement callback functionality, you need the following:
-
-- A mutable struct that is a subtype of `AbstractCallback`
-- An overload of the `init_callback` function
-- An overload of the `callback` function
-"""
-abstract type AbstractCallback end
-
-"""
-    NoCallback()
-
-This disables the callback functionality in the event that you wish to 
-implement your own callback or reporting.
-"""
-mutable struct NoCallback <: AbstractCallback end
-
-"""
-    DefaultCallback(N::Int)
-
-The default callback struct which uses `ProgressMeter`.
-"""
-mutable struct DefaultCallback{
-    ProgType<:ProgressMeter.AbstractProgress
-} <: AbstractCallback
-    p :: ProgType
-end
-
-DefaultCallback(N::Int) = DefaultCallback(ProgressMeter.Progress(N, 1))
-
-function init_callback(
-    rng::AbstractRNG,
-    ℓ::ModelType,
-    s::SamplerType,
-    N::Integer;
-    kwargs...
-) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler}
-    return DefaultCallback(N)
-end
-
-"""
-    _generate_callback(
-        rng::AbstractRNG,
-        ℓ::ModelType,
-        s::SamplerType,
-        N::Integer;
-        progress_style=:default,
-        kwargs...
-    )
-
-`_generate_callback` uses a `progress_style` keyword argument to determine
-which progress meter style should be used. This function is strictly internal
-and is not meant to be overloaded. If you intend to add a custom `AbstractCallback`,
-you should overload `init_callback` instead.
-
-Options for `progress_style` include:
-
-    - `:default` which returns the result of `init_callback`
-    - `false` or `:disable` which returns a `NoCallback`
-    - `:plain` which returns the default, simple `DefaultCallback`.
-"""
-function _generate_callback(
-    rng::AbstractRNG,
-    ℓ::ModelType,
-    s::SamplerType,
-    N::Integer;
-    progress_style=:default,
-    kwargs...
-) where {ModelType<:AbstractModel, SamplerType<:AbstractSampler}
-    if progress_style == :default
-        return init_callback(rng, ℓ, s, N; kwargs...)
-    elseif progress_style == false || progress_style == :disable
-        return NoCallback()
-    elseif progress_style == :plain
-        return DefaultCallback(N)
-    else
-        throw(ArgumentError("Keyword argument $progress_style is not recognized."))
-    end
-end
-
-"""
     sample([rng, ]model, sampler, N; kwargs...)
 
 Return `N` samples from the MCMC `sampler` for the provided `model`.
+
+If a callback function `f` with type signature 
+```julia
+f(rng::AbstractRNG, model::AbstractModel, sampler::AbstractSampler, N::Integer,
+  iteration::Integer, transition; kwargs...)
+```
+may be provided as keyword argument `callback`. It is called after every sampling step.
 """
 function StatsBase.sample(
     model::AbstractModel,
@@ -141,7 +65,9 @@ function StatsBase.sample(
     model::AbstractModel,
     sampler::AbstractSampler,
     N::Integer;
-    progress::Bool=true,
+    progress = true,
+    progressname = "Sampling",
+    callback = (args...; kwargs...) -> nothing,
     chain_type::Type=Any,
     kwargs...
 )
@@ -151,29 +77,58 @@ function StatsBase.sample(
     # Perform any necessary setup.
     sample_init!(rng, model, sampler, N; kwargs...)
 
-    # Add a progress meter.
-    progress && (cb = _generate_callback(rng, model, sampler, N; kwargs...))
+    # Generate ID for progress logging.
+    if progress
+        progressid = UUIDs.uuid4()
+    end
 
-    # Obtain the initial transition.
-    transition = step!(rng, model, sampler, N; iteration=1, kwargs...)
+    local transitions
+    try
+        # Create a progress bar.
+        if progress
+            Logging.@logmsg(ProgressLogging.ProgressLevel, progressname, progress=0,
+                            _id=progressid)
+        end
 
-    # Save the transition.
-    transitions = transitions_init(transition, model, sampler, N; kwargs...)
-    transitions_save!(transitions, 1, transition, model, sampler, N; kwargs...)
+        # Obtain the initial transition.
+        transition = step!(rng, model, sampler, N; iteration=1, kwargs...)
 
-    # Update the progress meter.
-    progress && callback(rng, model, sampler, N, 1, transition, cb; kwargs...)
-
-    # Step through the sampler.
-    for i in 2:N
-        # Obtain the next transition.
-        transition = step!(rng, model, sampler, N, transition; iteration=i, kwargs...)
+        # Run callback.
+        callback(rng, model, sampler, N, 1, transition; kwargs...)
 
         # Save the transition.
-        transitions_save!(transitions, i, transition, model, sampler, N; kwargs...)
+        transitions = transitions_init(transition, model, sampler, N; kwargs...)
+        transitions_save!(transitions, 1, transition, model, sampler, N; kwargs...)
 
-        # Update the progress meter.
-        progress && callback(rng, model, sampler, N, i, transition, cb; kwargs...)
+        # Update the progress bar.
+        if progress
+            Logging.@logmsg(ProgressLogging.ProgressLevel, progressname, progress=1/N,
+                            _id=progressid)
+        end
+
+        # Step through the sampler.
+        for i in 2:N
+            # Obtain the next transition.
+            transition = step!(rng, model, sampler, N, transition; iteration=i, kwargs...)
+
+            # Run callback.
+            callback(rng, model, sampler, N, i, transition; kwargs...)
+
+            # Save the transition.
+            transitions_save!(transitions, i, transition, model, sampler, N; kwargs...)
+
+            # Update the progress bar.
+            if progress
+                Logging.@logmsg(ProgressLogging.ProgressLevel, progressname, progress=i/N,
+                                _id=progressid)
+            end
+        end
+    finally
+        # Close the progress bar.
+        if progress
+            Logging.@logmsg(ProgressLogging.ProgressLevel, progressname, progress="done",
+                            _id=progressid)
+        end
     end
 
     # Wrap up the sampler, if necessary.
@@ -302,57 +257,6 @@ function transitions_save!(
 end
 
 """
-    callback(
-        rng::AbstractRNG,
-        ℓ::ModelType,
-        s::SamplerType,
-        N::Integer,
-        iteration::Integer,
-        cb::CallbackType;
-        kwargs...
-    )
-
-`callback` is called after every sample run, and allows you to run some function on a 
-subtype of `AbstractCallback`. Typically this is used to increment a progress meter, show a 
-plot of parameter draws, or otherwise provide information about the sampling process to the user.
-
-By default, `ProgressMeter` is used to show the number of samples remaning.
-"""
-function callback(
-    rng::AbstractRNG,
-    ℓ::ModelType,
-    s::SamplerType,
-    N::Integer,
-    iteration::Integer,
-    transition,
-    cb::CallbackType;
-    kwargs...
-) where {
-    ModelType<:AbstractModel,
-    SamplerType<:AbstractSampler,
-    CallbackType<:AbstractCallback,
-}
-    # Default callback behavior.
-    ProgressMeter.next!(cb.p)
-end
-
-function callback(
-    rng::AbstractRNG,
-    ℓ::ModelType,
-    s::SamplerType,
-    N::Integer,
-    iteration::Integer,
-    transition,
-    cb::NoCallback;
-    kwargs...
-) where {
-    ModelType<:AbstractModel,
-    SamplerType<:AbstractSampler,
-}
-    # Do nothing.
-end
-
-"""
     psample([rng::AbstractRNG, ]model::AbstractModel, sampler::AbstractSampler, N::Integer,
             nchains::Integer; kwargs...)
 
@@ -377,6 +281,8 @@ function psample(
     sampler::AbstractSampler,
     N::Integer,
     nchains::Integer;
+    progress = true,
+    progressname = "Parallel sampling",
     kwargs...
 )
     # Copy the random number generator, model, and sample for each thread
@@ -390,16 +296,56 @@ function psample(
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
 
-    Threads.@threads for i in 1:nchains
-        # Obtain the ID of the current thread.
-        id = Threads.threadid()
+    # Generate ID and channel for progress logging.
+    if progress
+        progressid = UUIDs.uuid4()
+        channel = Distributed.RemoteChannel(() -> Channel{Bool}(nchains), 1)
+    end
 
-        # Seed the thread-specific random number generator with the pre-made seed.
-        subrng = rngs[id]
-        seed!(subrng, seeds[i])
-        
-        # Sample a chain and save it to the vector.
-        chains[i] = sample(subrng, models[id] , samplers[id], N; progress=false, kwargs...)
+    try
+        Distributed.@sync begin
+            if progress
+                Distributed.@async begin
+                    # Create a progress bar.
+                    Logging.@logmsg(ProgressLogging.ProgressLevel, progressname,
+                                    progress=0, _id=progressid)
+
+                    # Update the progress bar.
+                    progresschains = 0
+                    while take!(channel)
+                        progresschains += 1
+                        Logging.@logmsg(ProgressLogging.ProgressLevel, progressname,
+                                        progress=progresschains/nchains, _id=progressid)
+                    end
+                end
+            end
+
+            Distributed.@async begin
+                Threads.@threads for i in 1:nchains
+                    # Obtain the ID of the current thread.
+                    id = Threads.threadid()
+
+                    # Seed the thread-specific random number generator with the pre-made seed.
+                    subrng = rngs[id]
+                    seed!(subrng, seeds[i])
+  
+                    # Sample a chain and save it to the vector.
+                    chains[i] = sample(subrng, models[id], samplers[id], N; progress = false, kwargs...)
+
+                    # Update the progress bar.
+                    progress && put!(channel, true)
+                end
+
+                # Stop updating the progress bar.
+                progress && put!(channel, false)
+            end
+        end
+    finally
+        # Close the progress bar.
+        if progress
+            Logging.@logmsg(ProgressLogging.ProgressLevel, progressname,
+                            progress="done", _id=progressid)
+        end
     end
 
     # Concatenate the chains together.
