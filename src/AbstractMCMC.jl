@@ -429,7 +429,7 @@ function done_sampling(
 )
     # Tell the user that there's no way to stop sampling here, because they
     # have not overloaded done_sampling.
-    println("""Sampling terminated. No done_sampling function implemented for 
+    @warn("""Sampling terminated. No done_sampling function implemented for 
         Model:   $(typeof(model)) 
         Sampler: $(typeof(s))""")
 
