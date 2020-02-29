@@ -105,7 +105,7 @@ include("interface.jl")
         @test Base.IteratorEltype(iter) == Base.EltypeUnknown()
     end
 
-    @testset "Infer function" begin
+    @testset "Sample without predetermined N" begin
         Random.seed!(1234)
         chain = sample(MyModel(), MySampler())
         bmean = mean(map(x -> x.b, chain))
