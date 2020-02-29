@@ -1,5 +1,5 @@
 using AbstractMCMC
-using AbstractMCMC: sample, psample, steps!, infer
+using AbstractMCMC: sample, psample, steps!
 import TerminalLoggers
 
 import Logging
@@ -107,7 +107,7 @@ include("interface.jl")
 
     @testset "Infer function" begin
         Random.seed!(1234)
-        chain = infer(MyModel(), MySampler())
+        chain = sample(MyModel(), MySampler())
         bmean = mean(map(x -> x.b, chain))
         @test isapprox(bmean, 0.0, atol=0.001) && length(chain) < 10_000
     end

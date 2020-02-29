@@ -6,6 +6,7 @@ struct MyTransition
 end
 
 struct MySampler <: AbstractMCMC.AbstractSampler end
+struct AnotherSampler <: AbstractMCMC.AbstractSampler end
 
 struct MyChain <: AbstractMCMC.AbstractChains
     as::Vector{Float64}
@@ -62,7 +63,9 @@ function AbstractMCMC.done_sampling(
     # Calculate the mean of x.b.
     bmean = mean(map(x -> x.b, transitions))
 
-    return isapprox(bmean, 0.0, atol=0.001) || iteration >= 10_000
+    if isapprox(bmean, 0.0, atol=0.001) || iteration >= 10_000
+        throw(AbstractMCMC.StopException())
+    end
 end
 
 AbstractMCMC.chainscat(chains::Union{MyChain,Vector{<:MyChain}}...) = vcat(chains...)
