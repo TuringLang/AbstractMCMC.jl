@@ -403,6 +403,8 @@ end
 # Sample-until-convergence tools #
 ##################################
 
+struct StopException <: Exception end
+
 """
     done_sampling(
         rng::AbstractRNG,
@@ -414,8 +416,7 @@ end
         kwargs...
     )
 
-Returns `true` when a sampler has converged and should return the
-drawn samples.
+Throws a `StopException()` when sampling is completed.
 """
 function done_sampling(
     rng::AbstractRNG,
@@ -426,11 +427,13 @@ function done_sampling(
     chain_type::Type=Any,
     kwargs...
 )
-    error("""No convergence function implemented for 
-        \n$(typeof(model)) 
-        \n$(typeof(s)) 
-        \n$(typeof(chain_type))""")
-    return true
+    # Tell the user that there's no way to stop sampling here, because they
+    # have not overloaded done_sampling.
+    println("""Sampling terminated. No done_sampling function implemented for 
+        Model:   $(typeof(model)) 
+        Sampler: $(typeof(s))""")
+
+    throw(StopException())
 end
 
 """
@@ -446,7 +449,7 @@ function StatsBase.sample(
     s::AbstractSampler;
     kwargs...
 )
-    return infer(GLOBAL_RNG, model, s, kwargs...)
+    return sample(GLOBAL_RNG, model, s, kwargs...)
 end
 
 function StatsBase.sample(
@@ -454,6 +457,7 @@ function StatsBase.sample(
     model::AbstractModel,
     s::AbstractSampler;
     chain_type::Type=Any,
+    callback = (args...; kwargs...) -> nothing,
     kwargs...
 )
     # Create iterator.
@@ -466,25 +470,27 @@ function StatsBase.sample(
 
     # Draw transitions until we stop.
     i = 2
-    while !done
+    while true
         try
             # Draw another transition.
             t, _ = iterate(stepper, t)
-            println(t)
 
             # Store the new transition.
             push!(transitions, t)
 
+            # Run callback.
+            callback(rng, model, s, 1, i, t; kwargs...)
+
             # Check whether the chain is converged.
-            done = done_sampling(rng, model, s, transitions, i; kwargs...)
+            done_sampling(rng, model, s, transitions, i; kwargs...)
 
             # Increment iteration counter.
             i += 1
         catch e
-            # If it was a keyboard interrupt, calmly wind down sampling and return
-            # what we already drew.
-            if typeof(e) <: InterruptException
-                done = true
+            # If it was a stop exception, calmly wind down sampling and return
+            # what we sampled.
+            if e isa StopException
+                break
             else
                 # Otherwise, panic! There was a real error.
                 rethrow(e)
