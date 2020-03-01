@@ -63,7 +63,7 @@ function AbstractMCMC.done_sampling(
     # Calculate the mean of x.b.
     bmean = mean(map(x -> x.b, transitions))
 
-    if isapprox(bmean, 0.0, atol=0.001) || iteration >= 10_000
+    if abs(bmean) <= 0.001 || iteration >= 10_000
         throw(AbstractMCMC.StopException())
     end
 end
