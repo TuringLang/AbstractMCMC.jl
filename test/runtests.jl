@@ -108,7 +108,7 @@ include("interface.jl")
     @testset "Sample without predetermined N" begin
         Random.seed!(1234)
         chain = sample(MyModel(), MySampler())
-        bmean = mean(map(x -> x.b, chain))
+        bmean = mean(x.b for x in chain)
         @test abs(bmean) <= 0.001 && length(chain) < 10_000
     end
 end
