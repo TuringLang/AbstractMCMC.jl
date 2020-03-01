@@ -61,7 +61,7 @@ function AbstractMCMC.done_sampling(
     kwargs...
 )
     # Calculate the mean of x.b.
-    bmean = mean(map(x -> x.b, transitions))
+    bmean = mean(x.b for x in transitions)
 
     if abs(bmean) <= 0.001 || iteration >= 10_000
         throw(AbstractMCMC.StopException())
