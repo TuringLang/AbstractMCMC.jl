@@ -403,7 +403,6 @@ end
 # Sample-until-convergence tools #
 ##################################
 
-struct StopException <: Exception end
 
 """
     sample([rng::AbstractRNG, ]model::AbstractModel, s::AbstractSampler, is_done::Function; kwargs...)
