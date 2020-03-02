@@ -449,7 +449,7 @@ function StatsBase.sample(
     i = 2
     done = false
 
-    while !done
+    while !is_done(rng, model, sampler, transitions, i; kwargs...)
         # Obtain the next transition.
         transition = step!(rng, model, sampler, 1, transition; iteration=i, kwargs...)
 
