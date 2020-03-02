@@ -61,8 +61,8 @@ function is_done(
     kwargs...
 )
     # Calculate the mean of x.b.
-    bmean = mean(map(x -> x.b, transitions))
-    return isapprox(bmean, 0.0, atol=0.001) || iteration >= 10_000
+    bmean = mean(x.b for x in transitions)
+    return abs(bmean) <= 0.001 || iteration >= 10_000
 end
 
 # Set a default convergence function.
