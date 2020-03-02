@@ -459,9 +459,6 @@ function StatsBase.sample(
         # Save the transition.
         push!(transitions, transition)
 
-        # Check transition.
-        done = is_done(rng, model, sampler, transitions, i; kwargs...)
-
         # Increment iteration counter.
         i += 1
     end
