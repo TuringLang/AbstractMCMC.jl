@@ -430,7 +430,7 @@ function StatsBase.sample(
     rng::AbstractRNG,
     model::AbstractModel,
     sampler::AbstractSampler,
-    is_done::Function;
+    is_done;
     chain_type::Type=Any,
     callback = (args...; kwargs...) -> nothing,
     kwargs...
