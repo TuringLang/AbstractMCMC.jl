@@ -447,7 +447,6 @@ function StatsBase.sample(
 
     # Step through the sampler until stopping.
     i = 2
-    done = false
 
     while !is_done(rng, model, sampler, transitions, i; kwargs...)
         # Obtain the next transition.
