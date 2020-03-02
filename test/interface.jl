@@ -51,7 +51,7 @@ function AbstractMCMC.bundle_samples(
     return MyChain(as, bs)
 end
 
-function AbstractMCMC.done_sampling(
+function is_done(
     rng::AbstractRNG,
     model::MyModel,
     s::MySampler,
@@ -62,10 +62,9 @@ function AbstractMCMC.done_sampling(
 )
     # Calculate the mean of x.b.
     bmean = mean(map(x -> x.b, transitions))
-
-    if isapprox(bmean, 0.0, atol=0.001) || iteration >= 10_000
-        throw(AbstractMCMC.StopException())
-    end
+    return isapprox(bmean, 0.0, atol=0.001) || iteration >= 10_000
 end
 
+# Set a default convergence function.
+AbstractMCMC.sample(rng, model, sampler::MySampler; kwargs...) = sample(rng, model, sampler, is_done; kwargs...)
 AbstractMCMC.chainscat(chains::Union{MyChain,Vector{<:MyChain}}...) = vcat(chains...)
