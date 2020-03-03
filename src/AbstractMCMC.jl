@@ -54,10 +54,10 @@ may be provided as keyword argument `callback`. It is called after every samplin
 function StatsBase.sample(
     model::AbstractModel,
     sampler::AbstractSampler,
-    N::Integer;
+    arg;
     kwargs...
 )
-    return sample(GLOBAL_RNG, model, sampler, N; kwargs...)
+    return sample(GLOBAL_RNG, model, sampler, arg; kwargs...)
 end
 
 function StatsBase.sample(
@@ -420,18 +420,10 @@ f(rng::AbstractRNG, model::AbstractModel, s::AbstractSampler, transitions::Vecto
 `is_done` should return `true` when sampling should end, and `false` otherwise.
 """
 function StatsBase.sample(
-    model::AbstractModel,
-    s::AbstractSampler;
-    kwargs...
-)
-    return sample(GLOBAL_RNG, model, s, kwargs...)
-end
-
-function StatsBase.sample(
     rng::AbstractRNG,
     model::AbstractModel,
     sampler::AbstractSampler,
-    is_done::Function;
+    is_done;
     chain_type::Type=Any,
     callback = (args...; kwargs...) -> nothing,
     kwargs...
