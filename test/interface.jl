@@ -66,5 +66,5 @@ function is_done(
 end
 
 # Set a default convergence function.
-AbstractMCMC.sample(rng, model, sampler::MySampler; kwargs...) = sample(rng, model, sampler, is_done; kwargs...)
+AbstractMCMC.sample(model, sampler::MySampler; kwargs...) = sample(Random.GLOBAL_RNG, model, sampler, is_done; kwargs...)
 AbstractMCMC.chainscat(chains::Union{MyChain,Vector{<:MyChain}}...) = vcat(chains...)
