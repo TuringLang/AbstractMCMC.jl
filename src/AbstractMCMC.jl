@@ -403,7 +403,6 @@ end
 # Sample-until-convergence tools #
 ##################################
 
-struct StopException <: Exception end
 
 """
     sample([rng::AbstractRNG, ]model::AbstractModel, s::AbstractSampler, is_done::Function; kwargs...)
@@ -439,9 +438,8 @@ function StatsBase.sample(
 
     # Step through the sampler until stopping.
     i = 2
-    done = false
 
-    while !done
+    while !is_done(rng, model, sampler, transitions, i; kwargs...)
         # Obtain the next transition.
         transition = step!(rng, model, sampler, 1, transition; iteration=i, kwargs...)
 
@@ -450,9 +448,6 @@ function StatsBase.sample(
 
         # Save the transition.
         push!(transitions, transition)
-
-        # Check transition.
-        done = is_done(rng, model, sampler, transitions, i; kwargs...)
 
         # Increment iteration counter.
         i += 1
