@@ -8,7 +8,7 @@ import Distributed
 using Random: GLOBAL_RNG, AbstractRNG, seed!
 
 # avoid creating a progress bar with @withprogress if progress logging is disabled
-macro maybewithprogress(progress, exprs...)
+macro ifwithprogress(progress, exprs...)
     return quote
         if $progress
             ProgressLogging.@withprogress $(exprs...)
@@ -86,7 +86,7 @@ function StatsBase.sample(
     # Perform any necessary setup.
     sample_init!(rng, model, sampler, N; kwargs...)
 
-    @maybewithprogress progress name=progressname begin
+    @ifwithprogress progress name=progressname begin
         # Obtain the initial transition.
         transition = step!(rng, model, sampler, N; iteration=1, kwargs...)
 
@@ -283,7 +283,7 @@ function psample(
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
 
-    @maybewithprogress progress name=progressname begin
+    @ifwithprogress progress name=progressname begin
         # Create a channel for progress logging.
         if progress
             channel = Distributed.RemoteChannel(() -> Channel{Bool}(nchains), 1)
