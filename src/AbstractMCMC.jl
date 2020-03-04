@@ -5,9 +5,18 @@ import StatsBase
 using StatsBase: sample
 
 import Distributed
-import Logging
 using Random: GLOBAL_RNG, AbstractRNG, seed!
-import UUIDs
+
+# avoid creating a progress bar with @withprogress if progress logging is disabled
+macro maybewithprogress(exprs...)
+    return quote
+        if progress
+            ProgressLogging.@withprogress $(exprs...)
+        else
+            $(exprs...)
+        end
+    end |> esc
+end
 
 """
     AbstractChains
@@ -44,7 +53,7 @@ abstract type AbstractModel end
 
 Return `N` samples from the MCMC `sampler` for the provided `model`.
 
-If a callback function `f` with type signature 
+If a callback function `f` with type signature
 ```julia
 f(rng::AbstractRNG, model::AbstractModel, sampler::AbstractSampler, N::Integer,
   iteration::Integer, transition; kwargs...)
@@ -77,15 +86,8 @@ function StatsBase.sample(
     # Perform any necessary setup.
     sample_init!(rng, model, sampler, N; kwargs...)
 
-    # Create a progress bar.
-    if progress
-        progressid = UUIDs.uuid4()
-        Logging.@logmsg(ProgressLogging.ProgressLevel, progressname, progress=NaN,
-                        _id=progressid)
-    end
-
     local transitions
-    try
+    @maybewithprogress name=progressname begin
         # Obtain the initial transition.
         transition = step!(rng, model, sampler, N; iteration=1, kwargs...)
 
@@ -97,10 +99,7 @@ function StatsBase.sample(
         transitions_save!(transitions, 1, transition, model, sampler, N; kwargs...)
 
         # Update the progress bar.
-        if progress
-            Logging.@logmsg(ProgressLogging.ProgressLevel, progressname, progress=1/N,
-                            _id=progressid)
-        end
+        progress && ProgressLogging.@logprogress 1/N
 
         # Step through the sampler.
         for i in 2:N
@@ -115,15 +114,8 @@ function StatsBase.sample(
 
             # Update the progress bar.
             if progress
-                Logging.@logmsg(ProgressLogging.ProgressLevel, progressname, progress=i/N,
-                                _id=progressid)
+                ProgressLogging.@logprogress i/N
             end
-        end
-    finally
-        # Close the progress bar.
-        if progress
-            Logging.@logmsg(ProgressLogging.ProgressLevel, progressname, progress="done",
-                            _id=progressid)
         end
     end
 
@@ -178,12 +170,12 @@ function sample_end!(
 end
 
 function bundle_samples(
-    ::AbstractRNG, 
-    ::AbstractModel, 
-    ::AbstractSampler, 
-    ::Integer, 
+    ::AbstractRNG,
+    ::AbstractModel,
+    ::AbstractSampler,
+    ::Integer,
     transitions,
-    ::Type{Any}; 
+    ::Type{Any};
     kwargs...
 )
     return transitions
@@ -259,7 +251,7 @@ end
 Sample `nchains` chains using the available threads, and combine them into a single chain.
 
 By default, the random number generator, the model and the samplers are deep copied for each
-thread to prevent contamination between threads. 
+thread to prevent contamination between threads.
 """
 function psample(
     model::AbstractModel,
@@ -292,15 +284,12 @@ function psample(
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
 
-    # Create a progress bar and a channel for progress logging.
-    if progress
-        progressid = UUIDs.uuid4()
-        Logging.@logmsg(ProgressLogging.ProgressLevel, progressname, progress=NaN,
-                        _id=progressid)
-        channel = Distributed.RemoteChannel(() -> Channel{Bool}(nchains), 1)
-    end
+    @maybewithprogress name=progressname begin
+        # Create a channel for progress logging.
+        if progress
+            channel = Distributed.RemoteChannel(() -> Channel{Bool}(nchains), 1)
+        end
 
-    try
         Distributed.@sync begin
             if progress
                 Distributed.@async begin
@@ -308,8 +297,7 @@ function psample(
                     progresschains = 0
                     while take!(channel)
                         progresschains += 1
-                        Logging.@logmsg(ProgressLogging.ProgressLevel, progressname,
-                                        progress=progresschains/nchains, _id=progressid)
+                        ProgressLogging.@logprogress progresschains/nchains
                     end
                 end
             end
@@ -322,7 +310,7 @@ function psample(
                     # Seed the thread-specific random number generator with the pre-made seed.
                     subrng = rngs[id]
                     seed!(subrng, seeds[i])
-  
+
                     # Sample a chain and save it to the vector.
                     chains[i] = sample(subrng, models[id], samplers[id], N;
                                        progress = false, kwargs...)
@@ -334,12 +322,6 @@ function psample(
                 # Stop updating the progress bar.
                 progress && put!(channel, false)
             end
-        end
-    finally
-        # Close the progress bar.
-        if progress
-            Logging.@logmsg(ProgressLogging.ProgressLevel, progressname,
-                            progress="done", _id=progressid)
         end
     end
 

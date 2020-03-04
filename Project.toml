@@ -7,11 +7,9 @@ version = "0.5.0"
 
 [deps]
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
-Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 ProgressLogging = "33c8b6b6-d38a-422a-b730-caa89a2f386c"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
 ProgressLogging = "0.1"
@@ -19,9 +17,10 @@ StatsBase = "0.32"
 julia = "1"
 
 [extras]
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Statistics", "Test", "TerminalLoggers"]
+test = ["Logging", "Statistics", "Test", "TerminalLoggers"]
