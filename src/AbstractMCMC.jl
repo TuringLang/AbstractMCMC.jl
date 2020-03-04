@@ -1,6 +1,7 @@
 module AbstractMCMC
 
 import ProgressLogging
+import Requires
 import StatsBase
 using StatsBase: sample
 
@@ -8,6 +9,20 @@ import Distributed
 import Logging
 using Random: GLOBAL_RNG, AbstractRNG, seed!
 import UUIDs
+
+const PROGRESSLOGGERLOADED = Ref(false)
+
+function __init__()
+    Requires.@require Atom = "c52e3926-4ff0-5f6e-af25-54175e0327b1" begin
+        PROGRESSLOGGERLOADED[] = true
+    end
+    Requires.@require ConsoleProgressMonitor = "88cd18e8-d9cc-4ea6-8889-5259c0d15c8b" begin
+        PROGRESSLOGGERLOADED[] = true
+    end
+    Requires.@require TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed" begin
+        PROGRESSLOGGERLOADED[] = true
+    end
+end
 
 """
     AbstractChains
@@ -44,7 +59,7 @@ abstract type AbstractModel end
 
 Return `N` samples from the MCMC `sampler` for the provided `model`.
 
-If a callback function `f` with type signature 
+If a callback function `f` with type signature
 ```julia
 f(rng::AbstractRNG, model::AbstractModel, sampler::AbstractSampler, N::Integer,
   iteration::Integer, transition; kwargs...)
@@ -76,6 +91,9 @@ function StatsBase.sample(
 
     # Perform any necessary setup.
     sample_init!(rng, model, sampler, N; kwargs...)
+
+    # Check progress logger frontends.
+    progress && checkprogresslogger()
 
     # Create a progress bar.
     if progress
@@ -178,12 +196,12 @@ function sample_end!(
 end
 
 function bundle_samples(
-    ::AbstractRNG, 
-    ::AbstractModel, 
-    ::AbstractSampler, 
-    ::Integer, 
+    ::AbstractRNG,
+    ::AbstractModel,
+    ::AbstractSampler,
+    ::Integer,
     transitions,
-    ::Type{Any}; 
+    ::Type{Any};
     kwargs...
 )
     return transitions
@@ -259,7 +277,7 @@ end
 Sample `nchains` chains using the available threads, and combine them into a single chain.
 
 By default, the random number generator, the model and the samplers are deep copied for each
-thread to prevent contamination between threads. 
+thread to prevent contamination between threads.
 """
 function psample(
     model::AbstractModel,
@@ -292,6 +310,9 @@ function psample(
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
 
+    # Check progress logger frontends.
+    progress && checkprogresslogger()
+
     # Create a progress bar and a channel for progress logging.
     if progress
         progressid = UUIDs.uuid4()
@@ -322,7 +343,7 @@ function psample(
                     # Seed the thread-specific random number generator with the pre-made seed.
                     subrng = rngs[id]
                     seed!(subrng, seeds[i])
-  
+
                     # Sample a chain and save it to the vector.
                     chains[i] = sample(subrng, models[id], samplers[id], N;
                                        progress = false, kwargs...)
@@ -397,6 +418,28 @@ function steps!(
 )
     sample_init!(rng, model, s, 0)
     return Stepper(rng, model, s, kwargs)
+end
+
+const PROGRESSLOGGERWARNING = """
+It seems that progress bars can not be displayed properly since no known progress logging
+frontend is loaded.
+
+Please install a progress logging frontend such as
+* Juno,
+* TerminalLoggers (for the REPL), or
+* ConsoleProgressMonitor (for Jupyter notebooks).
+
+More information can be found in the documentation of ProgressLogging and the respective
+frontends.
+
+If you have a working progress logging frontend, you can disable this warning message
+manually by setting `AbstractMCMC.PROGRESSLOGGERLOADED[] = true`.
+"""
+
+# Check if known progress logging frontends are loaded
+function checkprogresslogger()
+    !PROGRESSLOGGERLOADED[] && @warn PROGRESSLOGGERWARNING
+    return
 end
 
 end # module AbstractMCMC
