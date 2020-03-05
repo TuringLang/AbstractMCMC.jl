@@ -1,15 +1,11 @@
 using AbstractMCMC
 using AbstractMCMC: sample, psample, steps!
-import TerminalLoggers
 
 import Logging
 using Random
 using Statistics
 using Test
 using Test: collect_test_logs
-
-# install progress logger
-Logging.global_logger(TerminalLoggers.TerminalLogger(right_justify=120))
 
 include("interface.jl")
 
