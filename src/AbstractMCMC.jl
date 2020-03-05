@@ -112,9 +112,7 @@ function StatsBase.sample(
             transitions_save!(transitions, i, transition, model, sampler, N; kwargs...)
 
             # Update the progress bar.
-            if progress
-                ProgressLogging.@logprogress i/N
-            end
+            progress && ProgressLogging.@logprogress i/N
         end
     end
 
