@@ -6,21 +6,26 @@ desc = "A lightweight interface for common MCMC methods."
 version = "0.5.0"
 
 [deps]
+ConsoleProgressMonitor = "88cd18e8-d9cc-4ea6-8889-5259c0d15c8b"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+LoggingExtras = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 ProgressLogging = "33c8b6b6-d38a-422a-b730-caa89a2f386c"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 
 [compat]
+ConsoleProgressMonitor = "0.1"
+LoggingExtras = "0.4"
 ProgressLogging = "0.1"
 StatsBase = "0.32"
+TerminalLoggers = "0.1"
 julia = "1"
 
 [extras]
-Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Logging", "Statistics", "Test", "TerminalLoggers"]
+test = ["Statistics", "Test"]
