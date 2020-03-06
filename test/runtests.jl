@@ -1,6 +1,10 @@
 using AbstractMCMC
 using AbstractMCMC: sample, psample, steps!
-import TerminalLoggers
+using Atom.Progress: JunoProgressLogger
+using ConsoleProgressMonitor: ProgressLogger
+using IJulia
+using LoggingExtras: TeeLogger, EarlyFilteredLogger
+using TerminalLoggers: TerminalLogger
 
 import Logging
 using Random
@@ -8,26 +12,93 @@ using Statistics
 using Test
 using Test: collect_test_logs
 
-# install progress logger
-Logging.global_logger(TerminalLoggers.TerminalLogger(right_justify=120))
+const LOGGERS = Set()
+const CURRENT_LOGGER = Logging.current_logger()
 
 include("interface.jl")
 
 @testset "AbstractMCMC" begin
     @testset "Basic sampling" begin
-        Random.seed!(1234)
-        N = 1_000
-        chain = sample(MyModel(), MySampler(), N; sleepy = true)
+        @testset "REPL" begin
+            empty!(LOGGERS)
 
-        # test output type and size
-        @test chain isa Vector{MyTransition}
-        @test length(chain) == N
+            Random.seed!(1234)
+            N = 1_000
+            chain = sample(MyModel(), MySampler(), N; sleepy = true, loggers = true)
 
-        # test some statistical properties
-        @test mean(x.a for x in chain) ≈ 0.5 atol=6e-2
-        @test var(x.a for x in chain) ≈ 1 / 12 atol=5e-3
-        @test mean(x.b for x in chain) ≈ 0.0 atol=5e-2
-        @test var(x.b for x in chain) ≈ 1 atol=6e-2
+            @test length(LOGGERS) == 1
+            logger = first(LOGGERS)
+            @test logger isa TeeLogger
+            @test logger.loggers[1].logger isa TerminalLogger
+            @test logger.loggers[2].logger === CURRENT_LOGGER
+            @test Logging.current_logger() === CURRENT_LOGGER
+
+            # test output type and size
+            @test chain isa Vector{MyTransition}
+            @test length(chain) == N
+
+            # test some statistical properties
+            @test mean(x.a for x in chain) ≈ 0.5 atol=6e-2
+            @test var(x.a for x in chain) ≈ 1 / 12 atol=5e-3
+            @test mean(x.b for x in chain) ≈ 0.0 atol=5e-2
+            @test var(x.b for x in chain) ≈ 1 atol=6e-2
+        end
+
+        @testset "Juno" begin
+            empty!(LOGGERS)
+
+            Random.seed!(1234)
+            N = 10
+
+            logger = JunoProgressLogger()
+            Logging.with_logger(logger) do
+                sample(MyModel(), MySampler(), N; sleepy = true, loggers = true)
+            end
+
+            @test length(LOGGERS) == 1
+            @test first(LOGGERS) === logger
+            @test Logging.current_logger() === CURRENT_LOGGER
+        end
+
+        @testset "IJulia" begin
+            # emulate running IJulia kernel
+            @eval IJulia begin
+                inited = true
+            end
+
+            empty!(LOGGERS)
+
+            Random.seed!(1234)
+            N = 10
+            sample(MyModel(), MySampler(), N; sleepy = true, loggers = true)
+
+            @test length(LOGGERS) == 1
+            logger = first(LOGGERS)
+            @test logger isa TeeLogger
+            @test logger.loggers[1].logger isa ProgressLogger
+            @test logger.loggers[2].logger === CURRENT_LOGGER
+            @test Logging.current_logger() === CURRENT_LOGGER
+
+            @eval IJulia begin
+                inited = false
+            end
+        end
+
+        @testset "Custom logger" begin
+            empty!(LOGGERS)
+
+            Random.seed!(1234)
+            N = 10
+
+            logger = Logging.ConsoleLogger(stderr, Logging.LogLevel(-1))
+            Logging.with_logger(logger) do
+                sample(MyModel(), MySampler(), N; sleepy = true, loggers = true)
+            end
+
+            @test length(LOGGERS) == 1
+            @test first(LOGGERS) === logger
+            @test Logging.current_logger() === CURRENT_LOGGER
+        end
     end
 
     if VERSION ≥ v"1.3"
