@@ -20,7 +20,7 @@ macro ifwithprogresslogger(progress, exprs...)
             if $hasprogresslevel($Logging.current_logger())
                 $ProgressLogging.@withprogress $(exprs...)
             else
-                $with_progresslogger($Logging.current_logger()) do
+                $with_progresslogger($Base.@__MODULE__, $Logging.current_logger()) do
                     $ProgressLogging.@withprogress $(exprs...)
                 end
             end
@@ -36,8 +36,7 @@ function hasprogresslevel(logger)
 end
 
 # filter better, e.g., according to group?
-function with_progresslogger(f, logger)
-    _module = @__MODULE__
+function with_progresslogger(f, _module, logger)
     logger1 = LoggingExtras.EarlyFilteredLogger(progresslogger()) do log
         log._module === _module && log.level == ProgressLogging.ProgressLevel
     end
