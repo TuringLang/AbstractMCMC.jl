@@ -427,6 +427,9 @@ function StatsBase.sample(
     callback = (args...; kwargs...) -> nothing,
     kwargs...
 )
+    # Perform any necessary setup.
+    sample_init!(rng, model, sampler, N; kwargs...)
+
     # Obtain the initial transition.
     transition = step!(rng, model, sampler, 1; iteration=1, kwargs...)
 
@@ -452,6 +455,9 @@ function StatsBase.sample(
         # Increment iteration counter.
         i += 1
     end
+
+    # Wrap up the sampler, if necessary.
+    sample_end!(rng, model, sampler, N, transitions; kwargs...)
 
     # Wrap the samples up.
     return bundle_samples(rng, model, sampler, i, transitions, chain_type; kwargs...)
