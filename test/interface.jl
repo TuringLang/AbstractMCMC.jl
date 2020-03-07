@@ -20,11 +20,13 @@ function AbstractMCMC.step!(
     N::Integer,
     transition::Union{Nothing,MyTransition};
     sleepy = false,
+    loggers = false,
     kwargs...
 )
     a = rand(rng)
     b = randn(rng)
 
+    loggers && push!(LOGGERS, Logging.current_logger())
     sleepy && sleep(0.001)
 
     return MyTransition(a, b)
