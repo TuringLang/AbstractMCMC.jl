@@ -442,11 +442,13 @@ function StatsBase.sample(
     sampler::AbstractSampler,
     is_done;
     chain_type::Type=Any,
+    progress = true,
+    progressname = "Convergence sampling",
     callback = (args...; kwargs...) -> nothing,
     kwargs...
 )
     # Perform any necessary setup.
-    sample_init!(rng, model, sampler, N; kwargs...)
+    sample_init!(rng, model, sampler, 1; kwargs...)
 
     # Obtain the initial transition.
     transition = step!(rng, model, sampler, 1; iteration=1, kwargs...)
@@ -460,22 +462,24 @@ function StatsBase.sample(
     # Step through the sampler until stopping.
     i = 2
 
-    while !is_done(rng, model, sampler, transitions, i; kwargs...)
-        # Obtain the next transition.
-        transition = step!(rng, model, sampler, 1, transition; iteration=i, kwargs...)
+    @ifwithprogresslogger progress name=progressname begin
+        while !is_done(rng, model, sampler, transitions, i; progress=progress, kwargs...)
+            # Obtain the next transition.
+            transition = step!(rng, model, sampler, 1, transition; iteration=i, kwargs...)
 
-        # Run callback.
-        callback(rng, model, sampler, 1, i, transition; kwargs...)
+            # Run callback.
+            callback(rng, model, sampler, 1, i, transition; kwargs...)
 
-        # Save the transition.
-        push!(transitions, transition)
+            # Save the transition.
+            push!(transitions, transition)
 
-        # Increment iteration counter.
-        i += 1
+            # Increment iteration counter.
+            i += 1
+        end
     end
 
     # Wrap up the sampler, if necessary.
-    sample_end!(rng, model, sampler, N, transitions; kwargs...)
+    sample_end!(rng, model, sampler, i, transitions; kwargs...)
 
     # Wrap the samples up.
     return bundle_samples(rng, model, sampler, i, transitions, chain_type; kwargs...)
