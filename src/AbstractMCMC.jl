@@ -247,9 +247,10 @@ end
 
 """
     transitions_init(transition, model, sampler, N[; kwargs...])
+    transitions_init(transition, model, sampler[; kwargs...])
 
 Generate a container for the `N` transitions of the MCMC `sampler` for the provided
-`model`, whose first transition is `transition`.
+`model`, whose first transition is `transition`. Can be called with an without a predefined size `N`.
 """
 function transitions_init(
     transition,
@@ -261,11 +262,21 @@ function transitions_init(
     return Vector{typeof(transition)}(undef, N)
 end
 
+function transitions_init(
+    transition,
+    ::AbstractModel,
+    ::AbstractSampler;
+    kwargs...
+)
+    return [transition]
+end
+
 """
     transitions_save!(transitions, iteration, transition, model, sampler, N[; kwargs...])
+    transitions_save!(transitions, iteration, transition, model, sampler[; kwargs...])
 
 Save the `transition` of the MCMC `sampler` at the current `iteration` in the container of
-`transitions`.
+`transitions`. Can be called with an without a predefined size `N`.
 """
 function transitions_save!(
     transitions::AbstractVector,
@@ -277,6 +288,19 @@ function transitions_save!(
     kwargs...
 )
     transitions[iteration] = transition
+    return
+end
+
+
+function transitions_save!(
+    transitions::AbstractVector,
+    iteration::Integer,
+    transition,
+    ::AbstractModel,
+    ::AbstractSampler;
+    kwargs...
+)
+    push!(transitions, transition)
     return
 end
 
@@ -421,7 +445,6 @@ end
 # Sample-until-convergence tools #
 ##################################
 
-
 """
     sample([rng::AbstractRNG, ]model::AbstractModel, s::AbstractSampler, is_done::Function; kwargs...)
 
@@ -450,19 +473,19 @@ function StatsBase.sample(
     # Perform any necessary setup.
     sample_init!(rng, model, sampler, 1; kwargs...)
 
-    # Obtain the initial transition.
-    transition = step!(rng, model, sampler, 1; iteration=1, kwargs...)
-
-    # Run callback.
-    callback(rng, model, sampler, 1, 1, transition; kwargs...)
-
-    # Save the transition.
-    transitions = [transition]
-
-    # Step through the sampler until stopping.
-    i = 2
-
     @ifwithprogresslogger progress name=progressname begin
+        # Obtain the initial transition.
+        transition = step!(rng, model, sampler, 1; iteration=1, kwargs...)
+
+        # Run callback.
+        callback(rng, model, sampler, 1, 1, transition; kwargs...)
+
+        # Save the transition.
+        transitions = transitions_init(transition, model, sampler; kwargs...)
+
+        # Step through the sampler until stopping.
+        i = 2
+
         while !is_done(rng, model, sampler, transitions, i; progress=progress, kwargs...)
             # Obtain the next transition.
             transition = step!(rng, model, sampler, 1, transition; iteration=i, kwargs...)
@@ -471,7 +494,7 @@ function StatsBase.sample(
             callback(rng, model, sampler, 1, i, transition; kwargs...)
 
             # Save the transition.
-            push!(transitions, transition)
+            transitions_save!(transitions, i, transition, model, sampler; kwargs...)
 
             # Increment iteration counter.
             i += 1
