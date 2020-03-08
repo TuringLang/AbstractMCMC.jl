@@ -250,7 +250,7 @@ end
     transitions_init(transition, model, sampler[; kwargs...])
 
 Generate a container for the `N` transitions of the MCMC `sampler` for the provided
-`model`, whose first transition is `transition`. Can be called with an without a predefined size `N`.
+`model`, whose first transition is `transition`. Can be called with and without a predefined size `N`.
 """
 function transitions_init(
     transition,
@@ -276,7 +276,7 @@ end
     transitions_save!(transitions, iteration, transition, model, sampler[; kwargs...])
 
 Save the `transition` of the MCMC `sampler` at the current `iteration` in the container of
-`transitions`. Can be called with an without a predefined size `N`.
+`transitions`. Can be called with and without a predefined size `N`.
 """
 function transitions_save!(
     transitions::AbstractVector,
