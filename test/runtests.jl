@@ -175,4 +175,11 @@ include("interface.jl")
         @test Base.IteratorSize(iter) == Base.IsInfinite()
         @test Base.IteratorEltype(iter) == Base.EltypeUnknown()
     end
+
+    @testset "Sample without predetermined N" begin
+        Random.seed!(1234)
+        chain = sample(MyModel(), MySampler())
+        bmean = mean(x.b for x in chain)
+        @test abs(bmean) <= 0.001 && length(chain) < 10_000
+    end
 end

@@ -102,10 +102,10 @@ may be provided as keyword argument `callback`. It is called after every samplin
 function StatsBase.sample(
     model::AbstractModel,
     sampler::AbstractSampler,
-    N::Integer;
+    arg;
     kwargs...
 )
-    return sample(GLOBAL_RNG, model, sampler, N; kwargs...)
+    return sample(GLOBAL_RNG, model, sampler, arg; kwargs...)
 end
 
 function StatsBase.sample(
@@ -247,9 +247,10 @@ end
 
 """
     transitions_init(transition, model, sampler, N[; kwargs...])
+    transitions_init(transition, model, sampler[; kwargs...])
 
 Generate a container for the `N` transitions of the MCMC `sampler` for the provided
-`model`, whose first transition is `transition`.
+`model`, whose first transition is `transition`. Can be called with and without a predefined size `N`.
 """
 function transitions_init(
     transition,
@@ -261,11 +262,21 @@ function transitions_init(
     return Vector{typeof(transition)}(undef, N)
 end
 
+function transitions_init(
+    transition,
+    ::AbstractModel,
+    ::AbstractSampler;
+    kwargs...
+)
+    return [transition]
+end
+
 """
     transitions_save!(transitions, iteration, transition, model, sampler, N[; kwargs...])
+    transitions_save!(transitions, iteration, transition, model, sampler[; kwargs...])
 
 Save the `transition` of the MCMC `sampler` at the current `iteration` in the container of
-`transitions`.
+`transitions`. Can be called with and without a predefined size `N`.
 """
 function transitions_save!(
     transitions::AbstractVector,
@@ -277,6 +288,19 @@ function transitions_save!(
     kwargs...
 )
     transitions[iteration] = transition
+    return
+end
+
+
+function transitions_save!(
+    transitions::AbstractVector,
+    iteration::Integer,
+    transition,
+    ::AbstractModel,
+    ::AbstractSampler;
+    kwargs...
+)
+    push!(transitions, transition)
     return
 end
 
@@ -415,6 +439,73 @@ function steps!(
 )
     sample_init!(rng, model, s, 0)
     return Stepper(rng, model, s, kwargs)
+end
+
+##################################
+# Sample-until-convergence tools #
+##################################
+
+"""
+    sample([rng::AbstractRNG, ]model::AbstractModel, s::AbstractSampler, is_done::Function; kwargs...)
+
+`sample` will continuously draw samples without defining a maximum number of samples until
+a convergence criteria defined by a user-defined function `is_done` returns `true`.
+
+`is_done` is a function `f` that returns a `Bool`, with the signature
+
+```julia
+f(rng::AbstractRNG, model::AbstractModel, s::AbstractSampler, transitions::Vector, iteration::Int; kwargs...)
+```
+
+`is_done` should return `true` when sampling should end, and `false` otherwise.
+"""
+function StatsBase.sample(
+    rng::AbstractRNG,
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    is_done;
+    chain_type::Type=Any,
+    progress = true,
+    progressname = "Convergence sampling",
+    callback = (args...; kwargs...) -> nothing,
+    kwargs...
+)
+    # Perform any necessary setup.
+    sample_init!(rng, model, sampler, 1; kwargs...)
+
+    @ifwithprogresslogger progress name=progressname begin
+        # Obtain the initial transition.
+        transition = step!(rng, model, sampler, 1; iteration=1, kwargs...)
+
+        # Run callback.
+        callback(rng, model, sampler, 1, 1, transition; kwargs...)
+
+        # Save the transition.
+        transitions = transitions_init(transition, model, sampler; kwargs...)
+
+        # Step through the sampler until stopping.
+        i = 2
+
+        while !is_done(rng, model, sampler, transitions, i; progress=progress, kwargs...)
+            # Obtain the next transition.
+            transition = step!(rng, model, sampler, 1, transition; iteration=i, kwargs...)
+
+            # Run callback.
+            callback(rng, model, sampler, 1, i, transition; kwargs...)
+
+            # Save the transition.
+            transitions_save!(transitions, i, transition, model, sampler; kwargs...)
+
+            # Increment iteration counter.
+            i += 1
+        end
+    end
+
+    # Wrap up the sampler, if necessary.
+    sample_end!(rng, model, sampler, i, transitions; kwargs...)
+
+    # Wrap the samples up.
+    return bundle_samples(rng, model, sampler, i, transitions, chain_type; kwargs...)
 end
 
 end # module AbstractMCMC

@@ -6,6 +6,7 @@ struct MyTransition
 end
 
 struct MySampler <: AbstractMCMC.AbstractSampler end
+struct AnotherSampler <: AbstractMCMC.AbstractSampler end
 
 struct MyChain <: AbstractMCMC.AbstractChains
     as::Vector{Float64}
@@ -52,4 +53,20 @@ function AbstractMCMC.bundle_samples(
     return MyChain(as, bs)
 end
 
+function is_done(
+    rng::AbstractRNG,
+    model::MyModel,
+    s::MySampler,
+    transitions,
+    iteration::Int;
+    chain_type::Type=Any,
+    kwargs...
+)
+    # Calculate the mean of x.b.
+    bmean = mean(x.b for x in transitions)
+    return abs(bmean) <= 0.001 || iteration >= 10_000
+end
+
+# Set a default convergence function.
+AbstractMCMC.sample(model, sampler::MySampler; kwargs...) = sample(Random.GLOBAL_RNG, model, sampler, is_done; kwargs...)
 AbstractMCMC.chainscat(chains::Union{MyChain,Vector{<:MyChain}}...) = vcat(chains...)
