@@ -3,7 +3,7 @@ uuid = "80f14c24-f653-4e6a-9b94-39d6b0f70001"
 keywords = ["markov chain monte carlo", "probablistic programming"]
 license = "MIT"
 desc = "A lightweight interface for common MCMC methods."
-version = "0.5.5"
+version = "0.5.6"
 
 [deps]
 ConsoleProgressMonitor = "88cd18e8-d9cc-4ea6-8889-5259c0d15c8b"
@@ -19,7 +19,7 @@ TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 ConsoleProgressMonitor = "0.1"
 LoggingExtras = "0.4"
 ProgressLogging = "0.1"
-StatsBase = "0.32"
+StatsBase = "0.32, 0.33"
 TerminalLoggers = "0.1"
 julia = "1"
 
