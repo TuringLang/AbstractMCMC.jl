@@ -49,7 +49,7 @@ Return `N` samples from the MCMC `sampler` for the provided `model`.
 
 A callback function `f` with type signature
 ```julia
-f(rng, model, sampler, N, iteration, transition; kwargs...)
+f(rng, model, sampler, transition, iteration)
 ```
 may be provided as keyword argument `callback`. It is called after every sampling step.
 """
@@ -60,7 +60,7 @@ function mcmcsample(
     N::Integer;
     progress = true,
     progressname = "Sampling",
-    callback = (args...; kwargs...) -> nothing,
+    callback = (args...) -> nothing,
     chain_type::Type=Any,
     kwargs...
 )
@@ -75,7 +75,7 @@ function mcmcsample(
         transition = step!(rng, model, sampler, N; iteration=1, kwargs...)
 
         # Run callback.
-        callback(rng, model, sampler, N, 1, transition; kwargs...)
+        callback(rng, model, sampler, transition, 1)
 
         # Save the transition.
         transitions = transitions_init(transition, model, sampler, N; kwargs...)
@@ -90,7 +90,7 @@ function mcmcsample(
             transition = step!(rng, model, sampler, N, transition; iteration=i, kwargs...)
 
             # Run callback.
-            callback(rng, model, sampler, N, i, transition; kwargs...)
+            callback(rng, model, sampler, transition, i)
 
             # Save the transition.
             transitions_save!(transitions, i, transition, model, sampler, N; kwargs...)
@@ -119,7 +119,7 @@ and should return `true` when sampling should end, and `false` otherwise.
 
 A callback function `f` with type signature
 ```julia
-f(rng, model, sampler, N, iteration, transition; kwargs...)
+f(rng, model, sampler, transition, iteration)
 ```
 may be provided as keyword argument `callback`. It is called after every sampling step.
 """
@@ -131,7 +131,7 @@ function mcmcsample(
     chain_type::Type=Any,
     progress = true,
     progressname = "Convergence sampling",
-    callback = (args...; kwargs...) -> nothing,
+    callback = (args...) -> nothing,
     kwargs...
 )
     # Perform any necessary setup.
@@ -142,7 +142,7 @@ function mcmcsample(
         transition = step!(rng, model, sampler, 1; iteration=1, kwargs...)
 
         # Run callback.
-        callback(rng, model, sampler, 1, 1, transition; kwargs...)
+        callback(rng, model, sampler, transition, 1)
 
         # Save the transition.
         transitions = transitions_init(transition, model, sampler; kwargs...)
@@ -155,7 +155,7 @@ function mcmcsample(
             transition = step!(rng, model, sampler, 1, transition; iteration=i, kwargs...)
 
             # Run callback.
-            callback(rng, model, sampler, 1, i, transition; kwargs...)
+            callback(rng, model, sampler, transition, i)
 
             # Save the transition.
             transitions_save!(transitions, i, transition, model, sampler; kwargs...)
