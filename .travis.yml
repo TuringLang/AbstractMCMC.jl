@@ -24,7 +24,7 @@ matrix:
 notifications:
   email: false
 after_success:
-  - if [[ $TRAVIS_JULIA_VERSION = 1.4 ]] && [[ $JULIA_NUM_THREADS = 1 ]] && [[ $TRAVIS_OS_NAME = linux ]]; then
+  - if [[ $TRAVIS_JULIA_VERSION = 1 ]] && [[ $JULIA_NUM_THREADS = 1 ]] && [[ $TRAVIS_OS_NAME = linux ]]; then
       julia -e 'using Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())';
       julia -e 'using Pkg; Pkg.add("Coverage"); using Coverage; Coveralls.submit(process_folder())';
     fi
