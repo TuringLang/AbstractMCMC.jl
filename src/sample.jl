@@ -19,25 +19,28 @@ function StatsBase.sample(
     return mcmcsample(rng, model, sampler, arg; kwargs...)
 end
 
-function psample(
+function StatsBase.sample(
     model::AbstractModel,
     sampler::AbstractSampler,
+    algorithm::AbstractParallelAlgorithm,
     N::Integer,
     nchains::Integer;
     kwargs...
 )
-    return psample(Random.GLOBAL_RNG, model, sampler, N, nchains; kwargs...)
+    return StatsBase.sample(Random.GLOBAL_RNG, model, sampler, algorithm, N, nchains;
+                            kwargs...)
 end
 
-function psample(
+function StatsBase.sample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
     sampler::AbstractSampler,
+    algorithm::AbstractParallelAlgorithm,
     N::Integer,
     nchains::Integer;
     kwargs...
 )
-    return mcmcpsample(rng, model, sampler, N, nchains; kwargs...)
+    return mcmcsample(rng, model, sampler, algorithm, N, nchains; kwargs...)
 end
 
 # Default implementations of regular and parallel sampling.
@@ -173,17 +176,16 @@ function mcmcsample(
 end
 
 """
-    mcmcpsample([rng, ]model, sampler, N, nchains; kwargs...)
+    mcmcsample([rng, ]model, sampler, algorithm, N, nchains; kwargs...)
 
-Sample `nchains` chains using the available threads, and combine them into a single chain.
-
-By default, the random number generator, the model and the samplers are deep copied for each
-thread to prevent contamination between threads.
+Sample `nchains` chains in parallel using the `algorithm`, and combine them into a single
+chain.
 """
-function mcmcpsample(
+function mcmcsample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
     sampler::AbstractSampler,
+    ::ParallelThreads,
     N::Integer,
     nchains::Integer;
     progress = true,
@@ -204,7 +206,7 @@ function mcmcpsample(
     @ifwithprogresslogger progress name=progressname begin
         # Create a channel for progress logging.
         if progress
-            channel = Distributed.RemoteChannel(() -> Channel{Bool}(nchains), 1)
+            channel = Distributed.RemoteChannel(() -> Channel{Bool}(nchains))
         end
 
         Distributed.@sync begin
@@ -245,3 +247,72 @@ function mcmcpsample(
     # Concatenate the chains together.
     return reduce(chainscat, chains)
 end
+
+function mcmcsample(
+    rng::Random.AbstractRNG,
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    ::ParallelDistributed,
+    N::Integer,
+    nchains::Integer;
+    progress = true,
+    progressname = "Parallel sampling",
+    kwargs...
+)
+    # Create a seed for each chain using the provided random number generator.
+    seeds = rand(rng, UInt, nchains)
+
+    # Set up worker pool.
+    pool = Distributed.CachingPool(Distributed.workers())
+
+    # Create a channel for progress logging.
+    channel = progress ? Distributed.RemoteChannel(() -> Channel{Bool}(nchains)) : nothing
+
+    local chains
+    @ifwithprogresslogger progress name=progressname begin
+        Distributed.@sync begin
+            # Update the progress bar.
+            if progress
+                Distributed.@async begin
+                    progresschains = 0
+                    while take!(channel)
+                        progresschains += 1
+                        ProgressLogging.@logprogress progresschains/nchains
+                    end
+                end
+            end
+
+            Distributed.@async begin
+                chains = let rng=rng, model=model, sampler=sampler, N=N, channel=channel,
+                    kwargs=kwargs
+                    Distributed.pmap(pool, seeds) do seed
+                        # Seed a new random number generator with the pre-made seed.
+                        subrng = deepcopy(rng)
+                        Random.seed!(subrng, seed)
+
+                        # Sample a chain.
+                        chain = StatsBase.sample(subrng, model, sampler, N;
+                                                 progress = false, kwargs...)
+
+                        # Update the progress bar.
+                        channel === nothing || put!(channel, true)
+
+                        # Return the new chain.
+                        return chain
+                    end
+                end
+
+                # Stop updating the progress bar.
+                progress && put!(channel, false)
+            end
+        end
+    end
+
+    # Concatenate the chains together.
+    return reduce(chainscat, chains)
+end
+
+# Deprecations.
+Base.@deprecate psample(model, sampler, N, nchains; kwargs...) sample(model, sampler, ParallelThreads(), N, nchains; kwargs...) false
+Base.@deprecate psample(rng, model, sampler, N, nchains; kwargs...) sample(rng, model, sampler, ParallelThreads(), N, nchains; kwargs...) false
+Base.@deprecate mcmcpsample(rng, model, sampler, N, nchains; kwargs...) mcmcsample(rng, model, sampler, ParallelThreads(), N, nchains; kwargs...) false
