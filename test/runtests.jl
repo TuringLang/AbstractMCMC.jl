@@ -111,8 +111,6 @@ include("interface.jl")
 
     if VERSION ≥ v"1.3"
         @testset "Multithreaded sampling" begin
-            println("testing parallel sampling with ", Threads.nthreads(), " thread(s)...")
-
             Random.seed!(1234)
             chains = sample(MyModel(), MySampler(), ParallelThreads(), 10_000, 1000;
                             chain_type = MyChain)
@@ -145,8 +143,8 @@ include("interface.jl")
     end
 
     @testset "Multicore sampling" begin
+        # Add worker processes.
         addprocs()
-        println("testing parallel sampling with ", nprocs(), " core(s)...")
 
         # Load all required packages (`interface.jl` needs Random).
         @everywhere begin

@@ -189,7 +189,7 @@ function mcmcsample(
     N::Integer,
     nchains::Integer;
     progress = true,
-    progressname = "Parallel sampling",
+    progressname = "Parallel sampling ($(Threads.nthreads()) threads)",
     kwargs...
 )
     # Copy the random number generator, model, and sample for each thread
@@ -256,7 +256,7 @@ function mcmcsample(
     N::Integer,
     nchains::Integer;
     progress = true,
-    progressname = "Parallel sampling",
+    progressname = "Parallel sampling ($(Distributed.nworkers()) processes)",
     kwargs...
 )
     # Create a seed for each chain using the provided random number generator.
