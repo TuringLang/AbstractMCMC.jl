@@ -111,6 +111,12 @@ include("interface.jl")
 
     if VERSION ≥ v"1.3"
         @testset "Multithreaded sampling" begin
+            if Threads.nthreads() == 1
+                warnregex = r"^Only a single thread available"
+                @test_logs (:warn, warnregex) sample(MyModel(), MySampler(), MCMCThreads(),
+                                                     10, 10; chain_type = MyChain)
+            end
+
             Random.seed!(1234)
             chains = sample(MyModel(), MySampler(), MCMCThreads(), 10_000, 1000;
                             chain_type = MyChain)
@@ -143,6 +149,12 @@ include("interface.jl")
     end
 
     @testset "Multicore sampling" begin
+        if nworkers() == 1
+            warnregex = r"^Only a single process available"
+            @test_logs (:warn, warnregex) sample(MyModel(), MySampler(), MCMCDistributed(),
+                                                 10, 10; chain_type = MyChain)
+        end
+
         # Add worker processes.
         addprocs()
 

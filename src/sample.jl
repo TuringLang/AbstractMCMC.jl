@@ -192,6 +192,11 @@ function mcmcsample(
     progressname = "Sampling ($(Threads.nthreads()) threads)",
     kwargs...
 )
+    # Check if actually multiple threads are used.
+    if Threads.nthreads() == 1
+        @warn "Only a single thread available: MCMC chains are not sampled in parallel"
+    end
+
     # Copy the random number generator, model, and sample for each thread
     rngs = [deepcopy(rng) for _ in 1:Threads.nthreads()]
     models = [deepcopy(model) for _ in 1:Threads.nthreads()]
@@ -259,6 +264,11 @@ function mcmcsample(
     progressname = "Sampling ($(Distributed.nworkers()) processes)",
     kwargs...
 )
+    # Check if actually multiple processes are used.
+    if Distributed.nworkers() == 1
+        @warn "Only a single process available: MCMC chains are not sampled in parallel"
+    end
+
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
 
