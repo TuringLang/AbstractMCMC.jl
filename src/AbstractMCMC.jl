@@ -40,28 +40,28 @@ An `AbstractModel` represents a generic model type that can be used to perform i
 abstract type AbstractModel end
 
 """
-    AbstractParallelAlgorithm
+    AbstractMCMCParallel
 
-An `AbstractParallelAlgorithm` represents a specific algorithm for sampling MCMC chains in
-parallel.
+An `AbstractMCMCParallel` algorithm represents a specific algorithm for sampling MCMC chains
+in parallel.
 """
-abstract type AbstractParallelAlgorithm end
+abstract type AbstractMCMCParallel end
 
 """
-    ParallelThreads
+    MCMCThreads
 
-The `ParallelThreads` algorithm allows to sample MCMC chains in parallel using multiple
+The `MCMCThreads` algorithm allows to sample MCMC chains in parallel using multiple
 threads.
 """
-struct ParallelThreads <: AbstractParallelAlgorithm end
+struct MCMCThreads <: AbstractMCMCParallel end
 
 """
-    ParallelDistributed
+    MCMCDistributed
 
-The `ParallelDistributed` algorithm allows to sample MCMC chains in parallel using multiple
-cores.
+The `MCMCDistributed` algorithm allows to sample MCMC chains in parallel using multiple
+processes.
 """
-struct ParallelDistributed <: AbstractParallelAlgorithm end
+struct MCMCDistributed <: AbstractMCMCParallel end
 
 include("logging.jl")
 include("interface.jl")

@@ -1,5 +1,5 @@
 using AbstractMCMC
-using AbstractMCMC: sample, ParallelThreads, ParallelDistributed, steps!
+using AbstractMCMC: sample, MCMCThreads, MCMCDistributed, steps!
 using Atom.Progress: JunoProgressLogger
 using ConsoleProgressMonitor: ProgressLogger
 using IJulia
@@ -112,7 +112,7 @@ include("interface.jl")
     if VERSION ≥ v"1.3"
         @testset "Multithreaded sampling" begin
             Random.seed!(1234)
-            chains = sample(MyModel(), MySampler(), ParallelThreads(), 10_000, 1000;
+            chains = sample(MyModel(), MySampler(), MCMCThreads(), 10_000, 1000;
                             chain_type = MyChain)
 
             # test output type and size
@@ -128,14 +128,14 @@ include("interface.jl")
 
             # test reproducibility
             Random.seed!(1234)
-            chains2 = sample(MyModel(), MySampler(), ParallelThreads(), 10_000, 1000;
+            chains2 = sample(MyModel(), MySampler(), MCMCThreads(), 10_000, 1000;
                              chain_type = MyChain)
 
             @test all(((x, y),) -> x.as == y.as && x.bs == y.bs, zip(chains, chains2))
 
             # Suppress output.
             logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
-                sample(MyModel(), MySampler(), ParallelThreads(), 10_000, 1000;
+                sample(MyModel(), MySampler(), MCMCThreads(), 10_000, 1000;
                         progress = false, chain_type = MyChain)
             end
             @test isempty(logs)
@@ -156,7 +156,7 @@ include("interface.jl")
         end
 
         Random.seed!(1234)
-        chains = sample(MyModel(), MySampler(), ParallelDistributed(), 10_000, 1000;
+        chains = sample(MyModel(), MySampler(), MCMCDistributed(), 10_000, 1000;
                         chain_type = MyChain)
 
         # Test output type and size.
@@ -172,14 +172,14 @@ include("interface.jl")
 
         # Test reproducibility.
         Random.seed!(1234)
-        chains2 = sample(MyModel(), MySampler(), ParallelDistributed(), 10_000, 1000;
+        chains2 = sample(MyModel(), MySampler(), MCMCDistributed(), 10_000, 1000;
                          chain_type = MyChain)
 
         @test all(((x, y),) -> x.as == y.as && x.bs == y.bs, zip(chains, chains2))
 
         # Suppress output.
         logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
-            sample(MyModel(), MySampler(), ParallelDistributed(), 10_000, 100;
+            sample(MyModel(), MySampler(), MCMCDistributed(), 10_000, 100;
                    progress = false, chain_type = MyChain)
         end
         @test isempty(logs)

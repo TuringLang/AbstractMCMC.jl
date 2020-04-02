@@ -22,12 +22,12 @@ end
 function StatsBase.sample(
     model::AbstractModel,
     sampler::AbstractSampler,
-    algorithm::AbstractParallelAlgorithm,
+    parallel::AbstractMCMCParallel,
     N::Integer,
     nchains::Integer;
     kwargs...
 )
-    return StatsBase.sample(Random.GLOBAL_RNG, model, sampler, algorithm, N, nchains;
+    return StatsBase.sample(Random.GLOBAL_RNG, model, sampler, parallel, N, nchains;
                             kwargs...)
 end
 
@@ -35,12 +35,12 @@ function StatsBase.sample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
     sampler::AbstractSampler,
-    algorithm::AbstractParallelAlgorithm,
+    parallel::AbstractMCMCParallel,
     N::Integer,
     nchains::Integer;
     kwargs...
 )
-    return mcmcsample(rng, model, sampler, algorithm, N, nchains; kwargs...)
+    return mcmcsample(rng, model, sampler, parallel, N, nchains; kwargs...)
 end
 
 # Default implementations of regular and parallel sampling.
@@ -176,16 +176,16 @@ function mcmcsample(
 end
 
 """
-    mcmcsample([rng, ]model, sampler, algorithm, N, nchains; kwargs...)
+    mcmcsample([rng, ]model, sampler, parallel, N, nchains; kwargs...)
 
-Sample `nchains` chains in parallel using the `algorithm`, and combine them into a single
-chain.
+Sample `nchains` chains in parallel using the `parallel` algorithm, and combine them into a
+single chain.
 """
 function mcmcsample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
     sampler::AbstractSampler,
-    ::ParallelThreads,
+    ::MCMCThreads,
     N::Integer,
     nchains::Integer;
     progress = true,
@@ -252,7 +252,7 @@ function mcmcsample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
     sampler::AbstractSampler,
-    ::ParallelDistributed,
+    ::MCMCDistributed,
     N::Integer,
     nchains::Integer;
     progress = true,
@@ -313,6 +313,6 @@ function mcmcsample(
 end
 
 # Deprecations.
-Base.@deprecate psample(model, sampler, N, nchains; kwargs...) sample(model, sampler, ParallelThreads(), N, nchains; kwargs...) false
-Base.@deprecate psample(rng, model, sampler, N, nchains; kwargs...) sample(rng, model, sampler, ParallelThreads(), N, nchains; kwargs...) false
-Base.@deprecate mcmcpsample(rng, model, sampler, N, nchains; kwargs...) mcmcsample(rng, model, sampler, ParallelThreads(), N, nchains; kwargs...) false
+Base.@deprecate psample(model, sampler, N, nchains; kwargs...) sample(model, sampler, MCMCThreads(), N, nchains; kwargs...) false
+Base.@deprecate psample(rng, model, sampler, N, nchains; kwargs...) sample(rng, model, sampler, MCMCThreads(), N, nchains; kwargs...) false
+Base.@deprecate mcmcpsample(rng, model, sampler, N, nchains; kwargs...) mcmcsample(rng, model, sampler, MCMCThreads(), N, nchains; kwargs...) false
