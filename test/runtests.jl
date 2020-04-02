@@ -105,7 +105,7 @@ include("interface.jl")
             logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
                 sample(MyModel(), MySampler(), 100; progress = false, sleepy = true)
             end
-            @test isempty(logs)
+            @test all(l.level > Logging.LogLevel(-1) for l in logs)
         end
     end
 
@@ -144,7 +144,7 @@ include("interface.jl")
                 sample(MyModel(), MySampler(), MCMCThreads(), 10_000, 1000;
                         progress = false, chain_type = MyChain)
             end
-            @test isempty(logs)
+            @test all(l.level > Logging.LogLevel(-1) for l in logs)
         end
     end
 
@@ -194,7 +194,7 @@ include("interface.jl")
             sample(MyModel(), MySampler(), MCMCDistributed(), 10_000, 100;
                    progress = false, chain_type = MyChain)
         end
-        @test isempty(logs)
+        @test all(l.level > Logging.LogLevel(-1) for l in logs)
     end
 
     @testset "Chain constructors" begin
