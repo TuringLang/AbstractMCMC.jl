@@ -4,12 +4,18 @@ import ConsoleProgressMonitor
 import LoggingExtras
 import ProgressLogging
 import StatsBase
-using StatsBase: sample
 import TerminalLoggers
 
 import Distributed
 import Logging
 import Random
+
+# Reexport sample
+using StatsBase: sample
+export sample
+
+# Parallel sampling types
+export MCMCThreads, MCMCDistributed
 
 """
     AbstractChains

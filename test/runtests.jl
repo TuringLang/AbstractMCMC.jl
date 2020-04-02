@@ -1,5 +1,5 @@
 using AbstractMCMC
-using AbstractMCMC: sample, MCMCThreads, MCMCDistributed, steps!
+using AbstractMCMC: steps!
 using Atom.Progress: JunoProgressLogger
 using ConsoleProgressMonitor: ProgressLogger
 using IJulia
