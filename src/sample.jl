@@ -1,4 +1,4 @@
-# Default implementations of `sample` and `psample`.
+# Default implementations of `sample`.
 
 function StatsBase.sample(
     model::AbstractModel,
