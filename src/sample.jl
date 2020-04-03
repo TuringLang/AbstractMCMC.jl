@@ -1,4 +1,4 @@
-# Default implementations of `sample` and `psample`.
+# Default implementations of `sample`.
 
 function StatsBase.sample(
     model::AbstractModel,
@@ -19,25 +19,28 @@ function StatsBase.sample(
     return mcmcsample(rng, model, sampler, arg; kwargs...)
 end
 
-function psample(
+function StatsBase.sample(
     model::AbstractModel,
     sampler::AbstractSampler,
+    parallel::AbstractMCMCParallel,
     N::Integer,
     nchains::Integer;
     kwargs...
 )
-    return psample(Random.GLOBAL_RNG, model, sampler, N, nchains; kwargs...)
+    return StatsBase.sample(Random.GLOBAL_RNG, model, sampler, parallel, N, nchains;
+                            kwargs...)
 end
 
-function psample(
+function StatsBase.sample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
     sampler::AbstractSampler,
+    parallel::AbstractMCMCParallel,
     N::Integer,
     nchains::Integer;
     kwargs...
 )
-    return mcmcpsample(rng, model, sampler, N, nchains; kwargs...)
+    return mcmcsample(rng, model, sampler, parallel, N, nchains; kwargs...)
 end
 
 # Default implementations of regular and parallel sampling.
@@ -173,23 +176,27 @@ function mcmcsample(
 end
 
 """
-    mcmcpsample([rng, ]model, sampler, N, nchains; kwargs...)
+    mcmcsample([rng, ]model, sampler, parallel, N, nchains; kwargs...)
 
-Sample `nchains` chains using the available threads, and combine them into a single chain.
-
-By default, the random number generator, the model and the samplers are deep copied for each
-thread to prevent contamination between threads.
+Sample `nchains` chains in parallel using the `parallel` algorithm, and combine them into a
+single chain.
 """
-function mcmcpsample(
+function mcmcsample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
     sampler::AbstractSampler,
+    ::MCMCThreads,
     N::Integer,
     nchains::Integer;
     progress = true,
-    progressname = "Parallel sampling",
+    progressname = "Sampling ($(Threads.nthreads()) threads)",
     kwargs...
 )
+    # Check if actually multiple threads are used.
+    if Threads.nthreads() == 1
+        @warn "Only a single thread available: MCMC chains are not sampled in parallel"
+    end
+
     # Copy the random number generator, model, and sample for each thread
     rngs = [deepcopy(rng) for _ in 1:Threads.nthreads()]
     models = [deepcopy(model) for _ in 1:Threads.nthreads()]
@@ -204,7 +211,7 @@ function mcmcpsample(
     @ifwithprogresslogger progress name=progressname begin
         # Create a channel for progress logging.
         if progress
-            channel = Distributed.RemoteChannel(() -> Channel{Bool}(nchains), 1)
+            channel = Distributed.RemoteChannel(() -> Channel{Bool}(nchains))
         end
 
         Distributed.@sync begin
@@ -245,3 +252,77 @@ function mcmcpsample(
     # Concatenate the chains together.
     return reduce(chainscat, chains)
 end
+
+function mcmcsample(
+    rng::Random.AbstractRNG,
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    ::MCMCDistributed,
+    N::Integer,
+    nchains::Integer;
+    progress = true,
+    progressname = "Sampling ($(Distributed.nworkers()) processes)",
+    kwargs...
+)
+    # Check if actually multiple processes are used.
+    if Distributed.nworkers() == 1
+        @warn "Only a single process available: MCMC chains are not sampled in parallel"
+    end
+
+    # Create a seed for each chain using the provided random number generator.
+    seeds = rand(rng, UInt, nchains)
+
+    # Set up worker pool.
+    pool = Distributed.CachingPool(Distributed.workers())
+
+    # Create a channel for progress logging.
+    channel = progress ? Distributed.RemoteChannel(() -> Channel{Bool}(nchains)) : nothing
+
+    local chains
+    @ifwithprogresslogger progress name=progressname begin
+        Distributed.@sync begin
+            # Update the progress bar.
+            if progress
+                Distributed.@async begin
+                    progresschains = 0
+                    while take!(channel)
+                        progresschains += 1
+                        ProgressLogging.@logprogress progresschains/nchains
+                    end
+                end
+            end
+
+            Distributed.@async begin
+                chains = let rng=rng, model=model, sampler=sampler, N=N, channel=channel,
+                    kwargs=kwargs
+                    Distributed.pmap(pool, seeds) do seed
+                        # Seed a new random number generator with the pre-made seed.
+                        subrng = deepcopy(rng)
+                        Random.seed!(subrng, seed)
+
+                        # Sample a chain.
+                        chain = StatsBase.sample(subrng, model, sampler, N;
+                                                 progress = false, kwargs...)
+
+                        # Update the progress bar.
+                        channel === nothing || put!(channel, true)
+
+                        # Return the new chain.
+                        return chain
+                    end
+                end
+
+                # Stop updating the progress bar.
+                progress && put!(channel, false)
+            end
+        end
+    end
+
+    # Concatenate the chains together.
+    return reduce(chainscat, chains)
+end
+
+# Deprecations.
+Base.@deprecate psample(model, sampler, N, nchains; kwargs...) sample(model, sampler, MCMCThreads(), N, nchains; kwargs...) false
+Base.@deprecate psample(rng, model, sampler, N, nchains; kwargs...) sample(rng, model, sampler, MCMCThreads(), N, nchains; kwargs...) false
+Base.@deprecate mcmcpsample(rng, model, sampler, N, nchains; kwargs...) mcmcsample(rng, model, sampler, MCMCThreads(), N, nchains; kwargs...) false

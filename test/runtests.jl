@@ -1,11 +1,12 @@
 using AbstractMCMC
-using AbstractMCMC: sample, psample, steps!
+using AbstractMCMC: steps!
 using Atom.Progress: JunoProgressLogger
 using ConsoleProgressMonitor: ProgressLogger
 using IJulia
 using LoggingExtras: TeeLogger, EarlyFilteredLogger
 using TerminalLoggers: TerminalLogger
 
+using Distributed
 import Logging
 using Random
 using Statistics
@@ -99,14 +100,26 @@ include("interface.jl")
             @test first(LOGGERS) === logger
             @test Logging.current_logger() === CURRENT_LOGGER
         end
+
+        @testset "Suppress output" begin
+            logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
+                sample(MyModel(), MySampler(), 100; progress = false, sleepy = true)
+            end
+            @test all(l.level > Logging.LogLevel(-1) for l in logs)
+        end
     end
 
     if VERSION ≥ v"1.3"
-        @testset "Parallel sampling" begin
-            println("testing parallel sampling with ", Threads.nthreads(), " thread(s)...")
+        @testset "Multithreaded sampling" begin
+            if Threads.nthreads() == 1
+                warnregex = r"^Only a single thread available"
+                @test_logs (:warn, warnregex) sample(MyModel(), MySampler(), MCMCThreads(),
+                                                     10, 10; chain_type = MyChain)
+            end
 
             Random.seed!(1234)
-            chains = psample(MyModel(), MySampler(), 10_000, 1000; chain_type = MyChain)
+            chains = sample(MyModel(), MySampler(), MCMCThreads(), 10_000, 1000;
+                            chain_type = MyChain)
 
             # test output type and size
             @test chains isa Vector{MyChain}
@@ -121,10 +134,67 @@ include("interface.jl")
 
             # test reproducibility
             Random.seed!(1234)
-            chains2 = psample(MyModel(), MySampler(), 10_000, 1000; chain_type = MyChain)
+            chains2 = sample(MyModel(), MySampler(), MCMCThreads(), 10_000, 1000;
+                             chain_type = MyChain)
 
             @test all(((x, y),) -> x.as == y.as && x.bs == y.bs, zip(chains, chains2))
+
+            # Suppress output.
+            logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
+                sample(MyModel(), MySampler(), MCMCThreads(), 10_000, 1000;
+                        progress = false, chain_type = MyChain)
+            end
+            @test all(l.level > Logging.LogLevel(-1) for l in logs)
         end
+    end
+
+    @testset "Multicore sampling" begin
+        if nworkers() == 1
+            warnregex = r"^Only a single process available"
+            @test_logs (:warn, warnregex) sample(MyModel(), MySampler(), MCMCDistributed(),
+                                                 10, 10; chain_type = MyChain)
+        end
+
+        # Add worker processes.
+        addprocs()
+
+        # Load all required packages (`interface.jl` needs Random).
+        @everywhere begin
+            using AbstractMCMC
+            using AbstractMCMC: sample
+
+            using Random
+            include("interface.jl")
+        end
+
+        Random.seed!(1234)
+        chains = sample(MyModel(), MySampler(), MCMCDistributed(), 10_000, 1000;
+                        chain_type = MyChain)
+
+        # Test output type and size.
+        @test chains isa Vector{MyChain}
+        @test length(chains) == 1000
+        @test all(x -> length(x.as) == length(x.bs) == 10_000, chains)
+
+        # Test some statistical properties.
+        @test all(x -> isapprox(mean(x.as), 0.5; atol=1e-2), chains)
+        @test all(x -> isapprox(var(x.as), 1 / 12; atol=5e-3), chains)
+        @test all(x -> isapprox(mean(x.bs), 0; atol=5e-2), chains)
+        @test all(x -> isapprox(var(x.bs), 1; atol=5e-2), chains)
+
+        # Test reproducibility.
+        Random.seed!(1234)
+        chains2 = sample(MyModel(), MySampler(), MCMCDistributed(), 10_000, 1000;
+                         chain_type = MyChain)
+
+        @test all(((x, y),) -> x.as == y.as && x.bs == y.bs, zip(chains, chains2))
+
+        # Suppress output.
+        logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
+            sample(MyModel(), MySampler(), MCMCDistributed(), 10_000, 100;
+                   progress = false, chain_type = MyChain)
+        end
+        @test all(l.level > Logging.LogLevel(-1) for l in logs)
     end
 
     @testset "Chain constructors" begin
@@ -133,21 +203,6 @@ include("interface.jl")
 
         @test chain1 isa Vector{MyTransition}
         @test chain2 isa MyChain
-    end
-
-    @testset "Suppress output" begin
-        logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
-            sample(MyModel(), MySampler(), 100; progress = false, sleepy = true)
-        end
-        @test isempty(logs)
-
-        if VERSION ≥ v"1.3"
-            logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
-                psample(MyModel(), MySampler(), 10_000, 1000;
-                        progress = false, chain_type = MyChain)
-            end
-            @test isempty(logs)
-        end
     end
 
     @testset "Iterator sampling" begin
@@ -181,5 +236,16 @@ include("interface.jl")
         chain = sample(MyModel(), MySampler())
         bmean = mean(x.b for x in chain)
         @test abs(bmean) <= 0.001 && length(chain) < 10_000
+    end
+
+    @testset "Deprecations" begin
+        @test_deprecated AbstractMCMC.psample(MyModel(), MySampler(), 10, 10;
+                                              chain_type = MyChain)
+        @test_deprecated AbstractMCMC.psample(Random.GLOBAL_RNG, MyModel(), MySampler(),
+                                              10, 10;
+                                              chain_type = MyChain)
+        @test_deprecated AbstractMCMC.mcmcpsample(Random.GLOBAL_RNG, MyModel(),
+                                                  MySampler(), 10, 10;
+                                                  chain_type = MyChain)
     end
 end

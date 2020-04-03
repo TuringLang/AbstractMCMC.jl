@@ -4,12 +4,18 @@ import ConsoleProgressMonitor
 import LoggingExtras
 import ProgressLogging
 import StatsBase
-using StatsBase: sample
 import TerminalLoggers
 
 import Distributed
 import Logging
 import Random
+
+# Reexport sample
+using StatsBase: sample
+export sample
+
+# Parallel sampling types
+export MCMCThreads, MCMCDistributed
 
 """
     AbstractChains
@@ -38,6 +44,30 @@ abstract type AbstractSampler end
 An `AbstractModel` represents a generic model type that can be used to perform inference.
 """
 abstract type AbstractModel end
+
+"""
+    AbstractMCMCParallel
+
+An `AbstractMCMCParallel` algorithm represents a specific algorithm for sampling MCMC chains
+in parallel.
+"""
+abstract type AbstractMCMCParallel end
+
+"""
+    MCMCThreads
+
+The `MCMCThreads` algorithm allows to sample MCMC chains in parallel using multiple
+threads.
+"""
+struct MCMCThreads <: AbstractMCMCParallel end
+
+"""
+    MCMCDistributed
+
+The `MCMCDistributed` algorithm allows to sample MCMC chains in parallel using multiple
+processes.
+"""
+struct MCMCDistributed <: AbstractMCMCParallel end
 
 include("logging.jl")
 include("interface.jl")
