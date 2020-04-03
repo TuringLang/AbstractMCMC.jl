@@ -3,7 +3,7 @@ uuid = "80f14c24-f653-4e6a-9b94-39d6b0f70001"
 keywords = ["markov chain monte carlo", "probablistic programming"]
 license = "MIT"
 desc = "A lightweight interface for common MCMC methods."
-version = "0.5.6"
+version = "1.0.0"
 
 [deps]
 ConsoleProgressMonitor = "88cd18e8-d9cc-4ea6-8889-5259c0d15c8b"
