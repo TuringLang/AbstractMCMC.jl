@@ -78,15 +78,13 @@ When sampling from the `sampler` using [`sample`](@ref), every `step!` call afte
 has access to the previous `transition`. In the first call, `transition` is set to `nothing`.
 """
 function step!(
-    ::Random.AbstractRNG,
+    rng::Random.AbstractRNG,
     model::AbstractModel,
     sampler::AbstractSampler,
-    ::Integer = 1,
-    transition = nothing;
+    N::Integer = 1;
     kwargs...
 )
-    error("function `step!` is not implemented for models of type $(typeof(model)), ",
-        "samplers of type $(typeof(sampler)), and transitions of type $(typeof(transition))")
+    return step!(rng, model, sampler, N, nothing; kwargs...)
 end
 
 """
