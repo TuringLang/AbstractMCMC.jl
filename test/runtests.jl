@@ -139,6 +139,12 @@ include("interface.jl")
 
             @test all(((x, y),) -> x.as == y.as && x.bs == y.bs, zip(chains, chains2))
 
+            # Unexpected order of arguments.
+            str = "Number of chains (10) is greater than number of samples per chain (5)"
+            @test_logs (:warn, str) match_mode=:any sample(MyModel(), MySampler(),
+                                                           MCMCThreads(), 5, 10;
+                                                           chain_type = MyChain)
+
             # Suppress output.
             logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
                 sample(MyModel(), MySampler(), MCMCThreads(), 10_000, 1000;
@@ -188,6 +194,12 @@ include("interface.jl")
                          chain_type = MyChain)
 
         @test all(((x, y),) -> x.as == y.as && x.bs == y.bs, zip(chains, chains2))
+
+        # Unexpected order of arguments.
+        str = "Number of chains (10) is greater than number of samples per chain (5)"
+        @test_logs (:warn, str) match_mode=:any sample(MyModel(), MySampler(),
+                                                       MCMCDistributed(), 5, 10;
+                                                       chain_type = MyChain)
 
         # Suppress output.
         logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
