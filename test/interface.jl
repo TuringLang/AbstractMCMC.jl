@@ -1,16 +1,16 @@
 struct MyModel <: AbstractMCMC.AbstractModel end
 
-struct MyTransition
-    a::Float64
-    b::Float64
+struct MyTransition{A,B}
+    a::A
+    b::B
 end
 
 struct MySampler <: AbstractMCMC.AbstractSampler end
 struct AnotherSampler <: AbstractMCMC.AbstractSampler end
 
-struct MyChain <: AbstractMCMC.AbstractChains
-    as::Vector{Float64}
-    bs::Vector{Float64}
+struct MyChain{A,B} <: AbstractMCMC.AbstractChains
+    as::Vector{A}
+    bs::Vector{B}
 end
 
 function AbstractMCMC.step!(
@@ -23,7 +23,8 @@ function AbstractMCMC.step!(
     loggers = false,
     kwargs...
 )
-    a = rand(rng)
+    # sample `a` is missing in the first step
+    a = transition === nothing ? missing : rand(rng)
     b = randn(rng)
 
     loggers && push!(LOGGERS, Logging.current_logger())
@@ -37,18 +38,12 @@ function AbstractMCMC.bundle_samples(
     model::MyModel,
     sampler::MySampler,
     N::Integer,
-    transitions::Vector{MyTransition},
+    transitions::Vector{<:MyTransition},
     chain_type::Type{MyChain};
     kwargs...
 )
-    n = length(transitions)
-    as = Vector{Float64}(undef, n)
-    bs = Vector{Float64}(undef, n)
-    for i in 1:n
-        transition = transitions[i]
-        as[i] = transition.a
-        bs[i] = transition.b
-    end
+    as = [t.a for t in transitions]
+    bs = [t.b for t in transitions]
 
     return MyChain(as, bs)
 end

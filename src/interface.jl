@@ -88,13 +88,15 @@ function step!(
 end
 
 """
-    transitions_init(transition, model, sampler, N[; kwargs...])
-    transitions_init(transition, model, sampler[; kwargs...])
+    transitions(transition, model, sampler, N[; kwargs...])
+    transitions(transition, model, sampler[; kwargs...])
 
 Generate a container for the `N` transitions of the MCMC `sampler` for the provided
-`model`, whose first transition is `transition`. Can be called with and without a predefined size `N`.
+`model`, whose first transition is `transition`.
+
+The method can be called with and without a predefined size `N`.
 """
-function transitions_init(
+function transitions(
     transition,
     ::AbstractModel,
     ::AbstractSampler,
@@ -104,43 +106,52 @@ function transitions_init(
     return Vector{typeof(transition)}(undef, N)
 end
 
-function transitions_init(
+function transitions(
     transition,
     ::AbstractModel,
     ::AbstractSampler;
     kwargs...
 )
-    return [transition]
+    return Vector{typeof(transition)}(undef, 1)
 end
 
 """
-    transitions_save!(transitions, iteration, transition, model, sampler, N[; kwargs...])
-    transitions_save!(transitions, iteration, transition, model, sampler[; kwargs...])
+    save!!(transitions, transition, iteration, model, sampler, N[; kwargs...])
+    save!!(transitions, transition, iteration, model, sampler[; kwargs...])
 
 Save the `transition` of the MCMC `sampler` at the current `iteration` in the container of
-`transitions`. Can be called with and without a predefined size `N`.
+`transitions`.
+
+The function can be called with and without a predefined size `N`. By default, AbstractMCMC
+uses ``setindex!`` and ``push!!`` from the Julia package
+[BangBang](https://github.com/tkf/BangBang.jl) to write to and append to the container,
+and widen the container type if needed.
 """
-function transitions_save!(
-    transitions::AbstractVector,
-    iteration::Integer,
+function save!!(
+    transitions,
     transition,
+    iteration::Integer,
     ::AbstractModel,
     ::AbstractSampler,
     ::Integer;
     kwargs...
 )
-    transitions[iteration] = transition
-    return
+    return BangBang.setindex!!(transitions, transition, iteration)
 end
 
-function transitions_save!(
-    transitions::AbstractVector,
-    iteration::Integer,
+function save!!(
+    transitions,
     transition,
+    iteration::Integer,
     ::AbstractModel,
     ::AbstractSampler;
     kwargs...
 )
-    push!(transitions, transition)
-    return
+    return BangBang.push!!(transitions, transition)
 end
+
+Base.@deprecate transitions_init(transition, model::AbstractModel, sampler::AbstractSampler, N::Integer; kwargs...) transitions(transition, model, sampler, N; kwargs...) false
+Base.@deprecate transitions_init(transition, model::AbstractModel, sampler::AbstractSampler; kwargs...) transitions(transition, model, sampler; kwargs...) false
+Base.@deprecate transitions_save!(transitions, iteration::Integer, transition, model::AbstractModel, sampler::AbstractSampler; kwargs...) save!!(transitions, transition, iteration, model, sampler; kwargs...) false
+Base.@deprecate transitions_save!(transitions, iteration::Integer, transition, model::AbstractModel, sampler::AbstractSampler, N::Integer; kwargs...) save!!(transitions, transition, iteration, model, sampler, N; kwargs...) false
+

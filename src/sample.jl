@@ -81,8 +81,8 @@ function mcmcsample(
         callback(rng, model, sampler, transition, 1)
 
         # Save the transition.
-        transitions = transitions_init(transition, model, sampler, N; kwargs...)
-        transitions_save!(transitions, 1, transition, model, sampler, N; kwargs...)
+        transitions = AbstractMCMC.transitions(transition, model, sampler, N; kwargs...)
+        transitions = save!!(transitions, transition, 1, model, sampler, N; kwargs...)
 
         # Update the progress bar.
         progress && ProgressLogging.@logprogress 1/N
@@ -96,7 +96,7 @@ function mcmcsample(
             callback(rng, model, sampler, transition, i)
 
             # Save the transition.
-            transitions_save!(transitions, i, transition, model, sampler, N; kwargs...)
+            transitions = save!!(transitions, transition, i, model, sampler, N; kwargs...)
 
             # Update the progress bar.
             progress && ProgressLogging.@logprogress i/N
@@ -148,7 +148,8 @@ function mcmcsample(
         callback(rng, model, sampler, transition, 1)
 
         # Save the transition.
-        transitions = transitions_init(transition, model, sampler; kwargs...)
+        transitions = AbstractMCMC.transitions(transition, model, sampler; kwargs...)
+        transitions = save!!(transitions, transition, 1, model, sampler; kwargs...)
 
         # Step through the sampler until stopping.
         i = 2
@@ -161,7 +162,7 @@ function mcmcsample(
             callback(rng, model, sampler, transition, i)
 
             # Save the transition.
-            transitions_save!(transitions, i, transition, model, sampler; kwargs...)
+            transitions = save!!(transitions, transition, i, model, sampler; kwargs...)
 
             # Increment iteration counter.
             i += 1

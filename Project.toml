@@ -6,6 +6,7 @@ desc = "A lightweight interface for common MCMC methods."
 version = "1.0.1"
 
 [deps]
+BangBang = "198e06fe-97b7-11e9-32a5-e1d131e6ad66"
 ConsoleProgressMonitor = "88cd18e8-d9cc-4ea6-8889-5259c0d15c8b"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -16,6 +17,7 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 
 [compat]
+BangBang = "0.3.19"
 ConsoleProgressMonitor = "0.1"
 LoggingExtras = "0.4"
 ProgressLogging = "0.1"

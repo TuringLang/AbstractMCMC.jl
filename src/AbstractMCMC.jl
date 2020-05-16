@@ -1,5 +1,6 @@
 module AbstractMCMC
 
+import BangBang
 import ConsoleProgressMonitor
 import LoggingExtras
 import ProgressLogging

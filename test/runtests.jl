@@ -35,14 +35,15 @@ include("interface.jl")
             @test Logging.current_logger() === CURRENT_LOGGER
 
             # test output type and size
-            @test chain isa Vector{MyTransition}
+            @test chain isa Vector{<:MyTransition}
             @test length(chain) == N
 
             # test some statistical properties
-            @test mean(x.a for x in chain) ≈ 0.5 atol=6e-2
-            @test var(x.a for x in chain) ≈ 1 / 12 atol=5e-3
-            @test mean(x.b for x in chain) ≈ 0.0 atol=5e-2
-            @test var(x.b for x in chain) ≈ 1 atol=6e-2
+            tail_chain = @view chain[2:end]
+            @test mean(x.a for x in tail_chain) ≈ 0.5 atol=6e-2
+            @test var(x.a for x in tail_chain) ≈ 1 / 12 atol=5e-3
+            @test mean(x.b for x in tail_chain) ≈ 0.0 atol=5e-2
+            @test var(x.b for x in tail_chain) ≈ 1 atol=6e-2
         end
 
         @testset "Juno" begin
@@ -118,26 +119,28 @@ include("interface.jl")
             end
 
             Random.seed!(1234)
-            chains = sample(MyModel(), MySampler(), MCMCThreads(), 10_000, 1000;
+            N = 10_000
+            chains = sample(MyModel(), MySampler(), MCMCThreads(), N, 1000;
                             chain_type = MyChain)
 
             # test output type and size
-            @test chains isa Vector{MyChain}
+            @test chains isa Vector{<:MyChain}
             @test length(chains) == 1000
-            @test all(x -> length(x.as) == length(x.bs) == 10_000, chains)
+            @test all(x -> length(x.as) == length(x.bs) == N, chains)
 
             # test some statistical properties
-            @test all(x -> isapprox(mean(x.as), 0.5; atol=1e-2), chains)
-            @test all(x -> isapprox(var(x.as), 1 / 12; atol=5e-3), chains)
-            @test all(x -> isapprox(mean(x.bs), 0; atol=5e-2), chains)
-            @test all(x -> isapprox(var(x.bs), 1; atol=5e-2), chains)
+            @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=1e-2), chains)
+            @test all(x -> isapprox(var(@view x.as[2:end]), 1 / 12; atol=5e-3), chains)
+            @test all(x -> isapprox(mean(@view x.bs[2:end]), 0; atol=5e-2), chains)
+            @test all(x -> isapprox(var(@view x.bs[2:end]), 1; atol=5e-2), chains)
 
             # test reproducibility
             Random.seed!(1234)
-            chains2 = sample(MyModel(), MySampler(), MCMCThreads(), 10_000, 1000;
+            chains2 = sample(MyModel(), MySampler(), MCMCThreads(), N, 1000;
                              chain_type = MyChain)
 
-            @test all(((x, y),) -> x.as == y.as && x.bs == y.bs, zip(chains, chains2))
+            @test all(c1.as[i] === c2.as[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
+            @test all(c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
 
             # Unexpected order of arguments.
             str = "Number of chains (10) is greater than number of samples per chain (5)"
@@ -173,27 +176,30 @@ include("interface.jl")
             include("interface.jl")
         end
 
+        N = 10_000
         Random.seed!(1234)
-        chains = sample(MyModel(), MySampler(), MCMCDistributed(), 10_000, 1000;
+        chains = sample(MyModel(), MySampler(), MCMCDistributed(), N, 1000;
                         chain_type = MyChain)
 
         # Test output type and size.
-        @test chains isa Vector{MyChain}
+        @test chains isa Vector{<:MyChain}
+        @test all(c.as[1] === missing for c in chains)
         @test length(chains) == 1000
-        @test all(x -> length(x.as) == length(x.bs) == 10_000, chains)
+        @test all(x -> length(x.as) == length(x.bs) == N, chains)
 
         # Test some statistical properties.
-        @test all(x -> isapprox(mean(x.as), 0.5; atol=1e-2), chains)
-        @test all(x -> isapprox(var(x.as), 1 / 12; atol=5e-3), chains)
-        @test all(x -> isapprox(mean(x.bs), 0; atol=5e-2), chains)
-        @test all(x -> isapprox(var(x.bs), 1; atol=5e-2), chains)
+        @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=1e-2), chains)
+        @test all(x -> isapprox(var(@view x.as[2:end]), 1 / 12; atol=5e-3), chains)
+        @test all(x -> isapprox(mean(@view x.bs[2:end]), 0; atol=5e-2), chains)
+        @test all(x -> isapprox(var(@view x.bs[2:end]), 1; atol=5e-2), chains)
 
         # Test reproducibility.
         Random.seed!(1234)
-        chains2 = sample(MyModel(), MySampler(), MCMCDistributed(), 10_000, 1000;
+        chains2 = sample(MyModel(), MySampler(), MCMCDistributed(), N, 1000;
                          chain_type = MyChain)
 
-        @test all(((x, y),) -> x.as == y.as && x.bs == y.bs, zip(chains, chains2))
+        @test all(c1.as[i] === c2.as[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
+        @test all(c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
 
         # Unexpected order of arguments.
         str = "Number of chains (10) is greater than number of samples per chain (5)"
@@ -213,7 +219,7 @@ include("interface.jl")
         chain1 = sample(MyModel(), MySampler(), 100; sleepy = true)
         chain2 = sample(MyModel(), MySampler(), 100; sleepy = true, chain_type = MyChain)
 
-        @test chain1 isa Vector{MyTransition}
+        @test chain1 isa Vector{<:MyTransition}
         @test chain2 isa MyChain
     end
 
@@ -229,9 +235,14 @@ include("interface.jl")
                 break
             end
 
+            # don't save missing values
+            t.a === missing && continue
+
             push!(as, t.a)
             push!(bs, t.b)
         end
+
+        @test length(as) == length(bs) == 998
 
         @test mean(as) ≈ 0.5 atol=1e-2
         @test var(as) ≈ 1 / 12 atol=5e-3
