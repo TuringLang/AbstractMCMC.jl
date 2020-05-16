@@ -204,9 +204,9 @@ function mcmcsample(
     end
 
     # Copy the random number generator, model, and sample for each thread
-    rngs = [deepcopy(rng) for _ in 1:Threads.nthreads()]
-    models = [deepcopy(model) for _ in 1:Threads.nthreads()]
-    samplers = [deepcopy(sampler) for _ in 1:Threads.nthreads()]
+    rngs = [deepcopy(rng) for _ in 1:nchains]
+    models = [deepcopy(model) for _ in 1:nchains]
+    samplers = [deepcopy(sampler) for _ in 1:nchains]
 
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
