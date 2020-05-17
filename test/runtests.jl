@@ -154,6 +154,11 @@ include("interface.jl")
                         progress = false, chain_type = MyChain)
             end
             @test all(l.level > Logging.LogLevel(-1) for l in logs)
+            
+            # Smoke test for nchains < nthreads
+            if Threads.nthreads() == 2
+                sample(MyModel(), MySampler(), MCMCThreads(), N, 1) 
+            end
         end
     end
 
