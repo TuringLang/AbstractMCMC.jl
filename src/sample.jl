@@ -190,7 +190,7 @@ function mcmcsample(
     N::Integer,
     nchains::Integer;
     progress = true,
-    progressname = "Sampling ($(Threads.nthreads()) threads)",
+    progressname = "Sampling ($(min(nchains, Threads.nthreads())) threads)",
     kwargs...
 )
     # Check if actually multiple threads are used.
@@ -204,6 +204,9 @@ function mcmcsample(
     end
 
     # Copy the random number generator, model, and sample for each thread
+    # NOTE: As of May 17, 2020, this relies on Julia's thread scheduling functionality
+    #       that distributes a for loop into equal-sized blocks and allocates them
+    #       to each thread. If this changes, we may need to rethink things here.
     interval = 1:min(nchains, Threads.nthreads())
     rngs = [deepcopy(rng) for _ in interval]
     models = [deepcopy(model) for _ in interval]
