@@ -6,6 +6,7 @@ import LoggingExtras
 import ProgressLogging
 import StatsBase
 import TerminalLoggers
+import Transducers
 
 import Distributed
 import Logging
@@ -74,5 +75,6 @@ include("logging.jl")
 include("interface.jl")
 include("sample.jl")
 include("stepper.jl")
+include("transducer.jl")
 
 end # module AbstractMCMC
