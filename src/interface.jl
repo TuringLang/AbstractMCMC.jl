@@ -6,12 +6,10 @@ Concatenate multiple chains.
 chainscat(c::AbstractChains...) = cat(c...; dims=3)
 
 function bundle_samples(
-    ::Random.AbstractRNG,
+    transitions,
     ::AbstractModel,
     ::AbstractSampler,
-    ::Integer,
-    transitions,
-    ::Type{Any};
+    ::Type;
     kwargs...
 )
     return transitions

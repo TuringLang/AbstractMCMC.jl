@@ -34,12 +34,10 @@ function AbstractMCMC.step!(
 end
 
 function AbstractMCMC.bundle_samples(
-    rng::AbstractRNG,
+    transitions::Vector{<:MyTransition},
     model::MyModel,
     sampler::MySampler,
-    N::Integer,
-    transitions::Vector{<:MyTransition},
-    chain_type::Type{MyChain};
+    ::Type{MyChain};
     kwargs...
 )
     as = [t.a for t in transitions]
