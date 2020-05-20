@@ -104,7 +104,7 @@ function transitions(
     kwargs...
 )
     ts = Vector{typeof(transition)}(undef, 0)
-    Base.sizehint!(ts, N)
+    sizehint!(ts, N)
     return ts
 end
 
