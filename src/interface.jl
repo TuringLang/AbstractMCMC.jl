@@ -138,7 +138,6 @@ function save!!(
     N::Integer;
     kwargs...
 )
-    @assert length(transitions) == iteration - 1
     new_ts = BangBang.push!!(transitions, transition)
     typeof(new_ts) !== typeof(transitions) && Base.sizehint!(new_ts, N)
     return new_ts
@@ -160,4 +159,3 @@ Base.@deprecate transitions_init(transition, model::AbstractModel, sampler::Abst
 Base.@deprecate transitions_init(transition, model::AbstractModel, sampler::AbstractSampler; kwargs...) transitions(transition, model, sampler; kwargs...) false
 Base.@deprecate transitions_save!(transitions, iteration::Integer, transition, model::AbstractModel, sampler::AbstractSampler; kwargs...) save!!(transitions, transition, iteration, model, sampler; kwargs...) false
 Base.@deprecate transitions_save!(transitions, iteration::Integer, transition, model::AbstractModel, sampler::AbstractSampler, N::Integer; kwargs...) save!!(transitions, transition, iteration, model, sampler, N; kwargs...) false
-
