@@ -63,7 +63,7 @@ function mcmcsample(
     N::Integer;
     progress = true,
     progressname = "Sampling",
-    callback = (args...) -> nothing,
+    callback = nothing,
     chain_type::Type=Any,
     kwargs...
 )
@@ -75,7 +75,7 @@ function mcmcsample(
         transition = step!(rng, model, sampler, N; iteration=1, kwargs...)
 
         # Run callback.
-        callback(rng, model, sampler, transition, 1)
+        callback === nothing || callback(rng, model, sampler, transition, 1)
 
         # Save the transition.
         transitions = AbstractMCMC.transitions(transition, model, sampler, N; kwargs...)
@@ -90,7 +90,7 @@ function mcmcsample(
             transition = step!(rng, model, sampler, N, transition; iteration=i, kwargs...)
 
             # Run callback.
-            callback(rng, model, sampler, transition, i)
+            callback === nothing || callback(rng, model, sampler, transition, i)
 
             # Save the transition.
             transitions = save!!(transitions, transition, i, model, sampler, N; kwargs...)
@@ -128,7 +128,7 @@ function mcmcsample(
     chain_type::Type=Any,
     progress = true,
     progressname = "Convergence sampling",
-    callback = (args...) -> nothing,
+    callback = nothing,
     kwargs...
 )
     @ifwithprogresslogger progress name=progressname begin
@@ -136,7 +136,7 @@ function mcmcsample(
         transition = step!(rng, model, sampler, 1; iteration=1, kwargs...)
 
         # Run callback.
-        callback(rng, model, sampler, transition, 1)
+        callback === nothing || callback(rng, model, sampler, transition, 1)
 
         # Save the transition.
         transitions = AbstractMCMC.transitions(transition, model, sampler; kwargs...)
@@ -150,7 +150,7 @@ function mcmcsample(
             transition = step!(rng, model, sampler, 1, transition; iteration=i, kwargs...)
 
             # Run callback.
-            callback(rng, model, sampler, transition, i)
+            callback === nothing || callback(rng, model, sampler, transition, i)
 
             # Save the transition.
             transitions = save!!(transitions, transition, i, model, sampler; kwargs...)
