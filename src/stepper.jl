@@ -16,9 +16,9 @@ Base.IteratorEltype(::Type{<:Stepper}) = Base.EltypeUnknown()
 """
     steps!([rng::AbstractRNG, ]model::AbstractModel, s::AbstractSampler, kwargs...)
 
-`steps!` returns an iterator that returns samples continuously, after calling `sample_init!`.
+Return an iterator that returns samples continuously.
 
-Usage:
+# Examples
 
 ```julia
 for transition in steps!(MyModel(), MySampler())
@@ -42,6 +42,5 @@ function steps!(
     s::AbstractSampler,
     kwargs...
 )
-    sample_init!(rng, model, s, 0)
     return Stepper(rng, model, s, kwargs)
 end

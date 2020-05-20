@@ -6,26 +6,6 @@ Concatenate multiple chains.
 chainscat(c::AbstractChains...) = cat(c...; dims=3)
 
 """
-    sample_init!(rng, model, sampler, N[; kwargs...])
-
-Perform the initial setup of the MCMC `sampler` for the provided `model`.
-
-This function is not intended to return any value, any set up should mutate the `sampler`
-or the `model` in-place. A common use for `sample_init!` might be to instantiate a particle
-field for later use, or find an initial step size for a Hamiltonian sampler.
-"""
-function sample_init!(
-    ::Random.AbstractRNG,
-    model::AbstractModel,
-    sampler::AbstractSampler,
-    ::Integer;
-    kwargs...
-)
-    @debug "the default `sample_init!` function is used" typeof(model) typeof(sampler)
-    return
-end
-
-"""
     sample_end!(rng, model, sampler, N, transitions[; kwargs...])
 
 Perform final modifications after sampling from the MCMC `sampler` for the provided `model`,

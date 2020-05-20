@@ -70,9 +70,6 @@ function mcmcsample(
     # Check the number of requested samples.
     N > 0 || error("the number of samples must be ≥ 1")
 
-    # Perform any necessary setup.
-    sample_init!(rng, model, sampler, N; kwargs...)
-
     @ifwithprogresslogger progress name=progressname begin
         # Obtain the initial transition.
         transition = step!(rng, model, sampler, N; iteration=1, kwargs...)
@@ -137,9 +134,6 @@ function mcmcsample(
     callback = (args...) -> nothing,
     kwargs...
 )
-    # Perform any necessary setup.
-    sample_init!(rng, model, sampler, 1; kwargs...)
-
     @ifwithprogresslogger progress name=progressname begin
         # Obtain the initial transition.
         transition = step!(rng, model, sampler, 1; iteration=1, kwargs...)
