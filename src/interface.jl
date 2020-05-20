@@ -103,7 +103,9 @@ function transitions(
     N::Integer;
     kwargs...
 )
-    return Vector{typeof(transition)}(undef, N)
+    ts = Vector{typeof(transition)}(undef, 0)
+    Base.sizehint!(ts, N)
+    return ts
 end
 
 function transitions(
@@ -112,7 +114,7 @@ function transitions(
     ::AbstractSampler;
     kwargs...
 )
-    return Vector{typeof(transition)}(undef, 1)
+    return Vector{typeof(transition)}(undef, 0)
 end
 
 """
@@ -133,10 +135,13 @@ function save!!(
     iteration::Integer,
     ::AbstractModel,
     ::AbstractSampler,
-    ::Integer;
+    N::Integer;
     kwargs...
 )
-    return BangBang.setindex!!(transitions, transition, iteration)
+    @assert length(transitions) == iteration - 1
+    new_ts = BangBang.push!!(transitions, transition)
+    typeof(new_ts) !== typeof(transitions) && Base.sizehint!(new_ts, N)
+    return new_ts
 end
 
 function save!!(
@@ -147,6 +152,7 @@ function save!!(
     ::AbstractSampler;
     kwargs...
 )
+    @assert length(transitions) == iteration - 1
     return BangBang.push!!(transitions, transition)
 end
 
