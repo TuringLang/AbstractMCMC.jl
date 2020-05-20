@@ -100,9 +100,6 @@ function mcmcsample(
         end
     end
 
-    # Wrap up the sampler, if necessary.
-    sample_end!(rng, model, sampler, N, transitions; kwargs...)
-
     return bundle_samples(rng, model, sampler, N, transitions, chain_type; kwargs...)
 end
 
@@ -162,9 +159,6 @@ function mcmcsample(
             i += 1
         end
     end
-
-    # Wrap up the sampler, if necessary.
-    sample_end!(rng, model, sampler, i, transitions; kwargs...)
 
     # Wrap the samples up.
     return bundle_samples(rng, model, sampler, i, transitions, chain_type; kwargs...)

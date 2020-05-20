@@ -5,30 +5,6 @@ Concatenate multiple chains.
 """
 chainscat(c::AbstractChains...) = cat(c...; dims=3)
 
-"""
-    sample_end!(rng, model, sampler, N, transitions[; kwargs...])
-
-Perform final modifications after sampling from the MCMC `sampler` for the provided `model`,
-resulting in the provided `transitions`.
-
-This function is not intended to return any value, any set up should mutate the `sampler`
-or the `model` in-place.
-
-This function is useful in cases where you might want to transform the `transitions`,
-save the `sampler` to disk, or perform any clean-up or finalization.
-"""
-function sample_end!(
-    ::Random.AbstractRNG,
-    model::AbstractModel,
-    sampler::AbstractSampler,
-    ::Integer,
-    transitions;
-    kwargs...
-)
-    @debug "the default `sample_end!` function is used" typeof(model) typeof(sampler) typeof(transitions)
-    return
-end
-
 function bundle_samples(
     ::Random.AbstractRNG,
     ::AbstractModel,
