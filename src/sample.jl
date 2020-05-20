@@ -324,8 +324,3 @@ function mcmcsample(
     # Concatenate the chains together.
     return reduce(chainscat, chains)
 end
-
-# Deprecations.
-Base.@deprecate psample(model, sampler, N, nchains; kwargs...) sample(model, sampler, MCMCThreads(), N, nchains; kwargs...) false
-Base.@deprecate psample(rng, model, sampler, N, nchains; kwargs...) sample(rng, model, sampler, MCMCThreads(), N, nchains; kwargs...) false
-Base.@deprecate mcmcpsample(rng, model, sampler, N, nchains; kwargs...) mcmcsample(rng, model, sampler, MCMCThreads(), N, nchains; kwargs...) false

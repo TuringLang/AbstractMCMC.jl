@@ -267,16 +267,5 @@ include("interface.jl")
         @test abs(bmean) <= 0.001 && length(chain) < 10_000
     end
 
-    @testset "Deprecations" begin
-        @test_deprecated AbstractMCMC.psample(MyModel(), MySampler(), 10, 10;
-                                              chain_type = MyChain)
-        @test_deprecated AbstractMCMC.psample(Random.GLOBAL_RNG, MyModel(), MySampler(),
-                                              10, 10;
-                                              chain_type = MyChain)
-        @test_deprecated AbstractMCMC.mcmcpsample(Random.GLOBAL_RNG, MyModel(),
-                                                  MySampler(), 10, 10;
-                                                  chain_type = MyChain)
-    end
-
     include("transducer.jl")
 end
