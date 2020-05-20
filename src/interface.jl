@@ -151,7 +151,6 @@ function save!!(
     ::AbstractSampler;
     kwargs...
 )
-    @assert length(transitions) == iteration - 1
     return BangBang.push!!(transitions, transition)
 end
 
