@@ -103,7 +103,9 @@ function transitions(
     N::Integer;
     kwargs...
 )
-    return Vector{typeof(transition)}(undef, N)
+    ts = Vector{typeof(transition)}(undef, 0)
+    sizehint!(ts, N)
+    return ts
 end
 
 function transitions(
@@ -112,7 +114,7 @@ function transitions(
     ::AbstractSampler;
     kwargs...
 )
-    return Vector{typeof(transition)}(undef, 1)
+    return Vector{typeof(transition)}(undef, 0)
 end
 
 """
@@ -123,20 +125,21 @@ Save the `transition` of the MCMC `sampler` at the current `iteration` in the co
 `transitions`.
 
 The function can be called with and without a predefined size `N`. By default, AbstractMCMC
-uses ``setindex!`` and ``push!!`` from the Julia package
-[BangBang](https://github.com/tkf/BangBang.jl) to write to and append to the container,
-and widen the container type if needed.
+uses ``push!!`` from the Julia package [BangBang](https://github.com/tkf/BangBang.jl) to
+append to the container, and widen its type if needed.
 """
 function save!!(
-    transitions,
+    transitions::Vector,
     transition,
     iteration::Integer,
     ::AbstractModel,
     ::AbstractSampler,
-    ::Integer;
+    N::Integer;
     kwargs...
 )
-    return BangBang.setindex!!(transitions, transition, iteration)
+    new_ts = BangBang.push!!(transitions, transition)
+    new_ts !== transitions && sizehint!(new_ts, N)
+    return new_ts
 end
 
 function save!!(
@@ -154,4 +157,3 @@ Base.@deprecate transitions_init(transition, model::AbstractModel, sampler::Abst
 Base.@deprecate transitions_init(transition, model::AbstractModel, sampler::AbstractSampler; kwargs...) transitions(transition, model, sampler; kwargs...) false
 Base.@deprecate transitions_save!(transitions, iteration::Integer, transition, model::AbstractModel, sampler::AbstractSampler; kwargs...) save!!(transitions, transition, iteration, model, sampler; kwargs...) false
 Base.@deprecate transitions_save!(transitions, iteration::Integer, transition, model::AbstractModel, sampler::AbstractSampler, N::Integer; kwargs...) save!!(transitions, transition, iteration, model, sampler, N; kwargs...) false
-
