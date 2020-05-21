@@ -5,6 +5,7 @@ using ConsoleProgressMonitor: ProgressLogger
 using IJulia
 using LoggingExtras: TeeLogger, EarlyFilteredLogger
 using TerminalLoggers: TerminalLogger
+using Transducers
 
 using Distributed
 import Logging
@@ -276,4 +277,6 @@ include("interface.jl")
                                                   MySampler(), 10, 10;
                                                   chain_type = MyChain)
     end
+
+    include("transducer.jl")
 end
