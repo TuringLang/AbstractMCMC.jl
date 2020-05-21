@@ -125,12 +125,11 @@ Save the `transition` of the MCMC `sampler` at the current `iteration` in the co
 `transitions`.
 
 The function can be called with and without a predefined size `N`. By default, AbstractMCMC
-uses ``setindex!`` and ``push!!`` from the Julia package
-[BangBang](https://github.com/tkf/BangBang.jl) to write to and append to the container,
-and widen the container type if needed.
+uses ``push!!`` from the Julia package [BangBang](https://github.com/tkf/BangBang.jl) to
+append to the container, and widen its type if needed.
 """
 function save!!(
-    transitions,
+    transitions::Vector,
     transition,
     iteration::Integer,
     ::AbstractModel,
@@ -139,7 +138,7 @@ function save!!(
     kwargs...
 )
     new_ts = BangBang.push!!(transitions, transition)
-    typeof(new_ts) !== typeof(transitions) && Base.sizehint!(new_ts, N)
+    new_ts !== transitions && sizehint!(new_ts, N)
     return new_ts
 end
 
