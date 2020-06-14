@@ -1,6 +1,6 @@
 struct MyModel <: AbstractMCMC.AbstractModel end
 
-struct MyTransition{A,B}
+struct MySample{A,B}
     a::A
     b::B
 end
@@ -13,53 +13,62 @@ struct MyChain{A,B} <: AbstractMCMC.AbstractChains
     bs::Vector{B}
 end
 
-function AbstractMCMC.step!(
+function AbstractMCMC.step(
     rng::AbstractRNG,
     model::MyModel,
     sampler::MySampler,
-    N::Integer,
-    transition::Union{Nothing,MyTransition};
+    state::Union{Nothing,Integer} = nothing;
     sleepy = false,
     loggers = false,
     kwargs...
 )
     # sample `a` is missing in the first step
-    a = transition === nothing ? missing : rand(rng)
+    a = state === nothing ? missing : rand(rng)
     b = randn(rng)
 
     loggers && push!(LOGGERS, Logging.current_logger())
     sleepy && sleep(0.001)
 
-    return MyTransition(a, b)
+    _state = state === nothing ? 1 : state + 1
+
+    return MySample(a, b), _state
 end
 
 function AbstractMCMC.bundle_samples(
-    transitions::Vector{<:MyTransition},
+    samples::Vector{<:MySample},
     model::MyModel,
     sampler::MySampler,
+    ::Any,
     ::Type{MyChain};
     kwargs...
 )
-    as = [t.a for t in transitions]
-    bs = [t.b for t in transitions]
+    as = [t.a for t in samples]
+    bs = [t.b for t in samples]
 
     return MyChain(as, bs)
 end
 
-function is_done(
+function isdone(
     rng::AbstractRNG,
     model::MyModel,
     s::MySampler,
-    transitions,
+    samples,
     iteration::Int;
-    chain_type::Type=Any,
     kwargs...
 )
     # Calculate the mean of x.b.
-    bmean = mean(x.b for x in transitions)
+    bmean = mean(x.b for x in samples)
     return abs(bmean) <= 0.001 || iteration >= 10_000
 end
 
 # Set a default convergence function.
-AbstractMCMC.sample(model, sampler::MySampler; kwargs...) = sample(Random.GLOBAL_RNG, model, sampler, is_done; kwargs...)
-AbstractMCMC.chainscat(chains::Union{MyChain,Vector{<:MyChain}}...) = vcat(chains...)
+function AbstractMCMC.sample(model, sampler::MySampler; kwargs...)
+    return sample(Random.GLOBAL_RNG, model, sampler, isdone; kwargs...)
+end
+
+function AbstractMCMC.chainscat(
+    chain::Union{MyChain,Vector{<:MyChain}},
+    chains::Union{MyChain,Vector{<:MyChain}}...
+)
+    return vcat(chain, chains...)
+end

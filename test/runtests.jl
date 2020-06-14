@@ -1,5 +1,4 @@
 using AbstractMCMC
-using AbstractMCMC: steps!
 using Atom.Progress: JunoProgressLogger
 using ConsoleProgressMonitor: ProgressLogger
 using IJulia
@@ -36,7 +35,7 @@ include("interface.jl")
             @test Logging.current_logger() === CURRENT_LOGGER
 
             # test output type and size
-            @test chain isa Vector{<:MyTransition}
+            @test chain isa Vector{<:MySample}
             @test length(chain) == N
 
             # test some statistical properties
@@ -225,7 +224,7 @@ include("interface.jl")
         chain1 = sample(MyModel(), MySampler(), 100; sleepy = true)
         chain2 = sample(MyModel(), MySampler(), 100; sleepy = true, chain_type = MyChain)
 
-        @test chain1 isa Vector{<:MyTransition}
+        @test chain1 isa Vector{<:MySample}
         @test chain2 isa MyChain
     end
 
@@ -234,7 +233,7 @@ include("interface.jl")
         as = []
         bs = []
 
-        iter = steps!(MyModel(), MySampler())
+        iter = AbstractMCMC.steps(MyModel(), MySampler())
 
         for (count, t) in enumerate(iter)
             if count >= 1000

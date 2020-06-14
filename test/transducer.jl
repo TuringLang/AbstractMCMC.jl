@@ -11,7 +11,7 @@
         end
 
         # test output type and size
-        @test chain isa Vector{<:MyTransition}
+        @test chain isa Vector{<:MySample}
         @test length(chain) == N
 
         # test some statistical properties
@@ -25,7 +25,7 @@
     @testset "drop" begin
         xf = AbstractMCMC.Sample(MyModel(), MySampler())
         chain = collect(xf |> Drop(1), 1:10)
-        @test chain isa Vector{MyTransition{Float64,Float64}}
+        @test chain isa Vector{MySample{Float64,Float64}}
         @test length(chain) == 9
     end
 
@@ -33,7 +33,7 @@
     @testset "iterator example" begin
         # filter missing values and split transitions
         xf = AbstractMCMC.Sample(MyModel(), MySampler()) |>
-            OfType(MyTransition{Float64,Float64}) |> Map(x -> (x.a, x.b))
+            OfType(MySample{Float64,Float64}) |> Map(x -> (x.a, x.b))
         as, bs = foldl(xf, 1:999; init = (Float64[], Float64[])) do (as, bs), (a, b)
             push!(as, a)
             push!(bs, b)

@@ -52,7 +52,7 @@ Return `N` samples from the MCMC `sampler` for the provided `model`.
 
 A callback function `f` with type signature
 ```julia
-f(rng, model, sampler, transition, iteration)
+f(rng, model, sampler, sample, iteration)
 ```
 may be provided as keyword argument `callback`. It is called after every sampling step.
 """
@@ -71,36 +71,36 @@ function mcmcsample(
     N > 0 || error("the number of samples must be ≥ 1")
 
     @ifwithprogresslogger progress name=progressname begin
-        # Obtain the initial transition.
-        transition = step!(rng, model, sampler, N; iteration=1, kwargs...)
+        # Obtain the initial sample and state.
+        sample, state = step(rng, model, sampler; kwargs...)
 
         # Run callback.
-        callback === nothing || callback(rng, model, sampler, transition, 1)
+        callback === nothing || callback(rng, model, sampler, sample, 1)
 
-        # Save the transition.
-        transitions = AbstractMCMC.transitions(transition, model, sampler, N; kwargs...)
-        transitions = save!!(transitions, transition, 1, model, sampler, N; kwargs...)
+        # Save the sample.
+        samples = AbstractMCMC.samples(sample, model, sampler, N; kwargs...)
+        samples = save!!(samples, sample, 1, model, sampler, N; kwargs...)
 
         # Update the progress bar.
         progress && ProgressLogging.@logprogress 1/N
 
         # Step through the sampler.
         for i in 2:N
-            # Obtain the next transition.
-            transition = step!(rng, model, sampler, N, transition; iteration=i, kwargs...)
+            # Obtain the next sample and state.
+            sample, state = step(rng, model, sampler, state; kwargs...)
 
             # Run callback.
-            callback === nothing || callback(rng, model, sampler, transition, i)
+            callback === nothing || callback(rng, model, sampler, sample, i)
 
-            # Save the transition.
-            transitions = save!!(transitions, transition, i, model, sampler, N; kwargs...)
+            # Save the sample.
+            samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
 
             # Update the progress bar.
             progress && ProgressLogging.@logprogress i/N
         end
     end
 
-    return bundle_samples(transitions, model, sampler, chain_type; kwargs...)
+    return bundle_samples(samples, model, sampler, state, chain_type; kwargs...)
 end
 
 """
@@ -110,13 +110,13 @@ Continuously draw samples until a convergence criterion `isdone` returns `true`.
 
 The function `isdone` has the signature
 ```julia
-isdone(rng, model, sampler, transitions, iteration; kwargs...)
+isdone(rng, model, sampler, samples, iteration; kwargs...)
 ```
 and should return `true` when sampling should end, and `false` otherwise.
 
 A callback function `f` with type signature
 ```julia
-f(rng, model, sampler, transition, iteration)
+f(rng, model, sampler, sample, iteration)
 ```
 may be provided as keyword argument `callback`. It is called after every sampling step.
 """
@@ -132,28 +132,28 @@ function mcmcsample(
     kwargs...
 )
     @ifwithprogresslogger progress name=progressname begin
-        # Obtain the initial transition.
-        transition = step!(rng, model, sampler, 1; iteration=1, kwargs...)
+        # Obtain the initial sample and state.
+        sample, state = step(rng, model, sampler; kwargs...)
 
         # Run callback.
-        callback === nothing || callback(rng, model, sampler, transition, 1)
+        callback === nothing || callback(rng, model, sampler, sample, 1)
 
-        # Save the transition.
-        transitions = AbstractMCMC.transitions(transition, model, sampler; kwargs...)
-        transitions = save!!(transitions, transition, 1, model, sampler; kwargs...)
+        # Save the sample.
+        samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
+        samples = save!!(samples, sample, 1, model, sampler; kwargs...)
 
         # Step through the sampler until stopping.
         i = 2
 
-        while !isdone(rng, model, sampler, transitions, i; progress=progress, kwargs...)
-            # Obtain the next transition.
-            transition = step!(rng, model, sampler, 1, transition; iteration=i, kwargs...)
+        while !isdone(rng, model, sampler, samples, i; progress=progress, kwargs...)
+            # Obtain the next sample and state.
+            sample, state = step(rng, model, sampler, state; kwargs...)
 
             # Run callback.
-            callback === nothing || callback(rng, model, sampler, transition, i)
+            callback === nothing || callback(rng, model, sampler, sample, i)
 
-            # Save the transition.
-            transitions = save!!(transitions, transition, i, model, sampler; kwargs...)
+            # Save the sample.
+            samples = save!!(samples, sample, i, model, sampler; kwargs...)
 
             # Increment iteration counter.
             i += 1
@@ -161,7 +161,7 @@ function mcmcsample(
     end
 
     # Wrap the samples up.
-    return bundle_samples(transitions, model, sampler, chain_type; kwargs...)
+    return bundle_samples(samples, model, sampler, state, chain_type; kwargs...)
 end
 
 """
@@ -225,24 +225,26 @@ function mcmcsample(
             end
 
             Distributed.@async begin
-                Threads.@threads for i in 1:nchains
-                    # Obtain the ID of the current thread.
-                    id = Threads.threadid()
+                try
+                    Threads.@threads for i in 1:nchains
+                        # Obtain the ID of the current thread.
+                        id = Threads.threadid()
 
-                    # Seed the thread-specific random number generator with the pre-made seed.
-                    subrng = rngs[id]
-                    Random.seed!(subrng, seeds[i])
+                        # Seed the thread-specific random number generator with the pre-made seed.
+                        subrng = rngs[id]
+                        Random.seed!(subrng, seeds[i])
 
-                    # Sample a chain and save it to the vector.
-                    chains[i] = StatsBase.sample(subrng, models[id], samplers[id], N;
-                                                 progress = false, kwargs...)
+                        # Sample a chain and save it to the vector.
+                        chains[i] = StatsBase.sample(subrng, models[id], samplers[id], N;
+                                                     progress = false, kwargs...)
 
-                    # Update the progress bar.
-                    progress && put!(channel, true)
+                        # Update the progress bar.
+                        progress && put!(channel, true)
+                    end
+                finally
+                    # Stop updating the progress bar.
+                    progress && put!(channel, false)
                 end
-
-                # Stop updating the progress bar.
-                progress && put!(channel, false)
             end
         end
     end
@@ -296,15 +298,13 @@ function mcmcsample(
             end
 
             Distributed.@async begin
-                chains = let rng=rng, model=model, sampler=sampler, N=N, channel=channel,
-                    kwargs=kwargs
-                    Distributed.pmap(pool, seeds) do seed
+                try
+                    chains = Distributed.pmap(pool, seeds) do seed
                         # Seed a new random number generator with the pre-made seed.
-                        subrng = deepcopy(rng)
-                        Random.seed!(subrng, seed)
+                        Random.seed!(rng, seed)
 
                         # Sample a chain.
-                        chain = StatsBase.sample(subrng, model, sampler, N;
+                        chain = StatsBase.sample(rng, model, sampler, N;
                                                  progress = false, kwargs...)
 
                         # Update the progress bar.
@@ -313,10 +313,10 @@ function mcmcsample(
                         # Return the new chain.
                         return chain
                     end
+                finally
+                    # Stop updating the progress bar.
+                    progress && put!(channel, false)
                 end
-
-                # Stop updating the progress bar.
-                progress && put!(channel, false)
             end
         end
     end

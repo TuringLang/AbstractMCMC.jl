@@ -1,46 +1,46 @@
 struct Stepper{A<:Random.AbstractRNG,M<:AbstractModel,S<:AbstractSampler,K}
     rng::A
     model::M
-    s::S
+    sampler::S
     kwargs::K
 end
 
-function Base.iterate(stp::Stepper, state=nothing)
-    t = step!(stp.rng, stp.model, stp.s, 1, state; stp.kwargs...)
-    return t, t
+Base.iterate(stp::Stepper) = step(stp.rng, stp.model, stp.sampler; stp.kwargs...)
+function Base.iterate(stp::Stepper, state)
+    return step(stp.rng, stp.model, stp.sampler, state; stp.kwargs...)
 end
 
 Base.IteratorSize(::Type{<:Stepper}) = Base.IsInfinite()
 Base.IteratorEltype(::Type{<:Stepper}) = Base.EltypeUnknown()
 
 """
-    steps!([rng::AbstractRNG, ]model::AbstractModel, s::AbstractSampler, kwargs...)
+    steps([rng::AbstractRNG, ]model::AbstractModel, s::AbstractSampler, kwargs...)
 
 Return an iterator that returns samples continuously.
 
 # Examples
 
 ```julia
-for transition in steps!(MyModel(), MySampler())
+for transition in steps(MyModel(), MySampler())
     println(transition)
 
     # Do other stuff with transition below.
 end
 ```
 """
-function steps!(
+function steps(
     model::AbstractModel,
-    s::AbstractSampler,
+    sampler::AbstractSampler,
     kwargs...
 )
-    return steps!(Random.GLOBAL_RNG, model, s; kwargs...)
+    return steps(Random.GLOBAL_RNG, model, sampler; kwargs...)
 end
 
-function steps!(
+function steps(
     rng::Random.AbstractRNG,
     model::AbstractModel,
-    s::AbstractSampler,
+    sampler::AbstractSampler,
     kwargs...
 )
-    return Stepper(rng, model, s, kwargs)
+    return Stepper(rng, model, sampler, kwargs)
 end

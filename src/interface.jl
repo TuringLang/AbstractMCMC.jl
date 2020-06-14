@@ -5,104 +5,101 @@ Concatenate multiple chains.
 """
 chainscat(c::AbstractChains...) = cat(c...; dims=3)
 
+"""
+    bundle_samples(samples, model, sampler, state, chain_type[; kwargs...])
+
+Bundle all `samples` that were sampled from the `model` with the given `sampler` in a chain.
+
+The final `state` of the `sampler` can be included in the chain. The type of the chain can
+be specified with the `chain_type` argument.
+
+By default, this method returns `samples`.
+"""
 function bundle_samples(
-    transitions,
+    samples,
     ::AbstractModel,
     ::AbstractSampler,
+    ::Any,
     ::Type;
     kwargs...
 )
-    return transitions
+    return samples
 end
 
 """
-    step!(rng, model, sampler[, N = 1, transition = nothing; kwargs...])
+    step(rng, model, sampler[, state; kwargs...])
 
-Return the transition for the next step of the MCMC `sampler` for the provided `model`,
-using the provided random number generator `rng`.
+Return a 2-tuple of the next sample and the next state of the MCMC `sampler` for `model`.
 
-Transitions describe the results of a single step of the `sampler`. As an example, a
-transition might include a vector of parameters sampled from a prior distribution.
+Samples describe the results of a single step of the `sampler`. As an example, a sample
+might include a vector of parameters sampled from a prior distribution.
 
-The `step!` function may modify the `model` or the `sampler` in-place. For example, the
-`sampler` may have a state variable that contains a vector of particles or some other value
-that does not need to be included in the returned transition.
-
-When sampling from the `sampler` using [`sample`](@ref), every `step!` call after the first
-has access to the previous `transition`. In the first call, `transition` is set to `nothing`.
+When sampling using [`sample`](@ref), every `step` call after the first has access to the
+current `state` of the sampler.
 """
-function step!(
-    rng::Random.AbstractRNG,
-    model::AbstractModel,
-    sampler::AbstractSampler,
-    N::Integer = 1;
-    kwargs...
-)
-    return step!(rng, model, sampler, N, nothing; kwargs...)
-end
+function step end
 
 """
-    transitions(transition, model, sampler, N[; kwargs...])
-    transitions(transition, model, sampler[; kwargs...])
+    samples(sample, model, sampler[, N; kwargs...])
 
-Generate a container for the `N` transitions of the MCMC `sampler` for the provided
-`model`, whose first transition is `transition`.
+Generate a container for the samples of the MCMC `sampler` for the `model`, whose first
+sample is `sample`.
 
-The method can be called with and without a predefined size `N`.
+The method can be called with and without a predefined number `N` of samples.
 """
-function transitions(
-    transition,
+function samples(
+    sample,
     ::AbstractModel,
     ::AbstractSampler,
     N::Integer;
     kwargs...
 )
-    ts = Vector{typeof(transition)}(undef, 0)
+    ts = Vector{typeof(sample)}(undef, 0)
     sizehint!(ts, N)
     return ts
 end
 
-function transitions(
-    transition,
+function samples(
+    sample,
     ::AbstractModel,
     ::AbstractSampler;
     kwargs...
 )
-    return Vector{typeof(transition)}(undef, 0)
+    return Vector{typeof(sample)}(undef, 0)
 end
 
 """
-    save!!(transitions, transition, iteration, model, sampler, N[; kwargs...])
-    save!!(transitions, transition, iteration, model, sampler[; kwargs...])
+    save!!(samples, sample, iteration, model, sampler[, N; kwargs...])
 
-Save the `transition` of the MCMC `sampler` at the current `iteration` in the container of
-`transitions`.
+Save the `sample` of the MCMC `sampler` at the current `iteration` in the container of
+`samples`.
 
-The function can be called with and without a predefined size `N`. By default, AbstractMCMC
-uses ``push!!`` from the Julia package [BangBang](https://github.com/tkf/BangBang.jl) to
-append to the container, and widen its type if needed.
+The function can be called with and without a predefined number `N` of samples. By default,
+AbstractMCMC uses ``push!!`` from the Julia package
+[BangBang](https://github.com/tkf/BangBang.jl) to append to the container, and widen its
+type if needed.
 """
 function save!!(
-    transitions::Vector,
-    transition,
+    samples::Vector,
+    sample,
     iteration::Integer,
     ::AbstractModel,
     ::AbstractSampler,
     N::Integer;
     kwargs...
 )
-    new_ts = BangBang.push!!(transitions, transition)
-    new_ts !== transitions && sizehint!(new_ts, N)
-    return new_ts
+    s = BangBang.push!!(samples, sample)
+    s !== samples && sizehint!(s, N)
+    return s
 end
 
 function save!!(
-    transitions,
-    transition,
+    samples,
+    sample,
     iteration::Integer,
     ::AbstractModel,
     ::AbstractSampler;
     kwargs...
 )
-    return BangBang.push!!(transitions, transition)
+    return BangBang.push!!(samples, sample)
 end
