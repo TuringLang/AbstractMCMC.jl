@@ -103,3 +103,18 @@ function save!!(
 )
     return BangBang.push!!(samples, sample)
 end
+
+# Deprecations
+Base.@deprecate transitions(
+    transition,
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    N::Integer;
+    kwargs...
+) samples(transition, model, sampler, N; kwargs...) false
+Base.@deprecate transitions(
+    transition,
+    model::AbstractModel,
+    sampler::AbstractSampler;
+    kwargs...
+) samples(transition, model, sampler; kwargs...) false

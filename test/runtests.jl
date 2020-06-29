@@ -267,4 +267,5 @@ include("interface.jl")
     end
 
     include("transducer.jl")
+    include("deprecations.jl")
 end
