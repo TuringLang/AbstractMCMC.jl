@@ -227,6 +227,6 @@
         @test mean(x.a for x in view(chain, 2:1_000)) ≈ 0.5 atol=6e-2
         @test var(x.a for x in view(chain, 2:1_000)) ≈ 1 / 12 atol=5e-3
         @test mean(x.b for x in chain) ≈ 0.0 atol=5e-2
-        @test var(x.b for x in chain) ≈ 1 atol=6e-2
+        @test var(x.b for x in chain) ≈ 1 atol=0.15
     end
 end
