@@ -214,4 +214,19 @@
         bmean = mean(x.b for x in chain)
         @test abs(bmean) <= 0.001 && length(chain) < 10_000
     end
+
+    @testset "Sample vector of `NamedTuple`s" begin
+        chain = sample(MyModel(), MySampler(), 1_000; chain_type = Vector{NamedTuple})
+        # Check output type
+        @test chain isa Vector{<:NamedTuple}
+        @test length(chain) == 1_000
+        @test all(keys(x) == (:a, :b) for x in chain)
+
+        # Check some statistical properties
+        @test ismissing(chain[1].a)
+        @test mean(x.a for x in view(chain, 2:1_000)) ≈ 0.5 atol=6e-2
+        @test var(x.a for x in view(chain, 2:1_000)) ≈ 1 / 12 atol=5e-3
+        @test mean(x.b for x in chain) ≈ 0.0 atol=5e-2
+        @test var(x.b for x in chain) ≈ 1 atol=6e-2
+    end
 end
