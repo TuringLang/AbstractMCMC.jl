@@ -250,7 +250,7 @@ function mcmcsample(
     end
 
     # Concatenate the chains together.
-    return reduce(chainscat, chains)
+    return chainsstack(tighten_eltype(chains))
 end
 
 function mcmcsample(
@@ -322,5 +322,8 @@ function mcmcsample(
     end
 
     # Concatenate the chains together.
-    return reduce(chainscat, chains)
+    return chainsstack(tighten_eltype(chains))
 end
+
+tighten_eltype(x) = x
+tighten_eltype(x::Vector{Any}) = map(identity, x)
