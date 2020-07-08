@@ -72,3 +72,6 @@ function AbstractMCMC.chainscat(
 )
     return vcat(chain, chains...)
 end
+
+# Conversion to NamedTuple
+Base.convert(::Type{NamedTuple}, x::MySample) = (a = x.a, b = x.b)
