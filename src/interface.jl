@@ -1,9 +1,23 @@
 """
-    chainscat(c::AbstractChains)
+    chainscat(c::AbstractChains...)
 
 Concatenate multiple chains.
+
+By default, the chains are concatenated along the third dimension by calling
+`cat(c...; dims=3)`.
 """
 chainscat(c::AbstractChains...) = cat(c...; dims=3)
+
+"""
+    chainsstack(c::AbstractVector)
+
+Stack chains in `c`.
+
+By default, the vector of chains is returned unmodified. If `eltype(c) <: AbstractChains`,
+then `reduce(chainscat, c)` is called.
+"""
+chainsstack(c) = c
+chainsstack(c::AbstractVector{<:AbstractChains}) = reduce(chainscat, c)
 
 """
     bundle_samples(samples, model, sampler, state, chain_type[; kwargs...])

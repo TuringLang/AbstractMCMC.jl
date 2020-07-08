@@ -95,11 +95,17 @@
             if Threads.nthreads() == 1
                 warnregex = r"^Only a single thread available"
                 @test_logs (:warn, warnregex) sample(MyModel(), MySampler(), MCMCThreads(),
-                                                     10, 10; chain_type = MyChain)
+                                                     10, 10)
             end
 
-            Random.seed!(1234)
+            # No dedicated chains type
             N = 10_000
+            chains = sample(MyModel(), MySampler(), MCMCThreads(), N, 1000)
+            @test chains isa Vector{<:Vector{<:MySample}}
+            @test length(chains) == 1000
+            @test all(length(x) == N for x in chains)
+
+            Random.seed!(1234)
             chains = sample(MyModel(), MySampler(), MCMCThreads(), N, 1000;
                             chain_type = MyChain)
 
@@ -161,7 +167,13 @@
             include("utils.jl")
         end
 
+        # No dedicated chains type
         N = 10_000
+        chains = sample(MyModel(), MySampler(), MCMCThreads(), N, 1000)
+        @test chains isa Vector{<:Vector{<:MySample}}
+        @test length(chains) == 1000
+        @test all(length(x) == N for x in chains)
+
         Random.seed!(1234)
         chains = sample(MyModel(), MySampler(), MCMCDistributed(), N, 1000;
                         chain_type = MyChain)
