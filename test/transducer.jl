@@ -7,7 +7,7 @@
         Logging.with_logger(TerminalLogger()) do
             xf = AbstractMCMC.Sample(MyModel(), MySampler();
                                      sleepy = true, logger = true)
-            chain = collect(xf, withprogress(1:N; interval=1e-3))
+            chain = withprogress(1:N; interval=1e-3) |> xf |> collect
         end
 
         # test output type and size
@@ -24,7 +24,7 @@
 
     @testset "drop" begin
         xf = AbstractMCMC.Sample(MyModel(), MySampler())
-        chain = collect(xf |> Drop(1), 1:10)
+        chain = 1:10 |> xf |> Drop(1) |> collect
         @test chain isa Vector{MySample{Float64,Float64}}
         @test length(chain) == 9
     end
@@ -32,8 +32,11 @@
     # Reproduce iterator example
     @testset "iterator example" begin
         # filter missing values and split transitions
-        xf = AbstractMCMC.Sample(MyModel(), MySampler()) |>
-            OfType(MySample{Float64,Float64}) |> Map(x -> (x.a, x.b))
+        xf = opcompose(
+            AbstractMCMC.Sample(MyModel(), MySampler()),
+            OfType(MySample{Float64,Float64}),
+            Map(x -> (x.a, x.b)),
+        )
         as, bs = foldl(xf, 1:999; init = (Float64[], Float64[])) do (as, bs), (a, b)
             push!(as, a)
             push!(bs, b)
