@@ -68,9 +68,10 @@ Common keyword arguments for regular and parallel sampling (not supported by the
 are:
 - `progress` (default: `true`):  toggles progress logging
 - `chain_type` (default: `Any`): determines the type of the returned chain
-- `callback` (default: `nothing`): if `callback !== nohting`, then
+- `callback` (default: `nothing`): if `callback !== nothing`, then
   `callback(rng, model, sampler, sample, iteration)` is called after every sampling step,
   where `sample` is the most recent sample of the Markov chain and `iteration` is the current iteration
+- `discard_initial` (default: `0`): number of initial samples that are discarded
 
 Additionally, AbstractMCMC defines the abstract type `AbstractChains` for Markov chains and the
 method `AbstractMCMC.chainscat(::AbstractChains...)` for concatenating multiple chains.
