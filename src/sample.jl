@@ -64,15 +64,26 @@ function mcmcsample(
     progress = true,
     progressname = "Sampling",
     callback = nothing,
+    discard_initial = 0,
     chain_type::Type=Any,
     kwargs...
 )
     # Check the number of requested samples.
     N > 0 || error("the number of samples must be ≥ 1")
+    Ntotal = N + discard_initial
 
     @ifwithprogresslogger progress name=progressname begin
         # Obtain the initial sample and state.
         sample, state = step(rng, model, sampler; kwargs...)
+
+        # Discard initial samples.
+        for i in 1:(discard_initial - 1)
+            # Update the progress bar.
+            progress && ProgressLogging.@logprogress i/Ntotal
+
+            # Obtain the next sample and state.
+            sample, state = step(rng, model, sampler, state; kwargs...)
+        end
 
         # Run callback.
         callback === nothing || callback(rng, model, sampler, sample, 1)
@@ -82,7 +93,7 @@ function mcmcsample(
         samples = save!!(samples, sample, 1, model, sampler, N; kwargs...)
 
         # Update the progress bar.
-        progress && ProgressLogging.@logprogress 1/N
+        progress && ProgressLogging.@logprogress (1 + discard_initial) / Ntotal
 
         # Step through the sampler.
         for i in 2:N
@@ -96,7 +107,7 @@ function mcmcsample(
             samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
 
             # Update the progress bar.
-            progress && ProgressLogging.@logprogress i/N
+            progress && ProgressLogging.@logprogress (i + discard_initial) / Ntotal
         end
     end
 
@@ -129,11 +140,18 @@ function mcmcsample(
     progress = true,
     progressname = "Convergence sampling",
     callback = nothing,
+    discard_initial = 0,
     kwargs...
 )
     @ifwithprogresslogger progress name=progressname begin
         # Obtain the initial sample and state.
         sample, state = step(rng, model, sampler; kwargs...)
+
+        # Discard initial samples.
+        for _ in 2:discard_initial
+            # Obtain the next sample and state.
+            sample, state = step(rng, model, sampler, state; kwargs...)
+        end
 
         # Run callback.
         callback === nothing || callback(rng, model, sampler, sample, 1)

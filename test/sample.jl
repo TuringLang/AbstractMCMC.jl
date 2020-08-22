@@ -220,10 +220,23 @@
         @test chain2 isa MyChain
     end
 
+    @testset "Discard initial samples" begin
+        chain = sample(MyModel(), MySampler(), 100; sleepy = true, discard_initial = 50)
+        @test length(chain) == 100
+        @test !ismissing(chain[1].a)
+    end
+
     @testset "Sample without predetermined N" begin
         Random.seed!(1234)
         chain = sample(MyModel(), MySampler())
         bmean = mean(x.b for x in chain)
+        @test ismissing(chain[1].a)
+        @test abs(bmean) <= 0.001 && length(chain) < 10_000
+
+        # Discard initial samples.
+        chain = sample(MyModel(), MySampler(); discard_initial = 50)
+        bmean = mean(x.b for x in chain)
+        @test !ismissing(chain[1].a)
         @test abs(bmean) <= 0.001 && length(chain) < 10_000
     end
 
