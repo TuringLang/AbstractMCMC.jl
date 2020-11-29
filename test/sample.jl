@@ -115,10 +115,10 @@
             @test all(x -> length(x.as) == length(x.bs) == N, chains)
 
             # test some statistical properties
-            @show mean(@view x.as[2:end])
-            @show var(@view x.as[2:end])
-            @show mean(@view x.bs[2:end])
-            @show var(@view x.bs[2:end])
+            @show extrema(x -> mean(@view x.as[2:end]), chains)
+            @show extrema(x -> var(@view x.as[2:end]), chains)
+            @show extrema(x -> mean(@view x.bs[2:end]), chains)
+            @show extrema(x -> var(@view x.bs[2:end]), chains)
             @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=5e-2), chains)
             @test all(x -> isapprox(var(@view x.as[2:end]), 1 / 12; atol=5e-3), chains)
             @test all(x -> isapprox(mean(@view x.bs[2:end]), 0; atol=5e-2), chains)
@@ -189,10 +189,10 @@
         @test all(x -> length(x.as) == length(x.bs) == N, chains)
 
         # Test some statistical properties.
-        @show mean(@view x.as[2:end])
-        @show var(@view x.as[2:end])
-        @show mean(@view x.bs[2:end])
-        @show var(@view x.bs[2:end])
+        @show extrema(x -> mean(@view x.as[2:end]), chains)
+        @show extrema(x -> var(@view x.as[2:end]), chains)
+        @show extrema(x -> mean(@view x.bs[2:end]), chains)
+        @show extrema(x -> var(@view x.bs[2:end]), chains)
         @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=5e-2), chains)
         @test all(x -> isapprox(var(@view x.as[2:end]), 1 / 12; atol=5e-3), chains)
         @test all(x -> isapprox(mean(@view x.bs[2:end]), 0; atol=5e-2), chains)
