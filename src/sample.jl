@@ -114,7 +114,7 @@ function mcmcsample(
             # Run callback.
             callback === nothing || callback(rng, model, sampler, sample, i)
 
-            # Save every `thinning`-th sample.
+            # Save the sample.
             samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
 
             # Update the progress bar.
@@ -188,7 +188,7 @@ function mcmcsample(
             # Run callback.
             callback === nothing || callback(rng, model, sampler, sample, i)
 
-            # Save every `thinning`-th sample.
+            # Save the sample.
             samples = save!!(samples, sample, i, model, sampler; kwargs...)
 
             # Increment iteration counter.
