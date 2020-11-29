@@ -227,8 +227,7 @@
     end
 
     @testset "Thin chain by a factor of `thinning`" begin
-        chain = sample(MyModel(), MySampler(), 100; sleepy = true, discard_initial = 50,
-                       thinning = 3)
+        chain = sample(MyModel(), MySampler(), 100; sleepy = true, thinning = 3)
         @test length(chain) == 100
         @test !ismissing(chain[1].a)
     end
