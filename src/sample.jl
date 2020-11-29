@@ -105,7 +105,10 @@ function mcmcsample(
                 sample, state = step(rng, model, sampler, state; kwargs...)
                 
                 # Update progress bar.
-                progress && ProgressLogging.@logprogress (itotal += 1) / Ntotal
+                if progress
+                    itotal += 1
+                    ProgressLogging.@logprogress itotal / Ntotal
+                end
             end
 
             # Obtain the next sample and state.
@@ -118,7 +121,10 @@ function mcmcsample(
             samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
 
             # Update the progress bar.
-            progress && ProgressLogging.@logprogress (itotal += 1) / Ntotal
+            if progress
+                itotal += 1
+                ProgressLogging.@logprogress itotal / Ntotal
+            end
         end
     end
 
