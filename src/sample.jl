@@ -97,7 +97,16 @@ function mcmcsample(
         progress && ProgressLogging.@logprogress (1 + discard_initial) / Ntotal
 
         # Step through the sampler.
-        for i in 2:(thinning * N)
+        itotal = 1 + discard_initial
+        for i in 2:N
+            # Discard thinned samples.
+            for _ in 1:(thinning - 1)
+                # Obtain the next sample and state.
+                sample, state = step(rng, model, sampler, state; kwargs...)
+                
+                # Update progress bar.
+                progress && ProgressLogging.@logprogress (itotal += 1) / Ntotal
+            end
             # Obtain the next sample and state.
             sample, state = step(rng, model, sampler, state; kwargs...)
 
