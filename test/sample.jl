@@ -229,19 +229,19 @@
     @testset "Thin chain by a factor of `thinning`" begin
         thinning, N = 3, 100  # (thinning factor, number of samples)
 
-        # Run a thinned chain with N samples thinned by factor of thinning.
+        # Run a thinned chain with `N` samples thinned by factor of `thinning`.
         Random.seed!(1234)
         thinned_chain = sample(MyModel(), MySampler(), N; sleepy = true, thinning = thinning)
         @test length(thinned_chain) == N
         @test ismissing(thinned_chain[1].a)
 
-        # Run a long chain with N * thinning samples.
+        # Run a long chain with `N * thinning` samples.
         Random.seed!(1234)
         long_chain = sample(MyModel(), MySampler(), N * thinning; sleepy = true)
         @test length(long_chain) == N * thinning
         @test ismissing(long_chain[1].a)
 
-        # Check that thinned_chain is every k-th sample in long_chain.
+        # Check that `thinned_chain` is every `thinning`-th sample in `long_chain`.
         # NOTE: `i` begins at 2 since first sample in `thinned_chain` is `missing`.
         @test all([thinned_chain[i].a == long_chain[(i-1) * thinning + 1].a for i in 2:N])
     end
