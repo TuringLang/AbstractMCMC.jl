@@ -248,7 +248,7 @@
         @test abs(bmean) <= 0.001 && length(chain) < 10_000
 
         # Thin chain by a factor of `thinning`..
-        chain = sample(MyModel(), MySampler(); discard_initial = 50, thinning = 3)
+        chain = sample(MyModel(), MySampler(); thinning = 3)
         bmean = mean(x.b for x in chain)
         @test !ismissing(chain[1].a)
         @test abs(bmean) <= 0.001 && length(chain) < 10_000
