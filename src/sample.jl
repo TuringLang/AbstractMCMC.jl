@@ -71,7 +71,7 @@ function mcmcsample(
 )
     # Check the number of requested samples.
     N > 0 || error("the number of samples must be ≥ 1")
-    Ntotal = thinning * N + discard_initial
+    Ntotal = thinning * (N - 1) + discard_initial + 1
 
     @ifwithprogresslogger progress name=progressname begin
         # Obtain the initial sample and state.
