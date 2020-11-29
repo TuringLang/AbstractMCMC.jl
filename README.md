@@ -2,7 +2,7 @@
 
 Abstract types and interfaces for Markov chain Monte Carlo methods.
 
-[![Build Status](https://travis-ci.com/TuringLang/AbstractMCMC.jl.svg?branch=master)](https://travis-ci.com/TuringLang/EllipticalSliceSampling.jl)
+![CI](https://github.com/TuringLang/AbstractMCMC.jl/workflows/CI/badge.svg?branch=master)
 [![Codecov](https://codecov.io/gh/TuringLang/AbstractMCMC.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/TuringLang/AbstractMCMC.jl)
 [![Coveralls](https://coveralls.io/repos/github/TuringLang/AbstractMCMC.jl/badge.svg?branch=master)](https://coveralls.io/github/TuringLang/AbstractMCMC.jl?branch=master)
 

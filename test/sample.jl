@@ -10,7 +10,7 @@
             @test length(LOGGERS) == 1
             logger = first(LOGGERS)
             @test logger isa TeeLogger
-            @test logger.loggers[1].logger isa TerminalLogger
+            @test logger.loggers[1].logger isa (Sys.iswindows() ? ProgressLogger : TerminalLogger)
             @test logger.loggers[2].logger === CURRENT_LOGGER
             @test Logging.current_logger() === CURRENT_LOGGER
 
@@ -115,7 +115,7 @@
             @test all(x -> length(x.as) == length(x.bs) == N, chains)
 
             # test some statistical properties
-            @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=1e-2), chains)
+            @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=5e-2), chains)
             @test all(x -> isapprox(var(@view x.as[2:end]), 1 / 12; atol=5e-3), chains)
             @test all(x -> isapprox(mean(@view x.bs[2:end]), 0; atol=5e-2), chains)
             @test all(x -> isapprox(var(@view x.bs[2:end]), 1; atol=5e-2), chains)
@@ -185,7 +185,7 @@
         @test all(x -> length(x.as) == length(x.bs) == N, chains)
 
         # Test some statistical properties.
-        @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=1e-2), chains)
+        @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=5e-2), chains)
         @test all(x -> isapprox(var(@view x.as[2:end]), 1 / 12; atol=5e-3), chains)
         @test all(x -> isapprox(mean(@view x.bs[2:end]), 0; atol=5e-2), chains)
         @test all(x -> isapprox(var(@view x.bs[2:end]), 1; atol=5e-2), chains)
@@ -250,7 +250,7 @@
         # Check some statistical properties
         @test ismissing(chain[1].a)
         @test mean(x.a for x in view(chain, 2:1_000)) ≈ 0.5 atol=6e-2
-        @test var(x.a for x in view(chain, 2:1_000)) ≈ 1 / 12 atol=5e-3
+        @test var(x.a for x in view(chain, 2:1_000)) ≈ 1 / 12 atol=1e-2
         @test mean(x.b for x in chain) ≈ 0 atol=0.1
         @test var(x.b for x in chain) ≈ 1 atol=0.15
     end
