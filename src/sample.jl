@@ -65,12 +65,13 @@ function mcmcsample(
     progressname = "Sampling",
     callback = nothing,
     discard_initial = 0,
+    thinning = 1,
     chain_type::Type=Any,
     kwargs...
 )
     # Check the number of requested samples.
     N > 0 || error("the number of samples must be ≥ 1")
-    Ntotal = N + discard_initial
+    Ntotal = thinning * N + discard_initial
 
     @ifwithprogresslogger progress name=progressname begin
         # Obtain the initial sample and state.
@@ -96,15 +97,17 @@ function mcmcsample(
         progress && ProgressLogging.@logprogress (1 + discard_initial) / Ntotal
 
         # Step through the sampler.
-        for i in 2:N
+        for i in 2:(thinning * N)
             # Obtain the next sample and state.
             sample, state = step(rng, model, sampler, state; kwargs...)
 
             # Run callback.
             callback === nothing || callback(rng, model, sampler, sample, i)
 
-            # Save the sample.
-            samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
+            # Save every `thinning`-th sample.
+            if i % thinning == 1 || thinning == 1
+              samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
+            end
 
             # Update the progress bar.
             progress && ProgressLogging.@logprogress (i + discard_initial) / Ntotal
@@ -141,6 +144,7 @@ function mcmcsample(
     progressname = "Convergence sampling",
     callback = nothing,
     discard_initial = 0,
+    thinning = 1,
     kwargs...
 )
     @ifwithprogresslogger progress name=progressname begin
@@ -170,8 +174,10 @@ function mcmcsample(
             # Run callback.
             callback === nothing || callback(rng, model, sampler, sample, i)
 
-            # Save the sample.
-            samples = save!!(samples, sample, i, model, sampler; kwargs...)
+            # Save every `thinning`-th sample.
+            if i % thinning == 1 || thinning == 1
+              samples = save!!(samples, sample, i, model, sampler; kwargs...)
+            end
 
             # Increment iteration counter.
             i += 1
