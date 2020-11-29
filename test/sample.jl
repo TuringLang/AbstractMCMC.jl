@@ -227,9 +227,23 @@
     end
 
     @testset "Thin chain by a factor of `thinning`" begin
-        chain = sample(MyModel(), MySampler(), 100; sleepy = true, thinning = 3)
-        @test length(chain) == 100
-        @test !ismissing(chain[1].a)
+        K, N = 3, 100  # (thinning factor, number of samples)
+
+        # Run a thinned chain with N samples thinned by factor of K.
+        Random.seed!(1234)
+        thinned_chain = sample(MyModel(), MySampler(), N; sleepy = true, thinning = K)
+        @test length(thinned_chain) == N
+        @test ismissing(thinned_chain[1].a)
+
+        # Run a long chain with N * K samples.
+        Random.seed!(1234)
+        long_chain = sample(MyModel(), MySampler(), N * K; sleepy = true)
+        @test length(long_chain) == N * K
+        @test ismissing(long_chain[1].a)
+
+        # Check that thinned_chain is every k-th sample in long_chain.
+        # NOTE: `i` begins at 2 since first sample in `thinned_chain` is `missing`.
+        @test all([thinned_chain[i].a == long_chain[(i-1) * K + 1].a for i in 2:N])
     end
 
 
@@ -249,7 +263,7 @@
         # Thin chain by a factor of `thinning`..
         chain = sample(MyModel(), MySampler(); thinning = 3)
         bmean = mean(x.b for x in chain)
-        @test !ismissing(chain[1].a)
+        @test ismissing(chain[1].a)
         @test abs(bmean) <= 0.001 && length(chain) < 10_000
     end
 

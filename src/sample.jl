@@ -107,6 +107,7 @@ function mcmcsample(
                 # Update progress bar.
                 progress && ProgressLogging.@logprogress (itotal += 1) / Ntotal
             end
+
             # Obtain the next sample and state.
             sample, state = step(rng, model, sampler, state; kwargs...)
 
@@ -175,6 +176,12 @@ function mcmcsample(
         i = 2
 
         while !isdone(rng, model, sampler, samples, i; progress=progress, kwargs...)
+            # Discard thinned samples.
+            for _ in 1:(thinning - 1)
+                # Obtain the next sample and state.
+                sample, state = step(rng, model, sampler, state; kwargs...)
+            end
+
             # Obtain the next sample and state.
             sample, state = step(rng, model, sampler, state; kwargs...)
 
@@ -182,9 +189,7 @@ function mcmcsample(
             callback === nothing || callback(rng, model, sampler, sample, i)
 
             # Save every `thinning`-th sample.
-            if i % thinning == 1 || thinning == 1
-              samples = save!!(samples, sample, i, model, sampler; kwargs...)
-            end
+            samples = save!!(samples, sample, i, model, sampler; kwargs...)
 
             # Increment iteration counter.
             i += 1
