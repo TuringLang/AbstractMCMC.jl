@@ -114,12 +114,10 @@ function mcmcsample(
             callback === nothing || callback(rng, model, sampler, sample, i)
 
             # Save every `thinning`-th sample.
-            if i % thinning == 1 || thinning == 1
-              samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
-            end
+            samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
 
             # Update the progress bar.
-            progress && ProgressLogging.@logprogress (i + discard_initial) / Ntotal
+            progress && ProgressLogging.@logprogress (itotal += 1) / Ntotal
         end
     end
 
