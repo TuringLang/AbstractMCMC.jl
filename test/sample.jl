@@ -226,6 +226,22 @@
         @test !ismissing(chain[1].a)
     end
 
+    @testset "Thin chain by a factor of `thinning`" begin
+        # Run a thinned chain with `N` samples thinned by factor of `thinning`.
+        Random.seed!(1234)
+        N = 100
+        thinning = 3
+        chain = sample(MyModel(), MySampler(), N; sleepy = true, thinning = thinning)
+        @test length(chain) == N
+        @test ismissing(chain[1].a)
+
+        # Repeat sampling without thinning.
+        Random.seed!(1234)
+        ref_chain = sample(MyModel(), MySampler(), N * thinning; sleepy = true)
+        @test all(chain[i].a === ref_chain[(i - 1) * thinning + 1].a for i in 1:N)
+    end
+
+
     @testset "Sample without predetermined N" begin
         Random.seed!(1234)
         chain = sample(MyModel(), MySampler())
@@ -237,6 +253,12 @@
         chain = sample(MyModel(), MySampler(); discard_initial = 50)
         bmean = mean(x.b for x in chain)
         @test !ismissing(chain[1].a)
+        @test abs(bmean) <= 0.001 && length(chain) < 10_000
+
+        # Thin chain by a factor of `thinning`.
+        chain = sample(MyModel(), MySampler(); thinning = 3)
+        bmean = mean(x.b for x in chain)
+        @test ismissing(chain[1].a)
         @test abs(bmean) <= 0.001 && length(chain) < 10_000
     end
 

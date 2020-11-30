@@ -72,6 +72,7 @@ are:
   `callback(rng, model, sampler, sample, iteration)` is called after every sampling step,
   where `sample` is the most recent sample of the Markov chain and `iteration` is the current iteration
 - `discard_initial` (default: `0`): number of initial samples that are discarded
+- `thinning` (default: `1`): factor by which to thin samples.
 
 Additionally, AbstractMCMC defines the abstract type `AbstractChains` for Markov chains and the
 method `AbstractMCMC.chainscat(::AbstractChains...)` for concatenating multiple chains.

@@ -65,12 +65,13 @@ function mcmcsample(
     progressname = "Sampling",
     callback = nothing,
     discard_initial = 0,
+    thinning = 1,
     chain_type::Type=Any,
     kwargs...
 )
     # Check the number of requested samples.
     N > 0 || error("the number of samples must be ≥ 1")
-    Ntotal = N + discard_initial
+    Ntotal = thinning * (N - 1) + discard_initial + 1
 
     @ifwithprogresslogger progress name=progressname begin
         # Obtain the initial sample and state.
@@ -96,7 +97,20 @@ function mcmcsample(
         progress && ProgressLogging.@logprogress (1 + discard_initial) / Ntotal
 
         # Step through the sampler.
+        itotal = 1 + discard_initial
         for i in 2:N
+            # Discard thinned samples.
+            for _ in 1:(thinning - 1)
+                # Obtain the next sample and state.
+                sample, state = step(rng, model, sampler, state; kwargs...)
+                
+                # Update progress bar.
+                if progress
+                    itotal += 1
+                    ProgressLogging.@logprogress itotal / Ntotal
+                end
+            end
+
             # Obtain the next sample and state.
             sample, state = step(rng, model, sampler, state; kwargs...)
 
@@ -107,7 +121,10 @@ function mcmcsample(
             samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
 
             # Update the progress bar.
-            progress && ProgressLogging.@logprogress (i + discard_initial) / Ntotal
+            if progress
+                itotal += 1
+                ProgressLogging.@logprogress itotal / Ntotal
+            end
         end
     end
 
@@ -141,6 +158,7 @@ function mcmcsample(
     progressname = "Convergence sampling",
     callback = nothing,
     discard_initial = 0,
+    thinning = 1,
     kwargs...
 )
     @ifwithprogresslogger progress name=progressname begin
@@ -164,6 +182,12 @@ function mcmcsample(
         i = 2
 
         while !isdone(rng, model, sampler, samples, i; progress=progress, kwargs...)
+            # Discard thinned samples.
+            for _ in 1:(thinning - 1)
+                # Obtain the next sample and state.
+                sample, state = step(rng, model, sampler, state; kwargs...)
+            end
+
             # Obtain the next sample and state.
             sample, state = step(rng, model, sampler, state; kwargs...)
 
