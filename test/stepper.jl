@@ -5,6 +5,7 @@
         bs = []
 
         iter = AbstractMCMC.steps(MyModel(), MySampler())
+        iter = AbstractMCMC.steps(MyModel(), MySampler(); a = 1.0) # `a` shouldn't do anything
 
         for (count, t) in enumerate(iter)
             if count >= 1000

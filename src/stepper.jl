@@ -30,7 +30,7 @@ end
 """
 function steps(
     model::AbstractModel,
-    sampler::AbstractSampler,
+    sampler::AbstractSampler;
     kwargs...
 )
     return steps(Random.GLOBAL_RNG, model, sampler; kwargs...)
@@ -39,7 +39,7 @@ end
 function steps(
     rng::Random.AbstractRNG,
     model::AbstractModel,
-    sampler::AbstractSampler,
+    sampler::AbstractSampler;
     kwargs...
 )
     return Stepper(rng, model, sampler, kwargs)
