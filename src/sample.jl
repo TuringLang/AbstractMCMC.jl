@@ -87,7 +87,7 @@ function mcmcsample(
         end
 
         # Run callback.
-        callback === nothing || callback(rng, model, sampler, sample, 1)
+        callback === nothing || callback(rng, model, sampler, sample, state, 1; kwargs...)
 
         # Save the sample.
         samples = AbstractMCMC.samples(sample, model, sampler, N; kwargs...)
@@ -115,7 +115,7 @@ function mcmcsample(
             sample, state = step(rng, model, sampler, state; kwargs...)
 
             # Run callback.
-            callback === nothing || callback(rng, model, sampler, sample, i)
+            callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
 
             # Save the sample.
             samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
