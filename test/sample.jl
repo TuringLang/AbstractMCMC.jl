@@ -87,6 +87,19 @@
                 sample(MyModel(), MySampler(), 100; progress = false, sleepy = true)
             end
             @test all(l.level > Logging.LogLevel(-1) for l in logs)
+
+            # disable progress logging globally
+            @test !(@test_logs (:info, "progress logging is disabled globally") AbstractMCMC.setprogress!(false))
+            @test !AbstractMCMC.PROGRESS[]
+
+            logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
+                sample(MyModel(), MySampler(), 100; sleepy = true)
+            end
+            @test all(l.level > Logging.LogLevel(-1) for l in logs)
+
+            # enable progress logging globally
+            @test (@test_logs (:info, "progress logging is enabled globally") AbstractMCMC.setprogress!(true))
+            @test AbstractMCMC.PROGRESS[]
         end
     end
 

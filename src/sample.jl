@@ -1,4 +1,16 @@
 # Default implementations of `sample`.
+const PROGRESS = Ref(true)
+
+"""
+    setprogress!(progress::Bool)
+
+Enable progress logging globally if `progress` is `true`, and disable it otherwise.
+"""
+function setprogress!(progress::Bool)
+    @info "progress logging is $(progress ? "enabled" : "disabled") globally"
+    PROGRESS[] = progress
+    return progress
+end
 
 function StatsBase.sample(
     model::AbstractModel,
@@ -61,7 +73,7 @@ function mcmcsample(
     model::AbstractModel,
     sampler::AbstractSampler,
     N::Integer;
-    progress = true,
+    progress = PROGRESS[],
     progressname = "Sampling",
     callback = nothing,
     discard_initial = 0,
@@ -154,7 +166,7 @@ function mcmcsample(
     sampler::AbstractSampler,
     isdone;
     chain_type::Type=Any,
-    progress = true,
+    progress = PROGRESS[],
     progressname = "Convergence sampling",
     callback = nothing,
     discard_initial = 0,
@@ -219,7 +231,7 @@ function mcmcsample(
     ::MCMCThreads,
     N::Integer,
     nchains::Integer;
-    progress = true,
+    progress = PROGRESS[],
     progressname = "Sampling ($(min(nchains, Threads.nthreads())) threads)",
     kwargs...
 )
@@ -302,7 +314,7 @@ function mcmcsample(
     ::MCMCDistributed,
     N::Integer,
     nchains::Integer;
-    progress = true,
+    progress = PROGRESS[],
     progressname = "Sampling ($(Distributed.nworkers()) processes)",
     kwargs...
 )
