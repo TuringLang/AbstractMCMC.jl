@@ -37,7 +37,7 @@ end
 function progresslogger()
     # detect if code is running under IJulia since TerminalLogger does not work with IJulia
     # https://github.com/JuliaLang/IJulia.jl#detecting-that-code-is-running-under-ijulia
-    if Sys.iswindows() || (isdefined(Main, :IJulia) && Main.IJulia.inited)
+    if (Sys.iswindows() && VERSION < v"1.5.3") || (isdefined(Main, :IJulia) && Main.IJulia.inited)
         return ConsoleProgressMonitor.ProgressLogger()
     else
         return TerminalLoggers.TerminalLogger()
