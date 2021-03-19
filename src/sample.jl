@@ -85,6 +85,12 @@ function mcmcsample(
     N > 0 || error("the number of samples must be ≥ 1")
     Ntotal = thinning * (N - 1) + discard_initial + 1
 
+    # Determine threshold values for progress logging (one update per 0.5% of progress)
+    if progress
+        threshold = Ntotal ÷ 200
+        next_update = threshold
+    end
+
     @ifwithprogresslogger progress name=progressname begin
         # Obtain the initial sample and state.
         sample, state = step(rng, model, sampler; kwargs...)
@@ -92,7 +98,10 @@ function mcmcsample(
         # Discard initial samples.
         for i in 1:(discard_initial - 1)
             # Update the progress bar.
-            progress && ProgressLogging.@logprogress i/Ntotal
+            if progress && i >= next_update
+                ProgressLogging.@logprogress i/Ntotal
+                next_update = i + threshold
+            end
 
             # Obtain the next sample and state.
             sample, state = step(rng, model, sampler, state; kwargs...)
@@ -106,10 +115,13 @@ function mcmcsample(
         samples = save!!(samples, sample, 1, model, sampler, N; kwargs...)
 
         # Update the progress bar.
-        progress && ProgressLogging.@logprogress (1 + discard_initial) / Ntotal
+        itotal = 1 + discard_initial
+        if progress && itotal >= next_update
+            ProgressLogging.@logprogress itotal / Ntotal
+            next_update = itotal + threshold
+        end
 
         # Step through the sampler.
-        itotal = 1 + discard_initial
         for i in 2:N
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
@@ -117,9 +129,9 @@ function mcmcsample(
                 sample, state = step(rng, model, sampler, state; kwargs...)
                 
                 # Update progress bar.
-                if progress
-                    itotal += 1
+                if progress && (itotal += 1) >= next_update
                     ProgressLogging.@logprogress itotal / Ntotal
+                    next_update = itotal + threshold
                 end
             end
 
@@ -133,9 +145,9 @@ function mcmcsample(
             samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
 
             # Update the progress bar.
-            if progress
-                itotal += 1
+            if progress && (itotal += 1) >= next_update
                 ProgressLogging.@logprogress itotal / Ntotal
+                next_update = itotal + threshold
             end
         end
     end
@@ -263,17 +275,25 @@ function mcmcsample(
     @ifwithprogresslogger progress name=progressname begin
         # Create a channel for progress logging.
         if progress
-            channel = Distributed.RemoteChannel(() -> Channel{Bool}(nchains))
+            channel = Channel{Bool}(length(interval))
         end
 
         Distributed.@sync begin
             if progress
+                # Update the progress bar.
                 Distributed.@async begin
-                    # Update the progress bar.
+                    # Determine threshold values for progress logging
+                    # (one update per 0.5% of progress)
+                    threshold = nchains ÷ 200
+                    nextprogresschains = threshold
+
                     progresschains = 0
                     while take!(channel)
                         progresschains += 1
-                        ProgressLogging.@logprogress progresschains/nchains
+                        if progresschains >= nextprogresschains
+                            ProgressLogging.@logprogress progresschains/nchains
+                            nextprogresschains = progresschains + threshold
+                        end
                     end
                 end
             end
@@ -334,19 +354,29 @@ function mcmcsample(
     # Set up worker pool.
     pool = Distributed.CachingPool(Distributed.workers())
 
-    # Create a channel for progress logging.
-    channel = progress ? Distributed.RemoteChannel(() -> Channel{Bool}(nchains)) : nothing
-
     local chains
     @ifwithprogresslogger progress name=progressname begin
+        # Create a channel for progress logging.
+        if progress
+            channel = Distributed.RemoteChannel(() -> Channel{Bool}(Distributed.nworkers()))
+        end
+
         Distributed.@sync begin
-            # Update the progress bar.
             if progress
+                # Update the progress bar.
                 Distributed.@async begin
+                    # Determine threshold values for progress logging
+                    # (one update per 0.5% of progress)
+                    threshold = nchains ÷ 200
+                    nextprogresschains = threshold
+
                     progresschains = 0
                     while take!(channel)
                         progresschains += 1
-                        ProgressLogging.@logprogress progresschains/nchains
+                        if progresschains >= nextprogresschains
+                            ProgressLogging.@logprogress progresschains/nchains
+                            nextprogresschains = progresschains + threshold
+                        end
                     end
                 end
             end
@@ -362,7 +392,7 @@ function mcmcsample(
                                                  progress = false, kwargs...)
 
                         # Update the progress bar.
-                        channel === nothing || put!(channel, true)
+                        progress && put!(channel, true)
 
                         # Return the new chain.
                         return chain
