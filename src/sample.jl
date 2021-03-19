@@ -85,13 +85,14 @@ function mcmcsample(
     N > 0 || error("the number of samples must be ≥ 1")
     Ntotal = thinning * (N - 1) + discard_initial + 1
 
-    # Determine threshold values for progress logging (one update per 0.5% of progress)
-    if progress
-        threshold = Ntotal ÷ 200
-        next_update = threshold
-    end
-
     @ifwithprogresslogger progress name=progressname begin
+        # Determine threshold values for progress logging
+        # (one update per 0.5% of progress)
+        if progress
+            threshold = Ntotal ÷ 200
+            next_update = threshold
+        end
+
         # Obtain the initial sample and state.
         sample, state = step(rng, model, sampler; kwargs...)
 
