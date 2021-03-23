@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: ${{ matrix.package.repo }}/${{ matrix.package.group }}
+    name: ${{ matrix.package.repo }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
