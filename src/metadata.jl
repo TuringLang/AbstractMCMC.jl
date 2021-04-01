@@ -24,13 +24,13 @@ end
 Metadata() = Metadata(Dates.now(), missing, 0,0,0)
 
 function update(f, md::Metadata)
-    value, etime, alloc, gct, _ = @timed f(md)
+    (sample, state), etime, alloc, gct, _ = @timed f(md)
 
     md.step_time += etime
     md.step_calls += 1
     md.allocations += alloc
 
-    return value
+    return (sample, state)
 end
 
 function stop(md::Metadata)
