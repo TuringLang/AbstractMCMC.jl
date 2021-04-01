@@ -233,6 +233,15 @@
         @test chain2 isa MyChain
     end
 
+    @testset "Metadata" begin
+        chain = sample(MyModel(), MySampler(), 1000; chain_type = MyChain)
+        
+        @test chain.metadata.stop_time > chain.metadata.start_time
+        @test chain.metadata.step_calls == 1000
+        @test chain.metadata.allocations > 0
+        @test chain.metadata.step_time > 0
+    end
+
     @testset "Discard initial samples" begin
         chain = sample(MyModel(), MySampler(), 100; sleepy = true, discard_initial = 50)
         @test length(chain) == 100

@@ -79,6 +79,7 @@ function mcmcsample(
     discard_initial = 0,
     thinning = 1,
     chain_type::Type=Any,
+    sampling_metadata = Metadata(),
     kwargs...
 )
     # Check the number of requested samples.
@@ -94,7 +95,10 @@ function mcmcsample(
         end
 
         # Obtain the initial sample and state.
-        sample, state = step(rng, model, sampler; kwargs...)
+        sample, state = update(sampling_metadata) do x
+            step(rng, model, sampler; kwargs...)
+        end
+
 
         # Discard initial samples.
         for i in 1:(discard_initial - 1)
@@ -105,7 +109,9 @@ function mcmcsample(
             end
 
             # Obtain the next sample and state.
-            sample, state = step(rng, model, sampler, state; kwargs...)
+            sample, state = update(sampling_metadata) do x
+                step(rng, model, sampler, state; kwargs...)
+            end
         end
 
         # Run callback.
@@ -127,7 +133,9 @@ function mcmcsample(
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
-                sample, state = step(rng, model, sampler, state; kwargs...)
+                sample, state = update(sampling_metadata) do _
+                    step(rng, model, sampler, state; kwargs...)
+                end
                 
                 # Update progress bar.
                 if progress && (itotal += 1) >= next_update
@@ -137,7 +145,9 @@ function mcmcsample(
             end
 
             # Obtain the next sample and state.
-            sample, state = step(rng, model, sampler, state; kwargs...)
+            sample, state = update(sampling_metadata) do _
+                step(rng, model, sampler, state; kwargs...)
+            end
 
             # Run callback.
             callback === nothing || callback(rng, model, sampler, sample, i)
@@ -153,7 +163,18 @@ function mcmcsample(
         end
     end
 
-    return bundle_samples(samples, model, sampler, state, chain_type; kwargs...)
+    # Stop the timer on the metadata.
+    stop(sampling_metadata)
+
+    return bundle_samples(
+        samples, 
+        model, 
+        sampler,
+        state,
+        chain_type;
+        sampling_metadata = sampling_metadata,
+        kwargs...
+    )
 end
 
 """
@@ -184,16 +205,21 @@ function mcmcsample(
     callback = nothing,
     discard_initial = 0,
     thinning = 1,
+    sampling_metadata = Metadata(),
     kwargs...
 )
     @ifwithprogresslogger progress name=progressname begin
         # Obtain the initial sample and state.
-        sample, state = step(rng, model, sampler; kwargs...)
+        sample, state = update(sampling_metadata) do _
+            step(rng, model, sampler; kwargs...)
+        end
 
         # Discard initial samples.
         for _ in 2:discard_initial
             # Obtain the next sample and state.
-            sample, state = step(rng, model, sampler, state; kwargs...)
+            sample, state = update(sampling_metadata) do _
+                step(rng, model, sampler, state; kwargs...)
+            end
         end
 
         # Run callback.
@@ -210,11 +236,15 @@ function mcmcsample(
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
-                sample, state = step(rng, model, sampler, state; kwargs...)
+                sample, state = update(sampling_metadata) do _
+                    step(rng, model, sampler, state; kwargs...)
+                end
             end
 
             # Obtain the next sample and state.
-            sample, state = step(rng, model, sampler, state; kwargs...)
+            sample, state = update(sampling_metadata) do _
+                step(rng, model, sampler, state; kwargs...)
+            end
 
             # Run callback.
             callback === nothing || callback(rng, model, sampler, sample, i)
@@ -227,8 +257,19 @@ function mcmcsample(
         end
     end
 
+    # Stop the timer on the metadata.
+    stop(sampling_metadata)
+
     # Wrap the samples up.
-    return bundle_samples(samples, model, sampler, state, chain_type; kwargs...)
+    return bundle_samples(
+        samples, 
+        model,
+        sampler, 
+        state, 
+        chain_type; 
+        sampling_metadata = sampling_metadata,
+        kwargs...
+    )
 end
 
 """
