@@ -24,11 +24,11 @@ end
 Metadata() = Metadata(Dates.now(), missing, 0,0,0)
 
 function update(f, md::Metadata)
-    (value, stats...) = @timed f(md)
+    value, etime, alloc, gct, _ = @timed f(md)
 
-    md.step_time += stats.time
+    md.step_time += etime
     md.step_calls += 1
-    md.allocations += stats.bytes
+    md.allocations += alloc
 
     return value
 end
