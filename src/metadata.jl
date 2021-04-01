@@ -24,7 +24,7 @@ end
 Metadata() = Metadata(Dates.now(), missing, 0,0,0)
 
 function update(f, md::Metadata)
-    value, stats... = @timed f(md)
+    (value, stats...) = @timed f(md)
 
     md.step_time += stats.time
     md.step_calls += 1
