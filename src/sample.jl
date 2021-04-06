@@ -79,12 +79,16 @@ function mcmcsample(
     discard_initial = 0,
     thinning = 1,
     chain_type::Type=Any,
-    sampling_metadata = Metadata(),
     kwargs...
 )
     # Check the number of requested samples.
     N > 0 || error("the number of samples must be ≥ 1")
     Ntotal = thinning * (N - 1) + discard_initial + 1
+
+    # Set up sampling stats -- timing, allocations, etc.
+    start = time()
+    step_time = 0
+    allocations = 0
 
     @ifwithprogresslogger progress name=progressname begin
         # Determine threshold values for progress logging
@@ -95,10 +99,10 @@ function mcmcsample(
         end
 
         # Obtain the initial sample and state.
-        sample, state = update(sampling_metadata) do x
-            step(rng, model, sampler; kwargs...)
-        end
-
+        (sample, state), _time, _allocations, _, _ = 
+            @timed step(rng, model, sampler; kwargs...)
+        step_time += _time
+        allocations += _allocations
 
         # Discard initial samples.
         for i in 1:(discard_initial - 1)
@@ -109,9 +113,10 @@ function mcmcsample(
             end
 
             # Obtain the next sample and state.
-            sample, state = update(sampling_metadata) do x
-                step(rng, model, sampler, state; kwargs...)
-            end
+            (sample, state), _time, _allocations, _, _ =  
+                @timed step(rng, model, sampler, state; kwargs...)
+            step_time += _time
+            allocations += _allocations
         end
 
         # Run callback.
@@ -133,10 +138,11 @@ function mcmcsample(
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
-                sample, state = update(sampling_metadata) do _
-                    step(rng, model, sampler, state; kwargs...)
-                end
-                
+                (sample, state), _time, _allocations, _, _ = 
+                    @timed step(rng, model, sampler, state; kwargs...)
+                step_time += _time
+                allocations += _allocations
+
                 # Update progress bar.
                 if progress && (itotal += 1) >= next_update
                     ProgressLogging.@logprogress itotal / Ntotal
@@ -145,9 +151,10 @@ function mcmcsample(
             end
 
             # Obtain the next sample and state.
-            sample, state = update(sampling_metadata) do _
-                step(rng, model, sampler, state; kwargs...)
-            end
+            (sample, state), _time, _allocations, _, _ = 
+                @timed step(rng, model, sampler, state; kwargs...)
+            step_time += _time
+            allocations += _allocations
 
             # Run callback.
             callback === nothing || callback(rng, model, sampler, sample, i)
@@ -163,8 +170,10 @@ function mcmcsample(
         end
     end
 
-    # Stop the timer on the metadata.
-    stop(sampling_metadata)
+    # Get the sample stop time.
+    stop = time()
+    duration = stop - start
+    stats = SamplingStats(start, stop, duration, step_time, Ntotal, allocations)
 
     return bundle_samples(
         samples, 
@@ -172,7 +181,7 @@ function mcmcsample(
         sampler,
         state,
         chain_type;
-        sampling_metadata = sampling_metadata,
+        stats=stats,
         kwargs...
     )
 end
@@ -205,21 +214,31 @@ function mcmcsample(
     callback = nothing,
     discard_initial = 0,
     thinning = 1,
-    sampling_metadata = Metadata(),
     kwargs...
 )
+
+    # Set up sampling stats -- timing, allocations, etc.
+    start = time()
+    step_time = 0
+    step_calls = 0
+    allocations = 0
+
     @ifwithprogresslogger progress name=progressname begin
         # Obtain the initial sample and state.
-        sample, state = update(sampling_metadata) do _
-            step(rng, model, sampler; kwargs...)
-        end
+        (sample, state), _time, _allocations, _, _ = 
+                @timed step(rng, model, sampler; kwargs...)
+        step_time += _time
+        allocations += _allocations
+        step_calls += 1
 
         # Discard initial samples.
         for _ in 2:discard_initial
             # Obtain the next sample and state.
-            sample, state = update(sampling_metadata) do _
-                step(rng, model, sampler, state; kwargs...)
-            end
+            (sample, state), _time, _allocations, _, _ = 
+                @timed step(rng, model, sampler, state; kwargs...)
+            step_time += _time
+            allocations += _allocations
+            step_calls += 1
         end
 
         # Run callback.
@@ -236,15 +255,19 @@ function mcmcsample(
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
-                sample, state = update(sampling_metadata) do _
-                    step(rng, model, sampler, state; kwargs...)
-                end
+                (sample, state), _time, _allocations, _, _ = 
+                    @timed step(rng, model, sampler, state; kwargs...)
+                step_time += _time
+                allocations += _allocations
+                step_calls += 1
             end
 
             # Obtain the next sample and state.
-            sample, state = update(sampling_metadata) do _
-                step(rng, model, sampler, state; kwargs...)
-            end
+            (sample, state), _time, _allocations, _, _ = 
+                @timed step(rng, model, sampler, state; kwargs...)
+            step_time += _time
+            allocations += _allocations
+            step_calls += 1
 
             # Run callback.
             callback === nothing || callback(rng, model, sampler, sample, i)
@@ -257,8 +280,10 @@ function mcmcsample(
         end
     end
 
-    # Stop the timer on the metadata.
-    stop(sampling_metadata)
+    # Get the sample stop time.
+    stop = time()
+    duration = stop - start
+    stats = SamplingStats(start, stop, duration, step_time, step_calls, allocations)
 
     # Wrap the samples up.
     return bundle_samples(
@@ -267,7 +292,7 @@ function mcmcsample(
         sampler, 
         state, 
         chain_type; 
-        sampling_metadata = sampling_metadata,
+        stats=stats,
         kwargs...
     )
 end

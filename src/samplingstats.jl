@@ -1,7 +1,5 @@
-using Dates
-
 """
-    Metadata
+    SamplingStats
 
 A struct that tracks sampling information. 
 
@@ -13,17 +11,16 @@ The fields available are:
 - `step_time`: The total number of seconds spent inside `step!` calls.
 - `allocations`: The total number of bytes allocated by `step!`.
 """
-mutable struct Metadata
-    start_time::DateTime
-    stop_time::Union{DateTime, Missing}
+mutable struct SamplingStats
+    start::Float64
+    stop::Union{Float64, Missing}
+    duration::Union{Float64, Missing}
     step_time::Float64
     step_calls::Int64
     allocations::Int64
 end
 
-Metadata() = Metadata(Dates.now(), missing, 0,0,0)
-
-function update(f, md::Metadata)
+function update(f, md::SamplingStats)
     (sample, state), etime, alloc, gct, _ = @timed f(md)
 
     md.step_time += etime
@@ -33,6 +30,6 @@ function update(f, md::Metadata)
     return (sample, state)
 end
 
-function stop(md::Metadata)
+function stop(md::SamplingStats)
     md.stop_time = Dates.now()
 end
