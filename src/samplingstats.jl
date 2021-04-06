@@ -11,7 +11,7 @@ The fields available are:
 - `step_time`: The total number of seconds spent inside `step!` calls.
 - `allocations`: The total number of bytes allocated by `step!`.
 """
-mutable struct SamplingStats
+struct SamplingStats
     start::Float64
     stop::Union{Float64, Missing}
     duration::Union{Float64, Missing}
