@@ -238,25 +238,7 @@
         
         @test chain.stats.stop > chain.stats.start
         @test chain.stats.duration == chain.stats.stop - chain.stats.start
-        @test chain.stats.step_calls == 1000
         @test chain.stats.allocations > 0
-        @test chain.stats.step_time <= chain.stats.duration
-
-        # Test that thinning/initial discard samples are caught correctly
-        chain2 = sample(
-            MyModel(),
-            MySampler(), 
-            1000; 
-            chain_type = MyChain, 
-            thinning = 2, 
-            discard_initial=100
-        )
-
-        # Formula:
-        #   thinning * (N - 1) + discard_initial + 1
-        #   2 * (999) + 100 + 1 = 2099
-        @test chain2.stats.step_calls == 2099 
-        @test chain2.stats.step_time > chain.stats.step_time
     end
 
     @testset "Discard initial samples" begin
