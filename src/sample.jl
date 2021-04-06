@@ -87,6 +87,7 @@ function mcmcsample(
 
     # Start the timer
     start = time()
+    local state
 
     allocations = @allocated begin
         @ifwithprogresslogger progress name=progressname begin
@@ -207,6 +208,7 @@ function mcmcsample(
 
     # Start the timer
     start = time()
+    local state
 
     allocations = @allocated begin
         @ifwithprogresslogger progress name=progressname begin
