@@ -89,72 +89,70 @@ function mcmcsample(
     start = time()
     local state
 
-    allocations = @allocated begin
-        @ifwithprogresslogger progress name=progressname begin
-            # Determine threshold values for progress logging
-            # (one update per 0.5% of progress)
-            if progress
-                threshold = Ntotal ÷ 200
-                next_update = threshold
-            end
+    allocations = @allocated @ifwithprogresslogger progress name=progressname begin
+        # Determine threshold values for progress logging
+        # (one update per 0.5% of progress)
+        if progress
+            threshold = Ntotal ÷ 200
+            next_update = threshold
+        end
 
-            # Obtain the initial sample and state.
-            sample, state = step(rng, model, sampler; kwargs...)
+        # Obtain the initial sample and state.
+        sample, state = step(rng, model, sampler; kwargs...)
 
-            # Discard initial samples.
-            for i in 1:(discard_initial - 1)
-                # Update the progress bar.
-                if progress && i >= next_update
-                    ProgressLogging.@logprogress i/Ntotal
-                    next_update = i + threshold
-                end
-
-                # Obtain the next sample and state.
-                sample, state = step(rng, model, sampler, state; kwargs...)
-            end
-
-            # Run callback.
-            callback === nothing || callback(rng, model, sampler, sample, 1)
-
-            # Save the sample.
-            samples = AbstractMCMC.samples(sample, model, sampler, N; kwargs...)
-            samples = save!!(samples, sample, 1, model, sampler, N; kwargs...)
-
+        # Discard initial samples.
+        for i in 1:(discard_initial - 1)
             # Update the progress bar.
-            itotal = 1 + discard_initial
-            if progress && itotal >= next_update
-                ProgressLogging.@logprogress itotal / Ntotal
-                next_update = itotal + threshold
+            if progress && i >= next_update
+                ProgressLogging.@logprogress i/Ntotal
+                next_update = i + threshold
             end
 
-            # Step through the sampler.
-            for i in 2:N
-                # Discard thinned samples.
-                for _ in 1:(thinning - 1)
-                    # Obtain the next sample and state.
-                    sample, state = step(rng, model, sampler, state; kwargs...)
+            # Obtain the next sample and state.
+            sample, state = step(rng, model, sampler, state; kwargs...)
+        end
 
-                    # Update progress bar.
-                    if progress && (itotal += 1) >= next_update
-                        ProgressLogging.@logprogress itotal / Ntotal
-                        next_update = itotal + threshold
-                    end
-                end
+        # Run callback.
+        callback === nothing || callback(rng, model, sampler, sample, 1)
 
+        # Save the sample.
+        samples = AbstractMCMC.samples(sample, model, sampler, N; kwargs...)
+        samples = save!!(samples, sample, 1, model, sampler, N; kwargs...)
+
+        # Update the progress bar.
+        itotal = 1 + discard_initial
+        if progress && itotal >= next_update
+            ProgressLogging.@logprogress itotal / Ntotal
+            next_update = itotal + threshold
+        end
+
+        # Step through the sampler.
+        for i in 2:N
+            # Discard thinned samples.
+            for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
                 sample, state = step(rng, model, sampler, state; kwargs...)
 
-                # Run callback.
-                callback === nothing || callback(rng, model, sampler, sample, i)
-
-                # Save the sample.
-                samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
-
-                # Update the progress bar.
+                # Update progress bar.
                 if progress && (itotal += 1) >= next_update
                     ProgressLogging.@logprogress itotal / Ntotal
                     next_update = itotal + threshold
                 end
+            end
+
+            # Obtain the next sample and state.
+            sample, state = step(rng, model, sampler, state; kwargs...)
+
+            # Run callback.
+            callback === nothing || callback(rng, model, sampler, sample, i)
+
+            # Save the sample.
+            samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
+
+            # Update the progress bar.
+            if progress && (itotal += 1) >= next_update
+                ProgressLogging.@logprogress itotal / Ntotal
+                next_update = itotal + threshold
             end
         end
     end
