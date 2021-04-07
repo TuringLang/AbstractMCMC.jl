@@ -10,7 +10,7 @@
             @test length(LOGGERS) == 1
             logger = first(LOGGERS)
             @test logger isa TeeLogger
-            @test logger.loggers[1].logger isa (Sys.iswindows() ? ProgressLogger : TerminalLogger)
+            @test logger.loggers[1].logger isa (Sys.iswindows() && VERSION < v"1.5.3" ? ProgressLogger : TerminalLogger)
             @test logger.loggers[2].logger === CURRENT_LOGGER
             @test Logging.current_logger() === CURRENT_LOGGER
 
@@ -87,6 +87,19 @@
                 sample(MyModel(), MySampler(), 100; progress = false, sleepy = true)
             end
             @test all(l.level > Logging.LogLevel(-1) for l in logs)
+
+            # disable progress logging globally
+            @test !(@test_logs (:info, "progress logging is disabled globally") AbstractMCMC.setprogress!(false))
+            @test !AbstractMCMC.PROGRESS[]
+
+            logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
+                sample(MyModel(), MySampler(), 100; sleepy = true)
+            end
+            @test all(l.level > Logging.LogLevel(-1) for l in logs)
+
+            # enable progress logging globally
+            @test (@test_logs (:info, "progress logging is enabled globally") AbstractMCMC.setprogress!(true))
+            @test AbstractMCMC.PROGRESS[]
         end
     end
 

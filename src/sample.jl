@@ -1,4 +1,16 @@
 # Default implementations of `sample`.
+const PROGRESS = Ref(true)
+
+"""
+    setprogress!(progress::Bool)
+
+Enable progress logging globally if `progress` is `true`, and disable it otherwise.
+"""
+function setprogress!(progress::Bool)
+    @info "progress logging is $(progress ? "enabled" : "disabled") globally"
+    PROGRESS[] = progress
+    return progress
+end
 
 function StatsBase.sample(
     model::AbstractModel,
@@ -61,7 +73,7 @@ function mcmcsample(
     model::AbstractModel,
     sampler::AbstractSampler,
     N::Integer;
-    progress = true,
+    progress = PROGRESS[],
     progressname = "Sampling",
     callback = nothing,
     discard_initial = 0,
@@ -74,13 +86,23 @@ function mcmcsample(
     Ntotal = thinning * (N - 1) + discard_initial + 1
 
     @ifwithprogresslogger progress name=progressname begin
+        # Determine threshold values for progress logging
+        # (one update per 0.5% of progress)
+        if progress
+            threshold = Ntotal ÷ 200
+            next_update = threshold
+        end
+
         # Obtain the initial sample and state.
         sample, state = step(rng, model, sampler; kwargs...)
 
         # Discard initial samples.
         for i in 1:(discard_initial - 1)
             # Update the progress bar.
-            progress && ProgressLogging.@logprogress i/Ntotal
+            if progress && i >= next_update
+                ProgressLogging.@logprogress i/Ntotal
+                next_update = i + threshold
+            end
 
             # Obtain the next sample and state.
             sample, state = step(rng, model, sampler, state; kwargs...)
@@ -94,10 +116,13 @@ function mcmcsample(
         samples = save!!(samples, sample, 1, model, sampler, N; kwargs...)
 
         # Update the progress bar.
-        progress && ProgressLogging.@logprogress (1 + discard_initial) / Ntotal
+        itotal = 1 + discard_initial
+        if progress && itotal >= next_update
+            ProgressLogging.@logprogress itotal / Ntotal
+            next_update = itotal + threshold
+        end
 
         # Step through the sampler.
-        itotal = 1 + discard_initial
         for i in 2:N
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
@@ -105,9 +130,9 @@ function mcmcsample(
                 sample, state = step(rng, model, sampler, state; kwargs...)
                 
                 # Update progress bar.
-                if progress
-                    itotal += 1
+                if progress && (itotal += 1) >= next_update
                     ProgressLogging.@logprogress itotal / Ntotal
+                    next_update = itotal + threshold
                 end
             end
 
@@ -121,9 +146,9 @@ function mcmcsample(
             samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
 
             # Update the progress bar.
-            if progress
-                itotal += 1
+            if progress && (itotal += 1) >= next_update
                 ProgressLogging.@logprogress itotal / Ntotal
+                next_update = itotal + threshold
             end
         end
     end
@@ -154,7 +179,7 @@ function mcmcsample(
     sampler::AbstractSampler,
     isdone;
     chain_type::Type=Any,
-    progress = true,
+    progress = PROGRESS[],
     progressname = "Convergence sampling",
     callback = nothing,
     discard_initial = 0,
@@ -219,7 +244,7 @@ function mcmcsample(
     ::MCMCThreads,
     N::Integer,
     nchains::Integer;
-    progress = true,
+    progress = PROGRESS[],
     progressname = "Sampling ($(min(nchains, Threads.nthreads())) threads)",
     kwargs...
 )
@@ -251,17 +276,25 @@ function mcmcsample(
     @ifwithprogresslogger progress name=progressname begin
         # Create a channel for progress logging.
         if progress
-            channel = Distributed.RemoteChannel(() -> Channel{Bool}(nchains))
+            channel = Channel{Bool}(length(interval))
         end
 
         Distributed.@sync begin
             if progress
+                # Update the progress bar.
                 Distributed.@async begin
-                    # Update the progress bar.
+                    # Determine threshold values for progress logging
+                    # (one update per 0.5% of progress)
+                    threshold = nchains ÷ 200
+                    nextprogresschains = threshold
+
                     progresschains = 0
                     while take!(channel)
                         progresschains += 1
-                        ProgressLogging.@logprogress progresschains/nchains
+                        if progresschains >= nextprogresschains
+                            ProgressLogging.@logprogress progresschains/nchains
+                            nextprogresschains = progresschains + threshold
+                        end
                     end
                 end
             end
@@ -302,7 +335,7 @@ function mcmcsample(
     ::MCMCDistributed,
     N::Integer,
     nchains::Integer;
-    progress = true,
+    progress = PROGRESS[],
     progressname = "Sampling ($(Distributed.nworkers()) processes)",
     kwargs...
 )
@@ -322,19 +355,29 @@ function mcmcsample(
     # Set up worker pool.
     pool = Distributed.CachingPool(Distributed.workers())
 
-    # Create a channel for progress logging.
-    channel = progress ? Distributed.RemoteChannel(() -> Channel{Bool}(nchains)) : nothing
-
     local chains
     @ifwithprogresslogger progress name=progressname begin
+        # Create a channel for progress logging.
+        if progress
+            channel = Distributed.RemoteChannel(() -> Channel{Bool}(Distributed.nworkers()))
+        end
+
         Distributed.@sync begin
-            # Update the progress bar.
             if progress
+                # Update the progress bar.
                 Distributed.@async begin
+                    # Determine threshold values for progress logging
+                    # (one update per 0.5% of progress)
+                    threshold = nchains ÷ 200
+                    nextprogresschains = threshold
+
                     progresschains = 0
                     while take!(channel)
                         progresschains += 1
-                        ProgressLogging.@logprogress progresschains/nchains
+                        if progresschains >= nextprogresschains
+                            ProgressLogging.@logprogress progresschains/nchains
+                            nextprogresschains = progresschains + threshold
+                        end
                     end
                 end
             end
@@ -350,7 +393,7 @@ function mcmcsample(
                                                  progress = false, kwargs...)
 
                         # Update the progress bar.
-                        channel === nothing || put!(channel, true)
+                        progress && put!(channel, true)
 
                         # Return the new chain.
                         return chain

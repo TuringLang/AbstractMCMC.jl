@@ -2,7 +2,8 @@
 
 Abstract types and interfaces for Markov chain Monte Carlo methods.
 
-![CI](https://github.com/TuringLang/AbstractMCMC.jl/workflows/CI/badge.svg?branch=master)
+[![CI](https://github.com/TuringLang/AbstractMCMC.jl/workflows/CI/badge.svg?branch=master)](https://github.com/TuringLang/AbstractMCMC.jl/actions?query=workflow%3ACI+branch%3Amaster)
+[![IntegrationTest](https://github.com/TuringLang/AbstractMCMC.jl/workflows/IntegrationTest/badge.svg?branch=master)](https://github.com/TuringLang/AbstractMCMC.jl/actions?query=workflow%3AIntegrationTest+branch%3Amaster)
 [![Codecov](https://codecov.io/gh/TuringLang/AbstractMCMC.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/TuringLang/AbstractMCMC.jl)
 [![Coveralls](https://coveralls.io/repos/github/TuringLang/AbstractMCMC.jl/badge.svg?branch=master)](https://coveralls.io/github/TuringLang/AbstractMCMC.jl?branch=master)
 
@@ -66,13 +67,15 @@ returns a transducer that returns samples continuously.
 
 Common keyword arguments for regular and parallel sampling (not supported by the iterator and transducer)
 are:
-- `progress` (default: `true`):  toggles progress logging
+- `progress` (default: `AbstractMCMC.PROGRESS[]` which is `true` initially):  toggles progress logging
 - `chain_type` (default: `Any`): determines the type of the returned chain
 - `callback` (default: `nothing`): if `callback !== nothing`, then
   `callback(rng, model, sampler, sample, state, iteration; kwargs...)` is called after every sampling step,
   where `sample` is the most recent sample of the Markov chain and `iteration` is the current iteration
 - `discard_initial` (default: `0`): number of initial samples that are discarded
 - `thinning` (default: `1`): factor by which to thin samples.
+
+Progress logging can be enabled and disabled globally with `AbstractMCMC.setprogress!(progress)`.
 
 Additionally, AbstractMCMC defines the abstract type `AbstractChains` for Markov chains and the
 method `AbstractMCMC.chainscat(::AbstractChains...)` for concatenating multiple chains.
