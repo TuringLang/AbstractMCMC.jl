@@ -289,4 +289,14 @@
         @test mean(x.b for x in chain) ≈ 0 atol=0.1
         @test var(x.b for x in chain) ≈ 1 atol=0.15
     end
+    
+    @testset "Testing callbacks" begin
+        function count_iterations(rng, model, sampler, sample, state, i; iter_array, kwargs...)
+            iter_array[i] = i
+        end
+        N = 100
+        it_array = zeros(N)
+        sample(MyModel(), MySampler(), N; callback=count_iterations, iter_array=it_array)
+        @test it_array == collect(1:N)
+    end
 end
