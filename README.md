@@ -44,7 +44,7 @@ StatsBase.sample(
 for regular and parallel sampling, respectively. In regular sampling, users may
 provide a function
 ```julia
-isdone(rng, model, sampler, samples, iteration; kwargs...)
+isdone(rng, model, sampler, samples, state, iteration; kwargs...)
 ```
 that returns `true` when sampling should end, and `false` otherwise, instead of
 a fixed number of samples `nsamples`. AbstractMCMC defines the abstract types

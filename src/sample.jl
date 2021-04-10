@@ -206,7 +206,7 @@ function mcmcsample(
         # Step through the sampler until stopping.
         i = 2
 
-        while !isdone(rng, model, sampler, samples, i; progress=progress, kwargs...)
+        while !isdone(rng, model, sampler, samples, state, i; progress=progress, kwargs...)
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
