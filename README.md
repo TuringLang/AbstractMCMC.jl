@@ -44,7 +44,7 @@ StatsBase.sample(
 for regular and parallel sampling, respectively. In regular sampling, users may
 provide a function
 ```julia
-isdone(rng, model, sampler, samples, iteration; kwargs...)
+isdone(rng, model, sampler, samples, state, iteration; kwargs...)
 ```
 that returns `true` when sampling should end, and `false` otherwise, instead of
 a fixed number of samples `nsamples`. AbstractMCMC defines the abstract types
@@ -70,7 +70,7 @@ are:
 - `progress` (default: `AbstractMCMC.PROGRESS[]` which is `true` initially):  toggles progress logging
 - `chain_type` (default: `Any`): determines the type of the returned chain
 - `callback` (default: `nothing`): if `callback !== nothing`, then
-  `callback(rng, model, sampler, sample, iteration)` is called after every sampling step,
+  `callback(rng, model, sampler, sample, state, iteration; kwargs...)` is called after every sampling step,
   where `sample` is the most recent sample of the Markov chain and `iteration` is the current iteration
 - `discard_initial` (default: `0`): number of initial samples that are discarded
 - `thinning` (default: `1`): factor by which to thin samples.

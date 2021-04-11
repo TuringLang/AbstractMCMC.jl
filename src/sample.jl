@@ -113,7 +113,7 @@ function mcmcsample(
         end
 
         # Run callback.
-        callback === nothing || callback(rng, model, sampler, sample, 1)
+        callback === nothing || callback(rng, model, sampler, sample, state, 1; kwargs...)
 
         # Save the sample.
         samples = AbstractMCMC.samples(sample, model, sampler, N; kwargs...)
@@ -144,7 +144,7 @@ function mcmcsample(
             sample, state = step(rng, model, sampler, state; kwargs...)
 
             # Run callback.
-            callback === nothing || callback(rng, model, sampler, sample, i)
+            callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
 
             # Save the sample.
             samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
@@ -219,7 +219,7 @@ function mcmcsample(
         end
 
         # Run callback.
-        callback === nothing || callback(rng, model, sampler, sample, 1)
+        callback === nothing || callback(rng, model, sampler, sample, state, 1; kwargs...)
 
         # Save the sample.
         samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
@@ -228,7 +228,7 @@ function mcmcsample(
         # Step through the sampler until stopping.
         i = 2
 
-        while !isdone(rng, model, sampler, samples, i; progress=progress, kwargs...)
+        while !isdone(rng, model, sampler, samples, state, i; progress=progress, kwargs...)
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
@@ -239,7 +239,7 @@ function mcmcsample(
             sample, state = step(rng, model, sampler, state; kwargs...)
 
             # Run callback.
-            callback === nothing || callback(rng, model, sampler, sample, i)
+            callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
 
             # Save the sample.
             samples = save!!(samples, sample, i, model, sampler; kwargs...)
