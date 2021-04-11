@@ -238,7 +238,6 @@
         
         @test chain.stats.stop > chain.stats.start
         @test chain.stats.duration == chain.stats.stop - chain.stats.start
-        @test chain.stats.allocations > 0
     end
 
     @testset "Discard initial samples" begin

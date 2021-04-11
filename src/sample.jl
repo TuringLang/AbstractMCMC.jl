@@ -89,7 +89,7 @@ function mcmcsample(
     start = time()
     local state
 
-    allocations = @allocated @ifwithprogresslogger progress name=progressname begin
+    @ifwithprogresslogger progress name=progressname begin
         # Determine threshold values for progress logging
         # (one update per 0.5% of progress)
         if progress
@@ -160,7 +160,7 @@ function mcmcsample(
     # Get the sample stop time.
     stop = time()
     duration = stop - start
-    stats = SamplingStats(start, stop, duration, allocations)
+    stats = SamplingStats(start, stop, duration)
 
     return bundle_samples(
         samples, 
@@ -208,53 +208,51 @@ function mcmcsample(
     start = time()
     local state
 
-    allocations = @allocated begin
-        @ifwithprogresslogger progress name=progressname begin
-            # Obtain the initial sample and state.
-            sample, state = step(rng, model, sampler; kwargs...)
+    @ifwithprogresslogger progress name=progressname begin
+        # Obtain the initial sample and state.
+        sample, state = step(rng, model, sampler; kwargs...)
 
-            # Discard initial samples.
-            for _ in 2:discard_initial
+        # Discard initial samples.
+        for _ in 2:discard_initial
+            # Obtain the next sample and state.
+            sample, state = step(rng, model, sampler, state; kwargs...)
+        end
+
+        # Run callback.
+        callback === nothing || callback(rng, model, sampler, sample, 1)
+
+        # Save the sample.
+        samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
+        samples = save!!(samples, sample, 1, model, sampler; kwargs...)
+
+        # Step through the sampler until stopping.
+        i = 2
+
+        while !isdone(rng, model, sampler, samples, i; progress=progress, kwargs...)
+            # Discard thinned samples.
+            for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
                 sample, state = step(rng, model, sampler, state; kwargs...)
             end
+
+            # Obtain the next sample and state.
+            sample, state = step(rng, model, sampler, state; kwargs...)
 
             # Run callback.
-            callback === nothing || callback(rng, model, sampler, sample, 1)
+            callback === nothing || callback(rng, model, sampler, sample, i)
 
             # Save the sample.
-            samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
-            samples = save!!(samples, sample, 1, model, sampler; kwargs...)
+            samples = save!!(samples, sample, i, model, sampler; kwargs...)
 
-            # Step through the sampler until stopping.
-            i = 2
-
-            while !isdone(rng, model, sampler, samples, i; progress=progress, kwargs...)
-                # Discard thinned samples.
-                for _ in 1:(thinning - 1)
-                    # Obtain the next sample and state.
-                    sample, state = step(rng, model, sampler, state; kwargs...)
-                end
-
-                # Obtain the next sample and state.
-                sample, state = step(rng, model, sampler, state; kwargs...)
-
-                # Run callback.
-                callback === nothing || callback(rng, model, sampler, sample, i)
-
-                # Save the sample.
-                samples = save!!(samples, sample, i, model, sampler; kwargs...)
-
-                # Increment iteration counter.
-                i += 1
-            end
+            # Increment iteration counter.
+            i += 1
         end
     end
 
     # Get the sample stop time.
     stop = time()
     duration = stop - start
-    stats = SamplingStats(start, stop, duration, allocations)
+    stats = SamplingStats(start, stop, duration)
 
     # Wrap the samples up.
     return bundle_samples(
