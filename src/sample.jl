@@ -85,6 +85,10 @@ function mcmcsample(
     N > 0 || error("the number of samples must be ≥ 1")
     Ntotal = thinning * (N - 1) + discard_initial + 1
 
+    # Start the timer
+    start = time()
+    local state
+
     @ifwithprogresslogger progress name=progressname begin
         # Determine threshold values for progress logging
         # (one update per 0.5% of progress)
@@ -128,7 +132,7 @@ function mcmcsample(
             for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
                 sample, state = step(rng, model, sampler, state; kwargs...)
-                
+
                 # Update progress bar.
                 if progress && (itotal += 1) >= next_update
                     ProgressLogging.@logprogress itotal / Ntotal
@@ -153,7 +157,20 @@ function mcmcsample(
         end
     end
 
-    return bundle_samples(samples, model, sampler, state, chain_type; kwargs...)
+    # Get the sample stop time.
+    stop = time()
+    duration = stop - start
+    stats = SamplingStats(start, stop, duration)
+
+    return bundle_samples(
+        samples, 
+        model, 
+        sampler,
+        state,
+        chain_type;
+        stats=stats,
+        kwargs...
+    )
 end
 
 """
@@ -186,6 +203,11 @@ function mcmcsample(
     thinning = 1,
     kwargs...
 )
+
+    # Start the timer
+    start = time()
+    local state
+
     @ifwithprogresslogger progress name=progressname begin
         # Obtain the initial sample and state.
         sample, state = step(rng, model, sampler; kwargs...)
@@ -227,8 +249,21 @@ function mcmcsample(
         end
     end
 
+    # Get the sample stop time.
+    stop = time()
+    duration = stop - start
+    stats = SamplingStats(start, stop, duration)
+
     # Wrap the samples up.
-    return bundle_samples(samples, model, sampler, state, chain_type; kwargs...)
+    return bundle_samples(
+        samples, 
+        model,
+        sampler, 
+        state, 
+        chain_type; 
+        stats=stats,
+        kwargs...
+    )
 end
 
 """

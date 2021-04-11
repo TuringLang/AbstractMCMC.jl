@@ -233,6 +233,13 @@
         @test chain2 isa MyChain
     end
 
+    @testset "Sample stats" begin
+        chain = sample(MyModel(), MySampler(), 1000; chain_type = MyChain)
+        
+        @test chain.stats.stop > chain.stats.start
+        @test chain.stats.duration == chain.stats.stop - chain.stats.start
+    end
+
     @testset "Discard initial samples" begin
         chain = sample(MyModel(), MySampler(), 100; sleepy = true, discard_initial = 50)
         @test length(chain) == 100

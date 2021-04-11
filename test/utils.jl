@@ -8,10 +8,13 @@ end
 struct MySampler <: AbstractMCMC.AbstractSampler end
 struct AnotherSampler <: AbstractMCMC.AbstractSampler end
 
-struct MyChain{A,B} <: AbstractMCMC.AbstractChains
+struct MyChain{A,B,S} <: AbstractMCMC.AbstractChains
     as::Vector{A}
     bs::Vector{B}
+    stats::S
 end
+
+MyChain(a, b) = MyChain(a, b, NamedTuple())
 
 function AbstractMCMC.step(
     rng::AbstractRNG,
@@ -40,12 +43,13 @@ function AbstractMCMC.bundle_samples(
     sampler::MySampler,
     ::Any,
     ::Type{MyChain};
+    stats = nothing,
     kwargs...
 )
     as = [t.a for t in samples]
     bs = [t.b for t in samples]
 
-    return MyChain(as, bs)
+    return MyChain(as, bs, stats)
 end
 
 function isdone(

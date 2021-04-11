@@ -71,6 +71,7 @@ processes.
 """
 struct MCMCDistributed <: AbstractMCMCParallel end
 
+include("samplingstats.jl")
 include("logging.jl")
 include("interface.jl")
 include("sample.jl")
