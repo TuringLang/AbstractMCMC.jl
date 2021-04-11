@@ -181,5 +181,7 @@ where `samples` is the collection of samples, `state` is the final state of the 
 and `chain_type` is the desired return type. The default implementation in AbstractMCMC
 just returns the collection `samples`.
 
+`sample` will log the start and stop time (in Unix timestamp format) for a chain, and pass the sampling statistics to the chain with `bundle_samples(...; stats=stats)`. The sample time information can be retrieved with `stats.start`, `stats.stop`, and `stats.duration`.
+
 The default implementation should be fine in most use cases, but downstream packages
 could, e.g., save the final state of the sampler as well if they overload `AbstractMCMC.bundle_samples`.
