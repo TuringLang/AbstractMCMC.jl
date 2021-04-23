@@ -17,6 +17,7 @@ jobs:
           - {user: TuringLang, repo: AdvancedMH.jl}
           - {user: TuringLang, repo: EllipticalSliceSampling.jl}
           - {user: TuringLang, repo: MCMCChains.jl}
+          - {user: TuringLang, repo: NestedSamplers.jl}
           #- {user: TuringLang, repo: Turing.jl}
 
     steps:
