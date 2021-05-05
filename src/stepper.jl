@@ -13,21 +13,6 @@ end
 Base.IteratorSize(::Type{<:Stepper}) = Base.IsInfinite()
 Base.IteratorEltype(::Type{<:Stepper}) = Base.EltypeUnknown()
 
-"""
-    steps([rng::AbstractRNG, ]model::AbstractModel, s::AbstractSampler, kwargs...)
-
-Return an iterator that returns samples continuously.
-
-# Examples
-
-```julia
-for transition in steps(MyModel(), MySampler())
-    println(transition)
-
-    # Do other stuff with transition below.
-end
-```
-"""
 function steps(
     model::AbstractModel,
     sampler::AbstractSampler;
@@ -36,6 +21,30 @@ function steps(
     return steps(Random.GLOBAL_RNG, model, sampler; kwargs...)
 end
 
+"""
+    steps([rng, ]model, sampler; kwargs...)
+
+Create an iterator that returns samples from the `model` with the Markov chain Monte Carlo
+`sampler`.
+
+# Examples
+
+```jldoctest; setup=:(using AbstractMCMC: steps)
+julia> struct MyModel <: AbstractMCMC.AbstractModel end
+
+julia> struct MySampler <: AbstractMCMC.AbstractSampler end
+
+julia> function AbstractMCMC.step(rng, ::MyModel, ::MySampler, state=nothing; kwargs...)
+           # all samples are zero
+           return 0.0, state
+       end
+
+julia> iterator = steps(MyModel(), MySampler());
+
+julia> collect(Iterators.take(iterator, 10)) == zeros(10)
+true
+```
+"""
 function steps(
     rng::Random.AbstractRNG,
     model::AbstractModel,
