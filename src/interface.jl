@@ -102,7 +102,7 @@ Save the `sample` of the MCMC `sampler` at the current `iteration` in the contai
 `samples`.
 
 The function can be called with and without a predefined number `N` of samples. By default,
-AbstractMCMC uses ``push!!`` from the Julia package
+AbstractMCMC uses `push!!` from the Julia package
 [BangBang](https://github.com/tkf/BangBang.jl) to append to the container, and widen its
 type if needed.
 """

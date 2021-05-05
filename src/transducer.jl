@@ -9,6 +9,30 @@ function Sample(model::AbstractModel, sampler::AbstractSampler; kwargs...)
     return Sample(Random.GLOBAL_RNG, model, sampler; kwargs...)
 end
 
+"""
+    Sample([rng, ]model, sampler; kwargs...)
+
+Create a transducer that returns samples from the `model` with the Markov chain Monte Carlo
+`sampler`.
+
+# Examples
+
+```jldoctest; setup=:(using AbstractMCMC: Sample)
+julia> struct MyModel <: AbstractMCMC.AbstractModel end
+
+julia> struct MySampler <: AbstractMCMC.AbstractSampler end
+
+julia> function AbstractMCMC.step(rng, ::MyModel, ::MySampler, state=nothing; kwargs...)
+           # all samples are zero
+           return 0.0, state
+       end
+
+julia> transducer = Sample(MyModel(), MySampler());
+
+julia> collect(transducer(1:10)) == zeros(10)
+true
+```
+"""
 function Sample(
     rng::Random.AbstractRNG,
     model::AbstractModel,

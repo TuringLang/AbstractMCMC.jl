@@ -21,14 +21,41 @@ function StatsBase.sample(
     return StatsBase.sample(Random.GLOBAL_RNG, model, sampler, arg; kwargs...)
 end
 
+"""
+    sample([rng, ]model, sampler, N; kwargs...)
+
+Return `N` samples from the `model` with the Markov chain Monte Carlo `sampler`.
+"""
 function StatsBase.sample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
     sampler::AbstractSampler,
-    arg;
+    N::Integer;
     kwargs...
 )
-    return mcmcsample(rng, model, sampler, arg; kwargs...)
+    return mcmcsample(rng, model, sampler, N; kwargs...)
+end
+
+"""
+    sample([rng, ]model, sampler, isdone; kwargs...)
+
+Sample from the `model` with the Markov chain Monte Carlo `sampler` until a
+convergence criterion `isdone` returns `true`, and return the samples.
+
+The function `isdone` has the signature
+```julia
+isdone(rng, model, sampler, samples, iteration; kwargs...)
+```
+and should return `true` when sampling should end, and `false` otherwise.
+"""
+function StatsBase.sample(
+    rng::Random.AbstractRNG,
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    isdone;
+    kwargs...
+)
+    return mcmcsample(rng, model, sampler, isdone; kwargs...)
 end
 
 function StatsBase.sample(
@@ -43,6 +70,12 @@ function StatsBase.sample(
                             kwargs...)
 end
 
+"""
+    sample([rng, ]model, sampler, parallel, N, nchains; kwargs...)
+
+Sample `nchains` Monte Carlo Markov chains from the `model` with the `sampler` in parallel
+using the `parallel` algorithm, and combine them into a single chain.
+"""
 function StatsBase.sample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
@@ -57,17 +90,6 @@ end
 
 # Default implementations of regular and parallel sampling.
 
-"""
-    mcmcsample([rng, ]model, sampler, N; kwargs...)
-
-Return `N` samples from the MCMC `sampler` for the provided `model`.
-
-A callback function `f` with type signature
-```julia
-f(rng, model, sampler, sample, iteration)
-```
-may be provided as keyword argument `callback`. It is called after every sampling step.
-"""
 function mcmcsample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
@@ -173,23 +195,6 @@ function mcmcsample(
     )
 end
 
-"""
-    mcmcsample([rng, ]model, sampler, isdone; kwargs...)
-
-Continuously draw samples until a convergence criterion `isdone` returns `true`.
-
-The function `isdone` has the signature
-```julia
-isdone(rng, model, sampler, samples, iteration; kwargs...)
-```
-and should return `true` when sampling should end, and `false` otherwise.
-
-A callback function `f` with type signature
-```julia
-f(rng, model, sampler, sample, iteration)
-```
-may be provided as keyword argument `callback`. It is called after every sampling step.
-"""
 function mcmcsample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
@@ -266,12 +271,6 @@ function mcmcsample(
     )
 end
 
-"""
-    mcmcsample([rng, ]model, sampler, parallel, N, nchains; kwargs...)
-
-Sample `nchains` chains in parallel using the `parallel` algorithm, and combine them into a
-single chain.
-"""
 function mcmcsample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
