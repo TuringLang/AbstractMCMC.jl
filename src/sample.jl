@@ -444,5 +444,35 @@ function mcmcsample(
     return chainsstack(tighten_eltype(chains))
 end
 
+function mcmcsample(
+    rng::Random.AbstractRNG,
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    ::MCMCSerial,
+    N::Integer,
+    nchains::Integer;
+    progressname = "Sampling",
+    kwargs...
+)
+    # Check if the number of chains is larger than the number of samples
+    if nchains > N
+        @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
+    end
+
+    # Set up a chains vector.
+    chains = Vector{Any}(undef, nchains)
+
+    # Sample each chain
+    for i in 1:nchains
+        # Sample a chain and save it to the vector.
+        chains[i] = StatsBase.sample(rng, model, sampler, N; 
+                                     progressname = string(progressname, " (Chain $i of $nchains)"),
+                                     kwargs...)
+    end
+
+    # Concatenate the chains together.
+    return chainsstack(tighten_eltype(chains))
+end
+
 tighten_eltype(x) = x
 tighten_eltype(x::Vector{Any}) = map(identity, x)

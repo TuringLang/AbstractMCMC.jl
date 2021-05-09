@@ -58,7 +58,7 @@ abstract type AbstractMCMCParallel end
 """
     MCMCThreads
 
-The `MCMCThreads` algorithm allows to sample MCMC chains in parallel using multiple
+The `MCMCThreads` algorithm allows users to sample MCMC chains in parallel using multiple
 threads.
 """
 struct MCMCThreads <: AbstractMCMCParallel end
@@ -66,10 +66,18 @@ struct MCMCThreads <: AbstractMCMCParallel end
 """
     MCMCDistributed
 
-The `MCMCDistributed` algorithm allows to sample MCMC chains in parallel using multiple
+The `MCMCDistributed` algorithm allows users to sample MCMC chains in parallel using multiple
 processes.
 """
 struct MCMCDistributed <: AbstractMCMCParallel end
+
+
+"""
+    MCMCSerial
+
+The `MCMCSerial` algorithm allows users to sample serially, with no thread or process parallelism.
+"""
+struct MCMCSerial <: AbstractMCMCParallel end
 
 include("samplingstats.jl")
 include("logging.jl")

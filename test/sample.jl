@@ -225,6 +225,52 @@
         @test all(l.level > Logging.LogLevel(-1) for l in logs)
     end
 
+    @testset "Serial sampling" begin
+        # No dedicated chains type
+        N = 10_000
+        chains = sample(MyModel(), MySampler(), MCMCSerial(), N, 1000)
+        @test chains isa Vector{<:Vector{<:MySample}}
+        @test length(chains) == 1000
+        @test all(length(x) == N for x in chains)
+
+        Random.seed!(1234)
+        chains = sample(MyModel(), MySampler(), MCMCSerial(), N, 1000;
+                        chain_type = MyChain)
+
+        # Test output type and size.
+        @test chains isa Vector{<:MyChain}
+        @test all(c.as[1] === missing for c in chains)
+        @test length(chains) == 1000
+        @test all(x -> length(x.as) == length(x.bs) == N, chains)
+
+        # Test some statistical properties.
+        @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=5e-2), chains)
+        @test all(x -> isapprox(var(@view x.as[2:end]), 1 / 12; atol=5e-3), chains)
+        @test all(x -> isapprox(mean(@view x.bs[2:end]), 0; atol=5e-2), chains)
+        @test all(x -> isapprox(var(@view x.bs[2:end]), 1; atol=5e-2), chains)
+
+        # Test reproducibility.
+        Random.seed!(1234)
+        chains2 = sample(MyModel(), MySampler(), MCMCSerial(), N, 1000;
+                         chain_type = MyChain)
+
+        @test all(c1.as[i] === c2.as[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
+        @test all(c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
+
+        # Unexpected order of arguments.
+        str = "Number of chains (10) is greater than number of samples per chain (5)"
+        @test_logs (:warn, str) match_mode=:any sample(MyModel(), MySampler(),
+                                                       MCMCSerial(), 5, 10;
+                                                       chain_type = MyChain)
+
+        # Suppress output.
+        logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
+            sample(MyModel(), MySampler(), MCMCSerial(), 10_000, 100;
+                   progress = false, chain_type = MyChain)
+        end
+        @test all(l.level > Logging.LogLevel(-1) for l in logs)
+    end
+
     @testset "Chain constructors" begin
         chain1 = sample(MyModel(), MySampler(), 100; sleepy = true)
         chain2 = sample(MyModel(), MySampler(), 100; sleepy = true, chain_type = MyChain)
