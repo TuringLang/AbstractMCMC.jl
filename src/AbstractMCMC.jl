@@ -17,7 +17,7 @@ using StatsBase: sample
 export sample
 
 # Parallel sampling types
-export MCMCThreads, MCMCDistributed
+export MCMCThreads, MCMCDistributed, MCMCSerial
 
 """
     AbstractChains
