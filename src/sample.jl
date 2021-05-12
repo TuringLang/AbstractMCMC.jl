@@ -459,16 +459,12 @@ function mcmcsample(
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
     end
 
-    # Set up a chains vector.
-    chains = Vector{Any}(undef, nchains)
-
-    # Sample each chain
-    for i in 1:nchains
-        # Sample a chain and save it to the vector.
-        chains[i] = StatsBase.sample(rng, model, sampler, N; 
-                                     progressname = string(progressname, " (Chain $i of $nchains)"),
-                                     kwargs...)
-    end
+    # Sample the chains.
+    chains = map(
+        i -> StatsBase.sample(rng, model, sampler, N; progressname = string(progressname, " (Chain $i of $nchains)"),
+        kwargs...),
+        1:nchains
+    )
 
     # Concatenate the chains together.
     return chainsstack(tighten_eltype(chains))
