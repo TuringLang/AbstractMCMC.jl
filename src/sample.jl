@@ -461,7 +461,7 @@ function mcmcsample(
 
     # Sample the chains.
     chains = map(
-        i -> StatsBase.sample(rng, model, sampler, N; progressname = string(progressname, " (Chain $i of $nchains)"),
+        i -> StatsBase.sample(rng, model, sampler, N; progressname = string(progressname, " (Chain ", i, " of ", nchains, ")"),
         kwargs...),
         1:nchains
     )
