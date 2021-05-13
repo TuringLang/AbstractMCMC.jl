@@ -61,7 +61,7 @@ end
 function StatsBase.sample(
     model::AbstractModel,
     sampler::AbstractSampler,
-    parallel::AbstractMCMCParallel,
+    parallel::AbstractMCMCEnsemble,
     N::Integer,
     nchains::Integer;
     kwargs...
@@ -80,7 +80,7 @@ function StatsBase.sample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
     sampler::AbstractSampler,
-    parallel::AbstractMCMCParallel,
+    parallel::AbstractMCMCEnsemble,
     N::Integer,
     nchains::Integer;
     kwargs...
@@ -439,6 +439,32 @@ function mcmcsample(
             end
         end
     end
+
+    # Concatenate the chains together.
+    return chainsstack(tighten_eltype(chains))
+end
+
+function mcmcsample(
+    rng::Random.AbstractRNG,
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    ::MCMCSerial,
+    N::Integer,
+    nchains::Integer;
+    progressname = "Sampling",
+    kwargs...
+)
+    # Check if the number of chains is larger than the number of samples
+    if nchains > N
+        @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
+    end
+
+    # Sample the chains.
+    chains = map(
+        i -> StatsBase.sample(rng, model, sampler, N; progressname = string(progressname, " (Chain ", i, " of ", nchains, ")"),
+        kwargs...),
+        1:nchains
+    )
 
     # Concatenate the chains together.
     return chainsstack(tighten_eltype(chains))

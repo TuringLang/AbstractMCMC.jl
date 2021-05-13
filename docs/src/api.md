@@ -28,17 +28,17 @@ AbstractMCMC.sample(
     ::AbstractRNG,
     ::AbstractMCMC.AbstractModel,
     ::AbstractMCMC.AbstractSampler,
-    ::AbstractMCMC.AbstractMCMCParallel,
+    ::AbstractMCMC.AbstractMCMCEnsemble,
     ::Integer,
     ::Integer,
 )
 ```
 
-Two algorithms are provided for parallel sampling with multiple threads and multiple processes,
-respectively:
+Two algorithms are provided for parallel sampling with multiple threads and multiple processes, and one allows for the user to sample multiple chains in serial (no parallelization):
 ```@docs
 AbstractMCMC.MCMCThreads
 AbstractMCMC.MCMCDistributed
+AbstractMCMC.MCMCSerial
 ```
 
 ## Common keyword arguments
