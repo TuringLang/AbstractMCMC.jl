@@ -61,7 +61,7 @@ end
 function StatsBase.sample(
     model::AbstractModel,
     sampler::AbstractSampler,
-    parallel::AbstractMCMCParallel,
+    parallel::AbstractMCMCEnsemble,
     N::Integer,
     nchains::Integer;
     kwargs...
@@ -80,7 +80,7 @@ function StatsBase.sample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
     sampler::AbstractSampler,
-    parallel::AbstractMCMCParallel,
+    parallel::AbstractMCMCEnsemble,
     N::Integer,
     nchains::Integer;
     kwargs...

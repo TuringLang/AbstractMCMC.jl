@@ -28,7 +28,7 @@ AbstractMCMC.sample(
     ::AbstractRNG,
     ::AbstractMCMC.AbstractModel,
     ::AbstractMCMC.AbstractSampler,
-    ::AbstractMCMC.AbstractMCMCParallel,
+    ::AbstractMCMC.AbstractMCMCEnsemble,
     ::Integer,
     ::Integer,
 )
