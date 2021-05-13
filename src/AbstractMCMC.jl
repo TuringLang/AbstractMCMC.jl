@@ -55,9 +55,6 @@ in parallel.
 """
 abstract type AbstractMCMCEnsemble end
 
-# Deprecate the old name AbstractMCMCParallel in favor of AbstractMCMCEnsemble
-Base.@deprecate_binding AbstractMCMCParallel AbstractMCMCEnsemble false
-
 """
     MCMCThreads
 
@@ -88,5 +85,6 @@ include("interface.jl")
 include("sample.jl")
 include("stepper.jl")
 include("transducer.jl")
+include("deprecations.jl")
 
 end # module AbstractMCMC
