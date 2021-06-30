@@ -191,6 +191,8 @@ function mcmcsample(
         state,
         chain_type;
         stats=stats,
+        discard_initial=discard_initial,
+        thinning=thinning,
         kwargs...
     )
 end
@@ -267,6 +269,8 @@ function mcmcsample(
         state, 
         chain_type; 
         stats=stats,
+        discard_initial=discard_initial,
+        thinning=thinning,
         kwargs...
     )
 end
