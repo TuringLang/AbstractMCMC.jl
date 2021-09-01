@@ -286,7 +286,7 @@ function mcmcsample(
     N::Integer,
     nchains::Integer;
     progress = PROGRESS[],
-    progressname = "Sampling",
+    progressname = "Sampling ($(min(nchains, Threads.nthreads())) threads)",
     callback=nothing,
     kwargs...
 )
@@ -328,7 +328,9 @@ function mcmcsample(
         chain_names = ["$progressname (Chain $i of $nchains)" for i in 1:nchains]
         @ifwithprogresslogger_children progress nchains names=chain_names begin
             # Create a channel for progress logging.
-            channel = Channel{Int}(length(interval) * 10)
+            if progress
+                channel = Channel{Int}(length(interval) * 10)
+            end
 
             Distributed.@sync begin
                 if progress
