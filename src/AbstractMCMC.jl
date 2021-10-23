@@ -97,7 +97,10 @@ end
 """
     setparameters!!(state, parameters)
 
-Return new instance of `state` with parameters set to `parameters`.
+Update the parameters of the `state` with `parameters` and return it.
+
+If `state` can be updated in-place, it is expected that this function returns `state` with updated
+parameters. Otherwise a new `state` object with the new `parameters` is returned.
 """
 setparameters!!
 
