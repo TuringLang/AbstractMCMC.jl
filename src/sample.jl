@@ -293,12 +293,12 @@ function mcmcsample(
         # NOTE: As of May 17, 2020, this relies on Julia's thread scheduling functionality
         #       that distributes a for loop into equal-sized blocks and allocates them
         #       to each thread. If this changes, we may need to rethink things here.
-        rngs = [deepcopy(rng) for _ in interval]
+        subrngs = [deepcopy(rng) for _ in interval]
         # Create a seed for each chain using the provided random number generator.
         seeds = rand(rng, UInt, nchains)
-        Random.seed!.(rngs, seeds)
     else
-        @assert length(rngs) == interval
+        subrngs = rngs
+        @assert length(rngs) == nchains
     end
 
     # Check if actually multiple threads are used.
@@ -348,8 +348,12 @@ function mcmcsample(
                     Threads.@threads for i in 1:nchains
                         # Obtain the ID of the current thread.
                         id = Threads.threadid()
-
-                        subrng = rngs[id]
+                        if rngs === nothing
+                            subrng = subrngs[id]
+                            Random.seed!(subrng, seeds[i])
+                        else
+                            subrng = subrngs[i]
+                        end
                         # Sample a chain and save it to the vector.
                         chains[i] = StatsBase.sample(subrng, models[id], samplers[id], N;
                                                      progress = false, kwargs...)
