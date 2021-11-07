@@ -223,6 +223,26 @@
                    progress = false, chain_type = MyChain)
         end
         @test all(l.level > Logging.LogLevel(-1) for l in logs)
+
+        # Subrngs
+        Random.seed!(1234)
+        rngs = [deepcopy(Random.GLOBAL_RNG) for _ in 1:1000]
+        seeds = rand(Random.GLOBAL_RNG, UInt, 1000)
+        Random.seed!.(rngs, seeds)
+ 
+        model, sampler = MyModel(), MySampler()
+        _chains1 = sample(model, sampler, MCMCDistributed(), 5000, 1000; chain_type = MyChain, rngs = rngs)
+        _chains2 = sample(model, sampler, MCMCDistributed(), 5000, 1000; chain_type = MyChain, rngs = rngs)
+        function combine(c1::MyChain, c2::MyChain)
+            MyChain(vcat(c1.as, c2.as), vcat(c1.bs, c2.bs), nothing)
+        end
+        chains1 = combine.(_chains1, _chains2)
+
+        Random.seed!(Random.GLOBAL_RNG, 1234)
+        chains2 = sample(Random.GLOBAL_RNG, MyModel(), MySampler(), MCMCDistributed(), N, 1000; chain_type = MyChain)
+
+        @test all(c1.as[i] === c2.as[i] for (c1, c2) in zip(chains1, chains2), i in 1:N)
+        @test all(c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains1, chains2), i in 1:N)
     end
 
     @testset "Serial sampling" begin

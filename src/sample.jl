@@ -284,8 +284,23 @@ function mcmcsample(
     nchains::Integer;
     progress = PROGRESS[],
     progressname = "Sampling ($(min(nchains, Threads.nthreads())) threads)",
+    rngs::Union{Nothing, AbstractVector{<:Random.AbstractRNG}} = nothing,
     kwargs...
 )
+    interval = 1:min(nchains, Threads.nthreads())
+    if rngs === nothing
+        # Copy the random number generator, model, and sample for each thread
+        # NOTE: As of May 17, 2020, this relies on Julia's thread scheduling functionality
+        #       that distributes a for loop into equal-sized blocks and allocates them
+        #       to each thread. If this changes, we may need to rethink things here.
+        rngs = [deepcopy(rng) for _ in interval]
+        # Create a seed for each chain using the provided random number generator.
+        seeds = rand(rng, UInt, nchains)
+        Random.seed!.(rngs, seeds)
+    else
+        @assert length(rngs) == interval
+    end
+
     # Check if actually multiple threads are used.
     if Threads.nthreads() == 1
         @warn "Only a single thread available: MCMC chains are not sampled in parallel"
@@ -296,17 +311,8 @@ function mcmcsample(
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
     end
 
-    # Copy the random number generator, model, and sample for each thread
-    # NOTE: As of May 17, 2020, this relies on Julia's thread scheduling functionality
-    #       that distributes a for loop into equal-sized blocks and allocates them
-    #       to each thread. If this changes, we may need to rethink things here.
-    interval = 1:min(nchains, Threads.nthreads())
-    rngs = [deepcopy(rng) for _ in interval]
     models = [deepcopy(model) for _ in interval]
     samplers = [deepcopy(sampler) for _ in interval]
-
-    # Create a seed for each chain using the provided random number generator.
-    seeds = rand(rng, UInt, nchains)
 
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
@@ -343,10 +349,7 @@ function mcmcsample(
                         # Obtain the ID of the current thread.
                         id = Threads.threadid()
 
-                        # Seed the thread-specific random number generator with the pre-made seed.
                         subrng = rngs[id]
-                        Random.seed!(subrng, seeds[i])
-
                         # Sample a chain and save it to the vector.
                         chains[i] = StatsBase.sample(subrng, models[id], samplers[id], N;
                                                      progress = false, kwargs...)
@@ -375,8 +378,18 @@ function mcmcsample(
     nchains::Integer;
     progress = PROGRESS[],
     progressname = "Sampling ($(Distributed.nworkers()) processes)",
+    rngs::Union{Nothing, AbstractVector{<:Random.AbstractRNG}} = nothing,
     kwargs...
 )
+    if rngs === nothing
+        rngs = [deepcopy(rng) for _ in 1:nchains]
+        # Create a seed for each chain using the provided random number generator.
+        seeds = rand(rng, UInt, nchains)
+        Random.seed!.(rngs, seeds)
+    else
+        @assert length(rngs) == nchains
+    end
+
     # Check if actually multiple processes are used.
     if Distributed.nworkers() == 1
         @warn "Only a single process available: MCMC chains are not sampled in parallel"
@@ -386,9 +399,6 @@ function mcmcsample(
     if nchains > N
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
     end
-
-    # Create a seed for each chain using the provided random number generator.
-    seeds = rand(rng, UInt, nchains)
 
     # Set up worker pool.
     pool = Distributed.CachingPool(Distributed.workers())
@@ -422,10 +432,7 @@ function mcmcsample(
 
             Distributed.@async begin
                 try
-                    chains = Distributed.pmap(pool, seeds) do seed
-                        # Seed a new random number generator with the pre-made seed.
-                        Random.seed!(rng, seed)
-
+                    chains_rngs = Distributed.pmap(pool, rngs) do rng
                         # Sample a chain.
                         chain = StatsBase.sample(rng, model, sampler, N;
                                                  progress = false, kwargs...)
@@ -434,8 +441,10 @@ function mcmcsample(
                         progress && put!(channel, true)
 
                         # Return the new chain.
-                        return chain
+                        return chain, rng
                     end
+                    chains = first.(chains_rngs)
+                    rngs .= last.(chains_rngs)
                 finally
                     # Stop updating the progress bar.
                     progress && put!(channel, false)
