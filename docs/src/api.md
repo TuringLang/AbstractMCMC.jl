@@ -110,8 +110,12 @@ To implement the state, we need to keep track of a couple of things:
 Two aspects of this might seem a bit strange:
 1. We need to keep track of the states of _all_ components rather than just the state for the sampler we used previously.
 2. We need to put the `transition` from the `step` into the state.
+
 The reason for (1) is that lots of samplers keep track of more than just the previous realizations of the variables, e.g. in `AdvancedHMC.jl` we keep track of the momentum used, the metric used, etc.
-For (2) the reason is similar: some samplers might keep track of the variables _in the state_ differently, e.g. maybe the sampler is working in a transformed space but returns the samples in the original space, or maybe the sampler is even independent from the current realizations and the state is simply `nothing`. Hence, we need the `transition`, which should always contain the realizations, to make sure we can resume from the same point in the space in the next `step`.
+
+For (2) the reason is similar: some samplers might keep track of the variables _in the state_ differently, e.g. you might have a sampler which is _independent_ of the current realizations and the state is simply `nothing`. 
+
+Hence, we need the `transition`, which should always contain the realizations, to make sure we can resume from the same point in the space in the next `step`.
 ```julia
 struct MixtureState{T,S}
     index::Int
@@ -127,7 +131,9 @@ X_t &\sim \mathcal{K}_i(\cdot \mid X_{t - 1})
 \end{aligned}
 ```
 where ``\mathcal{K}_i`` denotes the i-th kernel/sampler, and ``w_i`` denotes the weight/probability of choosing the i-th sampler.
-[`AbstractMCMC.updatestate!!`](@ref) comes into play in defining/computing ``\mathcal{K}_i(\cdot \mid X_{t - 1})`` since ``X_{t - 1}`` could be coming from a different sampler. If we let `state` be the current `MixtureState`, `i` the current component, and `i_prev` is the previous component we sampled from, then this translates into the following piece of code:
+[`AbstractMCMC.updatestate!!`](@ref) comes into play in defining/computing ``\mathcal{K}_i(\cdot \mid X_{t - 1})`` since ``X_{t - 1}`` could be coming from a different sampler. 
+
+If we let `state` be the current `MixtureState`, `i` the current component, and `i_prev` is the previous component we sampled from, then this translates into the following piece of code:
 
 ```julia
 # Update the corresponding state, i.e. `state.states[i]`, using
@@ -214,4 +220,24 @@ while ...
 end
 ```
 
-As a final note, there is one potential issue we haven't really addressed in the above implementation: a lot of samplers have their own implementations of `AbstractMCMC.AbstractModel` which means that we would also have to ensure that all the different samplers we are using would be compatible with the same model. A very easy way to fix this would be to just add a struct called `ManyModels` supporting `getindex`, e.g. `models[i]` would return the i-th `model`, and then the above `step` would just extract the `model` corresponding to the current sampler. This issue should eventually disappear as the community moves towards a unified approach to implement `AbstractMCMC.AbstractModel`.
+As a final note, there is one potential issue we haven't really addressed in the above implementation: a lot of samplers have their own implementations of `AbstractMCMC.AbstractModel` which means that we would also have to ensure that all the different samplers we are using would be compatible with the same model. A very easy way to fix this would be to just add a struct called `ManyModels` supporting `getindex`, e.g. `models[i]` would return the i-th `model`:
+
+```julia
+struct ManyModels{M} <: AbstractMCMC.AbstractModel
+    models::M
+end
+
+Base.getindex(model::ManyModels, I...) = model.models[I...]
+```
+
+Then the above `step` would just extract the `model` corresponding to the current sampler:
+
+```julia
+# Take a `step` for this sampler using the updated state.
+transition, state_current = AbstractMCMC.step(
+    rng, model[i], sampler_current, state_current;
+    kwargs...
+)
+```
+
+This issue should eventually disappear as the community moves towards a unified approach to implement `AbstractMCMC.AbstractModel`.
