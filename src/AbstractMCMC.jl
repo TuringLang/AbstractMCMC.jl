@@ -97,14 +97,14 @@ Update the parameters of the `state` with `parameters` and return it.
 If `state` can be updated in-place, it is expected that this function returns `state` with updated
 parameters. Otherwise a new `state` object with the new `parameters` is returned.
 """
-setparameters!!
+function setparameters!! end
 
 """
     parameters(transition)
 
 Return parameters in `transition`.
 """
-parameters
+function parameters end
 
 
 include("samplingstats.jl")
