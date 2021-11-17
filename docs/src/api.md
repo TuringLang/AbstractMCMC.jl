@@ -126,7 +126,7 @@ i &\sim \mathrm{Categorical}(w_1, \dots, w_k) \\
 X_t &\sim \mathcal{K}_i(\cdot \mid X_{t - 1})
 \end{aligned}
 ```
-where ``\mathcal{K}_i`` denotes the i-th kernel/sampler, and `w_i` denotes the weight/probability of choosing the i-th sampler.
+where ``\mathcal{K}_i`` denotes the i-th kernel/sampler, and ``w_i`` denotes the weight/probability of choosing the i-th sampler.
 [`AbstractMCMC.updatestate!!`](@ref) comes into play in defining/computing ``\mathcal{K}_i(\cdot \mid X_{t - 1})`` since ``X_{t - 1}`` could be coming from a different sampler. If we let `state` be the current `MixtureState`, `i` the current component, and `i_prev` is the previous component we sampled from, then this translates into the following piece of code:
 
 ```julia
@@ -160,7 +160,7 @@ function AbstractMCMC.step(rng, model::AbstractMCMC.AbstractModel, sampler::Mixt
 
     # Take a `step` for this sampler using the updated state.
     transition, state_current = AbstractMCMC.step(
-        rng, model, sampler_current, sampler_state;
+        rng, model, sampler_current, state_current;
         kwargs...
     )
 
@@ -204,7 +204,7 @@ function AbstractMCMC.step(rng, model::AbstractMCMC.AbstractModel, sampler::Mixt
 end
 ```
 
-To use `MixtureSampler`, one could then do something like
+To use `MixtureSampler` with two samplers `sampler1` and `sampler2` as components, we'd simply do
 
 ```julia
 sampler = MixtureSampler((0.1, 0.9), (sampler1, sampler2))
@@ -214,3 +214,4 @@ while ...
 end
 ```
 
+As a final note, there is one potential issue we haven't really addressed in the above implementation: a lot of samplers have their own implementations of `AbstractMCMC.AbstractModel` which means that we would also have to ensure that all the different samplers we are using would be compatible with the same model. A very easy way to fix this would be to just add a struct called `ManyModels` supporting `getindex`, e.g. `models[i]` would return the i-th `model`, and then the above `step` would just extract the `model` corresponding to the current sampler. This issue should eventually disappear as the community moves towards a unified approach to implement `AbstractMCMC.AbstractModel`.
