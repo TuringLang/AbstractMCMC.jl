@@ -80,19 +80,14 @@ The `MCMCSerial` algorithm allows users to sample serially, with no thread or pr
 struct MCMCSerial <: AbstractMCMCEnsemble end
 
 """
-    state_from_transiton(state, transition_prev[, state_prev])
+    updatestate!!(state, transition_prev[, state_prev])
 
 Return new instance of `state` using information from `transition_prev` and, optionally, `state_prev`.
 
 Defaults to `setparameters!!(state, parameters(transition_prev))`.
 """
-function state_from_transition(state, transition_prev, state_prev)
-    return state_from_transition(state, transition_prev)
-end
-
-function state_from_transition(state, transition)
-    return setparameters!!(state, parameters(transition))
-end
+updatestate!!(state, transition_prev, state_prev) = updatestate!!(state, transition_prev)
+updatestate!!(state, transition) = setparameters!!(state, parameters(transition))
 
 """
     setparameters!!(state, parameters)
