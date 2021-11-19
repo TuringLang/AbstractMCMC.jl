@@ -171,13 +171,17 @@ function AbstractMCMC.step(rng, model::AbstractMCMC.AbstractModel, sampler::Mixt
     )
 
     # Create the new states.
-    # NOTE: A better approach would be to use `Setfield.@set state.states[i] = ...`
-    # but to keep this demo self-contained, we don't.
-    states_new = ntuple(1:length(state.states)) do j
-        if j != i
-            state.states[j]
+    # NOTE: Code below will result in `states_new` begin a `Vector`.
+    # If we wanted to allow usage of alternative containers, e.g. `Tuple`
+    # it would be better to use something like `@set states[i] = state_current`
+    # where `@set` is from Setfield.jl.
+    states_new = map(1:length(state.states)) do j
+        if j == i
+            # Replace the i-th state with the new one.
+            state_current
         else
-            state_inner
+            # Otherwise we just carry over the previous ones.
+            state.states[j]
         end
     end
 
@@ -200,7 +204,7 @@ function AbstractMCMC.step(rng, model::AbstractMCMC.AbstractModel, sampler::Mixt
     # Sample the component to use this `step`.
     i = rand(Categorical(sampler.weights))
     # Extract the corresponding transition.
-    transition = first(transition_and_states[i])
+    transition = first(transitions_and_states[i])
     # Extract states.
     states = map(last, transitions_and_states)
     # Create new `MixtureState`.
@@ -210,10 +214,19 @@ function AbstractMCMC.step(rng, model::AbstractMCMC.AbstractModel, sampler::Mixt
 end
 ```
 
-To use `MixtureSampler` with two samplers `sampler1` and `sampler2` as components, we'd simply do
+Suppose we then wanted to use this with some of the packages which implements AbstractMCMC.jl's interface, e.g. [`AdvancedMH.jl`](https://github.com/TuringLang/AdvancedMH.jl), then we'd simply have to implement `values` and `setvalues!!`:
 
 ```julia
-sampler = MixtureSampler((0.1, 0.9), (sampler1, sampler2))
+function AbstractMCMC.updatestate!!(::AdvancedMH.Transition, state_prev::AdvancedMH.Transition)
+    # Let's `deepcopy` just to be certain.
+    return deepcopy(state_prev)
+end
+```
+
+To use `MixtureSampler` with two samplers `sampler1` and `sampler2` from `AdvancedMH.jl` as components, we'd simply do
+
+```julia
+sampler = MixtureSampler([sampler1, sampler2], [0.1, 0.9])
 transition, state = AbstractMCMC.step(rng, model, sampler)
 while ...
     transition, state = AbstractMCMC.step(rng, model, sampler, state)
