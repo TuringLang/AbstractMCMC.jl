@@ -87,7 +87,7 @@ Return new instance of `state` using information from `transition_prev` and, opt
 Defaults to `setvalues!!(state, values(transition_prev))`.
 """
 updatestate!!(state, transition_prev, state_prev) = updatestate!!(state, transition_prev)
-updatestate!!(state, transition) = setvalues!!(state, values(transition))
+updatestate!!(state, transition) = setvalues!!(state, Base.values(transition))
 
 """
     setvalues!!(state, values)
@@ -99,12 +99,12 @@ values. Otherwise a new `state` object with the new `values` is returned.
 """
 function setvalues!! end
 
-"""
+@doc """
     values(transition)
 
 Return values in `transition`.
 """
-function values end
+Base.values
 
 
 include("samplingstats.jl")
