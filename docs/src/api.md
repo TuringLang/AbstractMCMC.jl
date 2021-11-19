@@ -175,7 +175,7 @@ function AbstractMCMC.step(rng, model::AbstractMCMC.AbstractModel, sampler::Mixt
     # but to keep this demo self-contained, we don't.
     states_new = ntuple(1:length(state.states)) do j
         if j != i
-            state.states[i]
+            state.states[j]
         else
             state_inner
         end
