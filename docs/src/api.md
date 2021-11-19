@@ -171,8 +171,8 @@ function AbstractMCMC.step(rng, model::AbstractMCMC.AbstractModel, sampler::Mixt
     )
 
     # Create the new states.
-    # NOTE: Code below will result in `states_new` begin a `Vector`.
-    # If we wanted to allow usage of alternative containers, e.g. `Tuple`
+    # NOTE: Code below will result in `states_new` being a `Vector`.
+    # If we wanted to allow usage of alternative containers, e.g. `Tuple`,
     # it would be better to use something like `@set states[i] = state_current`
     # where `@set` is from Setfield.jl.
     states_new = map(1:length(state.states)) do j
