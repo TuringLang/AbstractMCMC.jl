@@ -81,8 +81,8 @@ AbstractMCMC.chainsstack
 
 To make it a bit easier to interact with some arbitrary sampler state, we encourage implementations of `AbstractSampler` to implement the following methods:
 ```@docs
-AbstractMCMC.parameters
-AbstractMCMC.setparameters!!
+AbstractMCMC.values
+AbstractMCMC.setvalues!!
 ```
 and optionally
 ```@docs

@@ -84,27 +84,27 @@ struct MCMCSerial <: AbstractMCMCEnsemble end
 
 Return new instance of `state` using information from `transition_prev` and, optionally, `state_prev`.
 
-Defaults to `setparameters!!(state, parameters(transition_prev))`.
+Defaults to `setvalues!!(state, values(transition_prev))`.
 """
 updatestate!!(state, transition_prev, state_prev) = updatestate!!(state, transition_prev)
-updatestate!!(state, transition) = setparameters!!(state, parameters(transition))
+updatestate!!(state, transition) = setvalues!!(state, values(transition))
 
 """
-    setparameters!!(state, parameters)
+    setvalues!!(state, values)
 
-Update the parameters of the `state` with `parameters` and return it.
+Update the values of the `state` with `values` and return it.
 
 If `state` can be updated in-place, it is expected that this function returns `state` with updated
-parameters. Otherwise a new `state` object with the new `parameters` is returned.
+values. Otherwise a new `state` object with the new `values` is returned.
 """
-function setparameters!! end
+function setvalues!! end
 
 """
-    parameters(transition)
+    values(transition)
 
-Return parameters in `transition`.
+Return values in `transition`.
 """
-function parameters end
+function values end
 
 
 include("samplingstats.jl")
