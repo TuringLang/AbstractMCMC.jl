@@ -161,7 +161,7 @@ function AbstractMCMC.step(rng, model::AbstractMCMC.AbstractModel, sampler::Mixt
     # the state and transition from the previous iteration.
     i_prev = state.index
     state_current = AbstractMCMC.updatestate!!(
-        state.states[i], state.states[i_prev], state.transition
+        model, state.states[i], state.states[i_prev], state.transition
     )
 
     # Take a `step` for this sampler using the updated state.
@@ -217,7 +217,7 @@ end
 Suppose we then wanted to use this with some of the packages which implements AbstractMCMC.jl's interface, e.g. [`AdvancedMH.jl`](https://github.com/TuringLang/AdvancedMH.jl), then we'd simply have to implement `realize` and `realize!!`:
 
 ```julia
-function AbstractMCMC.updatestate!!(::AdvancedMH.Transition, state_prev::AdvancedMH.Transition)
+function AbstractMCMC.updatestate!!(model, ::AdvancedMH.Transition, state_prev::AdvancedMH.Transition)
     # Let's `deepcopy` just to be certain.
     return deepcopy(state_prev)
 end
