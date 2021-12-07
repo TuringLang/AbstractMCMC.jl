@@ -84,27 +84,27 @@ struct MCMCSerial <: AbstractMCMCEnsemble end
 
 Return new instance of `state` using information from `transition_prev` and, optionally, `state_prev`.
 
-Defaults to `setvalues!!(state, values(transition_prev))`.
+Defaults to `realize!!(state, realize(transition_prev))`.
 """
 updatestate!!(state, transition_prev, state_prev) = updatestate!!(state, transition_prev)
-updatestate!!(state, transition) = setvalues!!(state, Base.values(transition))
+updatestate!!(state, transition) = realize!!(state, realize(transition))
 
 """
-    setvalues!!(state, values)
+    realize!!(state, realization)
 
-Update the values of the `state` with `values` and return it.
+Update the realization of the `state` with `realization` and return it.
 
 If `state` can be updated in-place, it is expected that this function returns `state` with updated
-values. Otherwise a new `state` object with the new `values` is returned.
+realize. Otherwise a new `state` object with the new `realization` is returned.
 """
-function setvalues!! end
+function realize!! end
 
-@doc """
-    values(transition)
-
-Return values in `transition`.
 """
-Base.values
+    realize(transition)
+
+Return the realization of the random variables present in `transition`.
+"""
+function realize end
 
 
 include("samplingstats.jl")

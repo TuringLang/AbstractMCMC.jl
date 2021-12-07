@@ -81,8 +81,8 @@ AbstractMCMC.chainsstack
 
 To make it a bit easier to interact with some arbitrary sampler state, we encourage implementations of `AbstractSampler` to implement the following methods:
 ```@docs
-AbstractMCMC.values
-AbstractMCMC.setvalues!!
+AbstractMCMC.realize
+AbstractMCMC.realize!!
 ```
 and optionally
 ```@docs
@@ -214,7 +214,7 @@ function AbstractMCMC.step(rng, model::AbstractMCMC.AbstractModel, sampler::Mixt
 end
 ```
 
-Suppose we then wanted to use this with some of the packages which implements AbstractMCMC.jl's interface, e.g. [`AdvancedMH.jl`](https://github.com/TuringLang/AdvancedMH.jl), then we'd simply have to implement `values` and `setvalues!!`:
+Suppose we then wanted to use this with some of the packages which implements AbstractMCMC.jl's interface, e.g. [`AdvancedMH.jl`](https://github.com/TuringLang/AdvancedMH.jl), then we'd simply have to implement `realize` and `realize!!`:
 
 ```julia
 function AbstractMCMC.updatestate!!(::AdvancedMH.Transition, state_prev::AdvancedMH.Transition)
