@@ -46,7 +46,8 @@ The function `isdone` has the signature
 ```julia
 isdone(rng, model, sampler, samples, state, iteration; kwargs...)
 ```
-and should return `true` when sampling should end, and `false` otherwise.
+where `state` and `iteration` are the current state and iteration of the sampler, respectively.
+It should return `true` when sampling should end, and `false` otherwise.
 """
 function StatsBase.sample(
     rng::Random.AbstractRNG,
