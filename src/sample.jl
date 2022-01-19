@@ -44,7 +44,7 @@ convergence criterion `isdone` returns `true`, and return the samples.
 
 The function `isdone` has the signature
 ```julia
-isdone(rng, model, sampler, samples, iteration; kwargs...)
+isdone(rng, model, sampler, samples, state, iteration; kwargs...)
 ```
 and should return `true` when sampling should end, and `false` otherwise.
 """
