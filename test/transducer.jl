@@ -45,7 +45,7 @@
 
         @test length(as) == length(bs) == 998
 
-        @test mean(as) ≈ 0.5 atol=1e-2
+        @test mean(as) ≈ 0.5 atol=2e-2
         @test var(as) ≈ 1 / 12 atol=5e-3
         @test mean(bs) ≈ 0.0 atol=5e-2
         @test var(bs) ≈ 1 atol=5e-2
