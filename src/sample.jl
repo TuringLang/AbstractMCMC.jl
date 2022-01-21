@@ -276,6 +276,9 @@ function mcmcsample(
     )
 end
 
+
+using ProgressLogging: Progress
+
 function mcmcsample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
@@ -285,6 +288,7 @@ function mcmcsample(
     nchains::Integer;
     progress = PROGRESS[],
     progressname = "Sampling ($(min(nchains, Threads.nthreads())) threads)",
+    callback=nothing,
     kwargs...
 )
     # Check if actually multiple threads are used.
@@ -313,51 +317,83 @@ function mcmcsample(
     chains = Vector{Any}(undef, nchains)
 
     @ifwithprogresslogger progress name=progressname begin
-        # Create a channel for progress logging.
-        if progress
-            channel = Channel{Bool}(length(interval))
-        end
+        threshold = nchains ÷ 200
+        itotals = zeros(Int, nchains)
+        next_updates = [ threshold for i in 1:nchains ]
 
-        Distributed.@sync begin
+        threshold_chains = nchains ÷ 200
+        nextprogress_chains = threshold_chains
+
+        progress_chains = 0
+
+        chain_names = ["$progressname (Chain $i of $nchains)" for i in 1:nchains]
+        @ifwithprogresslogger_children progress nchains names=chain_names begin
+            # Create a channel for progress logging.
             if progress
-                # Update the progress bar.
-                Distributed.@async begin
-                    # Determine threshold values for progress logging
-                    # (one update per 0.5% of progress)
-                    threshold = nchains ÷ 200
-                    nextprogresschains = threshold
+                channel = Channel{Int}(length(interval) * 10)
+            end
 
-                    progresschains = 0
-                    while take!(channel)
-                        progresschains += 1
-                        if progresschains >= nextprogresschains
-                            ProgressLogging.@logprogress progresschains/nchains
-                            nextprogresschains = progresschains + threshold
+            Distributed.@sync begin
+                if progress
+                    # Update the progress bar.
+                    Distributed.@async begin
+                        # Determine threshold values for progress logging
+                        # (one update per 0.5% of progress)
+                        threshold = nchains ÷ 200
+                        nextprogresschains = threshold
+
+                        progresschains = 0
+                        while (i = take!(channel)) != 0
+                            if i > 0
+                                itotals[i] += 1
+                                if itotals[1] >= next_updates[i]
+                                    @logprogress_child i itotals[i] / N
+                                    next_updates[i] = itotals[1] + threshold
+                                end
+                            else
+                                i = -i
+                                @logprogress_child i "done" 
+                                progresschains += 1
+
+                                if progresschains >= nextprogresschains
+                                    ProgressLogging.@logprogress progresschains/nchains
+                                    nextprogresschains = progresschains + threshold_chains
+                                end
+                            end
                         end
                     end
                 end
-            end
 
-            Distributed.@async begin
-                try
-                    Threads.@threads for i in 1:nchains
-                        # Obtain the ID of the current thread.
-                        id = Threads.threadid()
+                Distributed.@async begin
+                    try
+                        Threads.@threads for i in 1:nchains
+                            # Obtain the ID of the current thread.
+                            id = Threads.threadid()
 
-                        # Seed the thread-specific random number generator with the pre-made seed.
-                        subrng = rngs[id]
-                        Random.seed!(subrng, seeds[i])
+                            # Seed the thread-specific random number generator with the pre-made seed.
+                            subrng = rngs[id]
+                            Random.seed!(subrng, seeds[i])
 
-                        # Sample a chain and save it to the vector.
-                        chains[i] = StatsBase.sample(subrng, models[id], samplers[id], N;
-                                                     progress = false, kwargs...)
+                            if progress
+                                if callback isa Nothing
+                                    callback_i = (args...; kwargs...) -> put!(channel, i)
+                                else
+                                    callback_i = (args...; kwargs...) -> begin put!(channel, i); callback(args...; kwargs...) end
+                                end
+                            else
+                                callback_i = callback
+                            end
 
-                        # Update the progress bar.
-                        progress && put!(channel, true)
+                            # Sample a chain and save it to the vector.
+                            chains[i] = StatsBase.sample(subrng, models[id], samplers[id], N;
+                                                         progress = false, callback=callback_i, kwargs...)
+
+                            progress && put!(channel, -i)
+                        end
+                    finally
+                        # Stop updating the progress bar.
+                        progress && put!(channel, 0)
                     end
-                finally
-                    # Stop updating the progress bar.
-                    progress && put!(channel, false)
                 end
             end
         end
@@ -366,6 +402,7 @@ function mcmcsample(
     # Concatenate the chains together.
     return chainsstack(tighten_eltype(chains))
 end
+
 
 function mcmcsample(
     rng::Random.AbstractRNG,
