@@ -478,7 +478,7 @@ function mcmcsample(
     chains = map(1:nchains) do i
         return StatsBase.sample(
             rng, model, sampler, N;
-            progressname = string(progressname, " (Chain ", i, " of ", nchains, ")",
+            progressname = string(progressname, " (Chain ", i, " of ", nchains, ")"),
             init_params = init_params === nothing ? nothing : init_params[i],
             kwargs...,
         )
