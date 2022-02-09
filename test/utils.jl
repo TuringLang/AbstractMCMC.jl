@@ -23,11 +23,15 @@ function AbstractMCMC.step(
     state::Union{Nothing,Integer} = nothing;
     sleepy = false,
     loggers = false,
+    init_params = nothing,
     kwargs...
 )
-    # sample `a` is missing in the first step
-    a = state === nothing ? missing : rand(rng)
-    b = randn(rng)
+    # sample `a` is missing in the first step if not provided
+    a, b = if state === nothing && init_params !== nothing
+        init_params.a, init_params.b
+    else
+        (state === nothing ? missing : rand(rng)), randn(rng)
+    end
 
     loggers && push!(LOGGERS, Logging.current_logger())
     sleepy && sleep(0.001)

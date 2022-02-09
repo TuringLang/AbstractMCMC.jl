@@ -285,6 +285,7 @@ function mcmcsample(
     nchains::Integer;
     progress = PROGRESS[],
     progressname = "Sampling ($(min(nchains, Threads.nthreads())) threads)",
+    init_params = nothing,
     kwargs...
 )
     # Check if actually multiple threads are used.
@@ -350,7 +351,9 @@ function mcmcsample(
 
                         # Sample a chain and save it to the vector.
                         chains[i] = StatsBase.sample(subrng, models[id], samplers[id], N;
-                                                     progress = false, kwargs...)
+                                                     progress = false,
+                                                     init_params = init_params === nothing ? nothing : init_params[i],
+                                                     kwargs...)
 
                         # Update the progress bar.
                         progress && put!(channel, true)
@@ -376,6 +379,7 @@ function mcmcsample(
     nchains::Integer;
     progress = PROGRESS[],
     progressname = "Sampling ($(Distributed.nworkers()) processes)",
+    init_params = nothing,
     kwargs...
 )
     # Check if actually multiple processes are used.
@@ -423,19 +427,24 @@ function mcmcsample(
 
             Distributed.@async begin
                 try
-                    chains = Distributed.pmap(pool, seeds) do seed
+                    function sample_chain(seed, init_params=nothing)
                         # Seed a new random number generator with the pre-made seed.
                         Random.seed!(rng, seed)
 
                         # Sample a chain.
                         chain = StatsBase.sample(rng, model, sampler, N;
-                                                 progress = false, kwargs...)
+                                                 progress = false, init_params = init_params, kwargs...)
 
                         # Update the progress bar.
                         progress && put!(channel, true)
 
                         # Return the new chain.
                         return chain
+                    end
+                    chains = if init_params === nothing
+                        Distributed.pmap(sample_chain, pool, seeds)
+                    else
+                        Distributed.pmap(sample_chain, pool, seeds, init_params)
                     end
                 finally
                     # Stop updating the progress bar.
@@ -457,6 +466,7 @@ function mcmcsample(
     N::Integer,
     nchains::Integer;
     progressname = "Sampling",
+    init_params = nothing,
     kwargs...
 )
     # Check if the number of chains is larger than the number of samples
@@ -465,11 +475,14 @@ function mcmcsample(
     end
 
     # Sample the chains.
-    chains = map(
-        i -> StatsBase.sample(rng, model, sampler, N; progressname = string(progressname, " (Chain ", i, " of ", nchains, ")"),
-        kwargs...),
-        1:nchains
-    )
+    chains = map(1:nchains) do i
+        return StatsBase.sample(
+            rng, model, sampler, N;
+            progressname = string(progressname, " (Chain ", i, " of ", nchains, ")",
+            init_params = init_params === nothing ? nothing : init_params[i],
+            kwargs...,
+        )
+    end
 
     # Concatenate the chains together.
     return chainsstack(tighten_eltype(chains))

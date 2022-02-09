@@ -24,6 +24,11 @@
             @test var(x.a for x in tail_chain) ≈ 1 / 12 atol=5e-3
             @test mean(x.b for x in tail_chain) ≈ 0.0 atol=5e-2
             @test var(x.b for x in tail_chain) ≈ 1 atol=6e-2
+
+            # initial parameters
+            chain = sample(MyModel(), MySampler(), 3; init_params=(b = 3.2, a = -1.8))
+            @test chain[1].a == -1.8
+            @test chain[1].b == 3.2
         end
 
         @testset "Juno" begin
@@ -158,6 +163,12 @@
             if Threads.nthreads() == 2
                 sample(MyModel(), MySampler(), MCMCThreads(), N, 1) 
             end
+
+            # initial parameters
+            init_params = [(b=randn(), a=rand()) for _ in 1:100]
+            chains = sample(MyModel(), MySampler(), MCMCThreads(), 3, 100; init_params=init_params)
+            @test length(chains) == 100
+            @test all(chain[1].a == params.a && chains[1].b == params.b for (chain, params) in zip(chains, init_params))
         end
     end
 
@@ -223,6 +234,12 @@
                    progress = false, chain_type = MyChain)
         end
         @test all(l.level > Logging.LogLevel(-1) for l in logs)
+
+        # initial parameters
+        init_params = [(a=randn(), b=rand()) for _ in 1:100]
+        chains = sample(MyModel(), MySampler(), MCMCDistributed(), 3, 100; init_params=init_params)
+        @test length(chains) == 100
+        @test all(chain[1].a == params.a && chains[1].b == params.b for (chain, params) in zip(chains, init_params))
     end
 
     @testset "Serial sampling" begin
@@ -269,6 +286,12 @@
                    progress = false, chain_type = MyChain)
         end
         @test all(l.level > Logging.LogLevel(-1) for l in logs)
+
+        # initial parameters
+        init_params = [(a=rand(), b=randn()) for _ in 1:100]
+        chains = sample(MyModel(), MySampler(), MCMCSerial(), 3, 100; init_params=init_params)
+        @test length(chains) == 100
+        @test all(chain[1].a == params.a && chains[1].b == params.b for (chain, params) in zip(chains, init_params))
     end
 
     @testset "Chain constructors" begin
