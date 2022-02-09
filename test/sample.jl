@@ -26,7 +26,7 @@
             @test var(x.b for x in tail_chain) ≈ 1 atol=6e-2
 
             # initial parameters
-            chain = sample(MyModel(), MySampler(), 3; init_params=(b = 3.2, a = -1.8))
+            chain = sample(MyModel(), MySampler(), 3; progress=false, init_params=(b = 3.2, a = -1.8))
             @test chain[1].a == -1.8
             @test chain[1].b == 3.2
         end
@@ -166,9 +166,9 @@
 
             # initial parameters
             init_params = [(b=randn(), a=rand()) for _ in 1:100]
-            chains = sample(MyModel(), MySampler(), MCMCThreads(), 3, 100; init_params=init_params)
+            chains = sample(MyModel(), MySampler(), MCMCThreads(), 3, 100; progress=false, init_params=init_params)
             @test length(chains) == 100
-            @test all(chain[1].a == params.a && chains[1].b == params.b for (chain, params) in zip(chains, init_params))
+            @test all(chain[1].a == params.a && chain[1].b == params.b for (chain, params) in zip(chains, init_params))
         end
     end
 
@@ -237,9 +237,9 @@
 
         # initial parameters
         init_params = [(a=randn(), b=rand()) for _ in 1:100]
-        chains = sample(MyModel(), MySampler(), MCMCDistributed(), 3, 100; init_params=init_params)
+        chains = sample(MyModel(), MySampler(), MCMCDistributed(), 3, 100; progress=false, init_params=init_params)
         @test length(chains) == 100
-        @test all(chain[1].a == params.a && chains[1].b == params.b for (chain, params) in zip(chains, init_params))
+        @test all(chain[1].a == params.a && chain[1].b == params.b for (chain, params) in zip(chains, init_params))
     end
 
     @testset "Serial sampling" begin
@@ -289,9 +289,9 @@
 
         # initial parameters
         init_params = [(a=rand(), b=randn()) for _ in 1:100]
-        chains = sample(MyModel(), MySampler(), MCMCSerial(), 3, 100; init_params=init_params)
+        chains = sample(MyModel(), MySampler(), MCMCSerial(), 3, 100; progress=false, init_params=init_params)
         @test length(chains) == 100
-        @test all(chain[1].a == params.a && chains[1].b == params.b for (chain, params) in zip(chains, init_params))
+        @test all(chain[1].a == params.a && chain[1].b == params.b for (chain, params) in zip(chains, init_params))
     end
 
     @testset "Chain constructors" begin
