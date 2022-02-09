@@ -53,6 +53,11 @@ are:
 - `discard_initial` (default: `0`): number of initial samples that are discarded
 - `thinning` (default: `1`): factor by which to thin samples.
 
+There is no "official" way for providing initial parameter values yet.
+However, multiple packages such as [EllipticalSliceSampling.jl](https://github.com/TuringLang/EllipticalSliceSampling.jl) and [AdvancedMH.jl](https://github.com/TuringLang/AdvancedMH.jl) support an `init_params` keyword argument for setting the initial values when sampling a single chain.
+To ensure that sampling multiple chains "just works" when sampling of a single chain is implemented, [we decided to support `init_params` in the default implementations of the ensemble methods](https://github.com/TuringLang/AbstractMCMC.jl/pull/94):
+- `init_params` (default: `nothing`): if set to `params !== nothing`, then the `i`th chain is sampled with keyword argument `params[i]`.
+
 Progress logging can be enabled and disabled globally with `AbstractMCMC.setprogress!(progress)`.
 
 ```@docs
