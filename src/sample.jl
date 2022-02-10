@@ -352,7 +352,7 @@ function mcmcsample(
                         # Sample a chain and save it to the vector.
                         chains[i] = StatsBase.sample(subrng, models[id], samplers[id], N;
                                                      progress = false,
-                                                     init_params = init_params === nothing ? nothing : init_params[i],
+                                                     init_params = _init_params(init_params, i),
                                                      kwargs...)
 
                         # Update the progress bar.
@@ -479,7 +479,7 @@ function mcmcsample(
         return StatsBase.sample(
             rng, model, sampler, N;
             progressname = string(progressname, " (Chain ", i, " of ", nchains, ")"),
-            init_params = init_params === nothing ? nothing : init_params[i],
+            init_params = _init_params(init_params, i),
             kwargs...,
         )
     end
@@ -490,3 +490,14 @@ end
 
 tighten_eltype(x) = x
 tighten_eltype(x::Vector{Any}) = map(identity, x)
+
+"""
+    _init_params(x, i::Int)
+
+Return initial parameters of the `i`th chain from a collection of initial parameters `x`.
+
+By default, `x[i]` is returned. If `x === nothing`, then the initial parameters are `nothing` as well.
+"""
+_init_params(x, i::Int) = x[i]
+_init_params(::Nothing, ::Int) = nothing
+_init_params(x::Iterators.Repeated, ::Int) = x.x
