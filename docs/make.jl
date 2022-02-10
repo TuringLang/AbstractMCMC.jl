@@ -1,11 +1,5 @@
-using Documenter
-
-# Print `@debug` statements (https://github.com/JuliaDocs/Documenter.jl/issues/955)
-if haskey(ENV, "GITHUB_ACTIONS")
-    ENV["JULIA_DEBUG"] = "Documenter"
-end
-
 using AbstractMCMC
+using Documenter
 using Random
 
 DocMeta.setdocmeta!(
