@@ -339,7 +339,7 @@ function mcmcsample(
 
             Distributed.@async begin
                 try
-                    for (i, _rng, seed, _model, _sampler) in zip(1:nchunks, rngs, seeds, models, samplers)
+                    Distributed.@sync for (i, _rng, seed, _model, _sampler) in zip(1:nchunks, rngs, seeds, models, samplers)
                         Threads.@spawn begin
                             # Seed the chunk-specific random number generator with the pre-made seed.
                             Random.seed!(_rng, seed)
