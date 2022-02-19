@@ -341,19 +341,19 @@ function mcmcsample(
                 try
                     for (i, _rng, seed, _model, _sampler) in zip(1:nchunks, rngs, seeds, models, samplers)
                         Threads.@spawn begin
+                            # Seed the chunk-specific random number generator with the pre-made seed.
+                            Random.seed!(_rng, seed)
+
                             chainidxs = if i == nchunks
                                 ((i - 1) * chunksize + 1):nchains
                             else
                                 ((i - 1) * chunksize + 1):(i * chunksize)
                             end
 
-                            # Seed the chunk-specific random number generator with the pre-made seed.
-                            Random.seed!(_rng, seed)
-
                             for chainidx in chainidxs
                                 # Sample a chain and save it to the vector.
-                                chains[i] = StatsBase.sample(_rng, _model, _sampler, N;
-                                                             progress = false, kwargs...)
+                                chains[chainidx] = StatsBase.sample(_rng, _model, _sampler, N;
+                                                                    progress = false, kwargs...)
 
                                 # Update the progress bar.
                                 progress && put!(channel, true)
