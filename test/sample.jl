@@ -130,7 +130,7 @@
         @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=5e-2), chains)
         @test all(x -> isapprox(var(@view x.as[2:end]), 1 / 12; atol=5e-3), chains)
         @test all(x -> isapprox(mean(@view x.bs[2:end]), 0; atol=5e-2), chains)
-        @test all(x -> isapprox(var(@view x.bs[2:end]), 1; atol=5e-2), chains)
+        @test all(x -> isapprox(var(@view x.bs[2:end]), 1; atol=1e-1), chains)
 
         # test reproducibility
         Random.seed!(1234)
@@ -199,7 +199,7 @@
         @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=5e-2), chains)
         @test all(x -> isapprox(var(@view x.as[2:end]), 1 / 12; atol=5e-3), chains)
         @test all(x -> isapprox(mean(@view x.bs[2:end]), 0; atol=5e-2), chains)
-        @test all(x -> isapprox(var(@view x.bs[2:end]), 1; atol=5e-2), chains)
+        @test all(x -> isapprox(var(@view x.bs[2:end]), 1; atol=1e-1), chains)
 
         # Test reproducibility.
         Random.seed!(1234)
@@ -245,7 +245,7 @@
         @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=5e-2), chains)
         @test all(x -> isapprox(var(@view x.as[2:end]), 1 / 12; atol=5e-3), chains)
         @test all(x -> isapprox(mean(@view x.bs[2:end]), 0; atol=5e-2), chains)
-        @test all(x -> isapprox(var(@view x.bs[2:end]), 1; atol=5e-2), chains)
+        @test all(x -> isapprox(var(@view x.bs[2:end]), 1; atol=1e-1), chains)
 
         # Test reproducibility.
         Random.seed!(1234)
