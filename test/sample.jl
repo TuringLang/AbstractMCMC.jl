@@ -103,61 +103,59 @@
         end
     end
 
-    if VERSION ≥ v"1.3"
-        @testset "Multithreaded sampling" begin
-            if Threads.nthreads() == 1
-                warnregex = r"^Only a single thread available"
-                @test_logs (:warn, warnregex) sample(MyModel(), MySampler(), MCMCThreads(),
-                                                     10, 10)
-            end
+    @testset "Multithreaded sampling" begin
+        if Threads.nthreads() == 1
+            warnregex = r"^Only a single thread available"
+            @test_logs (:warn, warnregex) sample(MyModel(), MySampler(), MCMCThreads(),
+                                                 10, 10)
+        end
 
-            # No dedicated chains type
-            N = 10_000
-            chains = sample(MyModel(), MySampler(), MCMCThreads(), N, 1000)
-            @test chains isa Vector{<:Vector{<:MySample}}
-            @test length(chains) == 1000
-            @test all(length(x) == N for x in chains)
+        # No dedicated chains type
+        N = 10_000
+        chains = sample(MyModel(), MySampler(), MCMCThreads(), N, 1000)
+        @test chains isa Vector{<:Vector{<:MySample}}
+        @test length(chains) == 1000
+        @test all(length(x) == N for x in chains)
 
-            Random.seed!(1234)
-            chains = sample(MyModel(), MySampler(), MCMCThreads(), N, 1000;
-                            chain_type = MyChain)
+        Random.seed!(1234)
+        chains = sample(MyModel(), MySampler(), MCMCThreads(), N, 1000;
+                        chain_type = MyChain)
 
-            # test output type and size
-            @test chains isa Vector{<:MyChain}
-            @test length(chains) == 1000
-            @test all(x -> length(x.as) == length(x.bs) == N, chains)
+        # test output type and size
+        @test chains isa Vector{<:MyChain}
+        @test length(chains) == 1000
+        @test all(x -> length(x.as) == length(x.bs) == N, chains)
 
-            # test some statistical properties
-            @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=5e-2), chains)
-            @test all(x -> isapprox(var(@view x.as[2:end]), 1 / 12; atol=5e-3), chains)
-            @test all(x -> isapprox(mean(@view x.bs[2:end]), 0; atol=5e-2), chains)
-            @test all(x -> isapprox(var(@view x.bs[2:end]), 1; atol=5e-2), chains)
+        # test some statistical properties
+        @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=5e-2), chains)
+        @test all(x -> isapprox(var(@view x.as[2:end]), 1 / 12; atol=5e-3), chains)
+        @test all(x -> isapprox(mean(@view x.bs[2:end]), 0; atol=5e-2), chains)
+        @test all(x -> isapprox(var(@view x.bs[2:end]), 1; atol=5e-2), chains)
 
-            # test reproducibility
-            Random.seed!(1234)
-            chains2 = sample(MyModel(), MySampler(), MCMCThreads(), N, 1000;
-                             chain_type = MyChain)
+        # test reproducibility
+        Random.seed!(1234)
+        chains2 = sample(MyModel(), MySampler(), MCMCThreads(), N, 1000;
+                         chain_type = MyChain)
 
-            @test all(c1.as[i] === c2.as[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
-            @test all(c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
+        @test all(c1.as[i] === c2.as[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
+        @test all(c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
 
-            # Unexpected order of arguments.
-            str = "Number of chains (10) is greater than number of samples per chain (5)"
-            @test_logs (:warn, str) match_mode=:any sample(MyModel(), MySampler(),
-                                                           MCMCThreads(), 5, 10;
-                                                           chain_type = MyChain)
+        # Unexpected order of arguments.
+        str = "Number of chains (10) is greater than number of samples per chain (5)"
+        @test_logs (:warn, str) match_mode=:any sample(MyModel(), MySampler(),
+                                                       MCMCThreads(), 5, 10;
+                                                       chain_type = MyChain)
 
-            # Suppress output.
-            logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
-                sample(MyModel(), MySampler(), MCMCThreads(), 10_000, 1000;
-                        progress = false, chain_type = MyChain)
-            end
-            @test all(l.level > Logging.LogLevel(-1) for l in logs)
+        # Suppress output.
+        logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
+            sample(MyModel(), MySampler(), MCMCThreads(), 10_000, 1000;
+                   progress = false, chain_type = MyChain)
+        end
+        @test all(l.level > Logging.LogLevel(-1) for l in logs)
             
-            # Smoke test for nchains < nthreads
-            if Threads.nthreads() == 2
-                sample(MyModel(), MySampler(), MCMCThreads(), N, 1) 
-            end
+        # Smoke test for nchains < nthreads
+        if Threads.nthreads() == 2
+            sample(MyModel(), MySampler(), MCMCThreads(), N, 1) 
         end
     end
 
@@ -269,6 +267,36 @@
                    progress = false, chain_type = MyChain)
         end
         @test all(l.level > Logging.LogLevel(-1) for l in logs)
+    end
+
+    @testset "Ensemble sampling: Reproducibility" begin
+        N = 1_000
+        nchains = 10
+
+        # Serial sampling
+        Random.seed!(1234)
+        chains_serial = sample(
+            MyModel(), MySampler(), MCMCSerial(), N, nchains;
+            progress=false, chain_type=MyChain
+        )
+
+        # Multi-threaded sampling
+        Random.seed!(1234)
+        chains_threads = sample(
+            MyModel(), MySampler(), MCMCThreads(), N, nchains;
+            progress=false, chain_type=MyChain
+        )
+        @test all(c1.as[i] === c2.as[i] for (c1, c2) in zip(chains_serial, chains_threads), i in 1:N)
+        @test all(c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains_serial, chains_threads), i in 1:N)
+
+        # Multi-core sampling
+        Random.seed!(1234)
+        chains_distributed = sample(
+            MyModel(), MySampler(), MCMCDistributed(), N, nchains;
+            progress=false, chain_type=MyChain
+        )
+        @test all(c1.as[i] === c2.as[i] for (c1, c2) in zip(chains_serial, chains_distributed), i in 1:N)
+        @test all(c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains_serial, chains_distributed), i in 1:N)
     end
 
     @testset "Chain constructors" begin
