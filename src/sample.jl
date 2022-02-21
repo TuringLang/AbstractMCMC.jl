@@ -298,16 +298,15 @@ function mcmcsample(
     end
 
     # Copy the random number generator, model, and sample for each thread
-    # NOTE: As of May 17, 2020, this relies on Julia's thread scheduling functionality
-    #       that distributes a for loop into equal-sized blocks and allocates them
-    #       to each thread. If this changes, we may need to rethink things here.
+    nchunks = min(nchains, Threads.nthreads())
+    chunksize = cld(nchains, nchunks)
     interval = 1:min(nchains, Threads.nthreads())
     rngs = [deepcopy(rng) for _ in interval]
     models = [deepcopy(model) for _ in interval]
     samplers = [deepcopy(sampler) for _ in interval]
 
-    # Create a seed for each chain using the provided random number generator.
-    seeds = rand(rng, UInt, nchains)
+    # Create a seed for each chunk using the provided random number generator.
+    seeds = rand(rng, UInt, nchunks)
 
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
@@ -340,20 +339,26 @@ function mcmcsample(
 
             Distributed.@async begin
                 try
-                    Threads.@threads for i in 1:nchains
-                        # Obtain the ID of the current thread.
-                        id = Threads.threadid()
+                    Distributed.@sync for (i, _rng, seed, _model, _sampler) in zip(1:nchunks, rngs, seeds, models, samplers)
+                        Threads.@spawn begin
+                            # Seed the chunk-specific random number generator with the pre-made seed.
+                            Random.seed!(_rng, seed)
 
-                        # Seed the thread-specific random number generator with the pre-made seed.
-                        subrng = rngs[id]
-                        Random.seed!(subrng, seeds[i])
+                            chainidxs = if i == nchunks
+                                ((i - 1) * chunksize + 1):nchains
+                            else
+                                ((i - 1) * chunksize + 1):(i * chunksize)
+                            end
 
-                        # Sample a chain and save it to the vector.
-                        chains[i] = StatsBase.sample(subrng, models[id], samplers[id], N;
-                                                     progress = false, kwargs...)
+                            for chainidx in chainidxs
+                                # Sample a chain and save it to the vector.
+                                chains[chainidx] = StatsBase.sample(_rng, _model, _sampler, N;
+                                                                    progress = false, kwargs...)
 
-                        # Update the progress bar.
-                        progress && put!(channel, true)
+                                # Update the progress bar.
+                                progress && put!(channel, true)
+                            end
+                        end
                     end
                 finally
                     # Stop updating the progress bar.
