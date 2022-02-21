@@ -3,7 +3,7 @@ uuid = "80f14c24-f653-4e6a-9b94-39d6b0f70001"
 keywords = ["markov chain monte carlo", "probablistic programming"]
 license = "MIT"
 desc = "A lightweight interface for common MCMC methods."
-version = "3.2.2"
+version = "3.3.0"
 
 [deps]
 BangBang = "198e06fe-97b7-11e9-32a5-e1d131e6ad66"
