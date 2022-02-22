@@ -305,8 +305,8 @@ function mcmcsample(
     models = [deepcopy(model) for _ in interval]
     samplers = [deepcopy(sampler) for _ in interval]
 
-    # Create a seed for each chunk using the provided random number generator.
-    seeds = rand(rng, UInt, nchunks)
+    # Create a seed for each chain using the provided random number generator.
+    seeds = rand(rng, UInt, nchains)
 
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
@@ -339,25 +339,22 @@ function mcmcsample(
 
             Distributed.@async begin
                 try
-                    Distributed.@sync for (i, _rng, seed, _model, _sampler) in zip(1:nchunks, rngs, seeds, models, samplers)
-                        Threads.@spawn begin
+                    Distributed.@sync for (i, _rng, _model, _sampler) in zip(1:nchunks, rngs, models, samplers)
+                        chainidxs = if i == nchunks
+                            ((i - 1) * chunksize + 1):nchains
+                        else
+                            ((i - 1) * chunksize + 1):(i * chunksize)
+                        end
+                        Threads.@spawn for chainidx in chainidxs
                             # Seed the chunk-specific random number generator with the pre-made seed.
-                            Random.seed!(_rng, seed)
+                            Random.seed!(_rng, seeds[chainidx])
 
-                            chainidxs = if i == nchunks
-                                ((i - 1) * chunksize + 1):nchains
-                            else
-                                ((i - 1) * chunksize + 1):(i * chunksize)
-                            end
+                            # Sample a chain and save it to the vector.
+                            chains[chainidx] = StatsBase.sample(_rng, _model, _sampler, N;
+                                                                progress = false, kwargs...)
 
-                            for chainidx in chainidxs
-                                # Sample a chain and save it to the vector.
-                                chains[chainidx] = StatsBase.sample(_rng, _model, _sampler, N;
-                                                                    progress = false, kwargs...)
-
-                                # Update the progress bar.
-                                progress && put!(channel, true)
-                            end
+                            # Update the progress bar.
+                            progress && put!(channel, true)
                         end
                     end
                 finally
@@ -469,12 +466,18 @@ function mcmcsample(
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
     end
 
+    # Create a seed for each chain using the provided random number generator.
+    seeds = rand(rng, UInt, nchains)
+
     # Sample the chains.
-    chains = map(
-        i -> StatsBase.sample(rng, model, sampler, N; progressname = string(progressname, " (Chain ", i, " of ", nchains, ")"),
-        kwargs...),
-        1:nchains
-    )
+    chains = map(enumerate(seeds)) do (i, seed)
+        Random.seed!(rng, seed)
+        return StatsBase.sample(
+            rng, model, sampler, N;
+            progressname = string(progressname, " (Chain ", i, " of ", nchains, ")"),
+            kwargs...,
+        )
+    end
 
     # Concatenate the chains together.
     return chainsstack(tighten_eltype(chains))
