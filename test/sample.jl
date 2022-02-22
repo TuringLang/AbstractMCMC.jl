@@ -312,7 +312,7 @@
     @testset "Sample stats" begin
         chain = sample(MyModel(), MySampler(), 1000; chain_type = MyChain)
         
-        @test chain.stats.stop > chain.stats.start
+        @test chain.stats.stop >= chain.stats.start
         @test chain.stats.duration == chain.stats.stop - chain.stats.start
     end
 
