@@ -63,7 +63,7 @@ function isdone(
 )
     # Calculate the mean of x.b.
     bmean = mean(x.b for x in samples)
-    return abs(bmean) <= 0.001 || iteration >= 10_000 || state >= 10_000
+    return abs(bmean) <= 0.001 || iteration > 10_000
 end
 
 # Set a default convergence function.
