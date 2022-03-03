@@ -301,13 +301,16 @@ function mcmcsample(
     # Copy the random number generator, model, and sample for each thread
     nchunks = min(nchains, Threads.nthreads())
     chunksize = cld(nchains, nchunks)
-    interval = 1:min(nchains, Threads.nthreads())
+    interval = 1:nchunks
     rngs = [deepcopy(rng) for _ in interval]
     models = [deepcopy(model) for _ in interval]
     samplers = [deepcopy(sampler) for _ in interval]
 
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
+
+    # Ensure that initial parameters are `nothing` or indexable
+    _init_params = _first_or_nothing(init_params, nchains)
 
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
@@ -353,7 +356,7 @@ function mcmcsample(
                             # Sample a chain and save it to the vector.
                             chains[chainidx] = StatsBase.sample(_rng, _model, _sampler, N;
                                                                 progress = false,
-                                                                init_params = _init_params(init_params, chainidx),
+                                                                init_params = _init_params === nothing ? nothing : _init_params[chainidx],
                                                                 kwargs...)
 
                             # Update the progress bar.
@@ -480,14 +483,23 @@ function mcmcsample(
     seeds = rand(rng, UInt, nchains)
 
     # Sample the chains.
-    chains = map(enumerate(seeds)) do (i, seed)
+    function sample_chain(i, seed, init_params=nothing)
+        # Seed a new random number generator with the pre-made seed.
         Random.seed!(rng, seed)
+
+        # Sample a chain.
         return StatsBase.sample(
             rng, model, sampler, N;
             progressname = string(progressname, " (Chain ", i, " of ", nchains, ")"),
-            init_params = _init_params(init_params, i),
+            init_params = init_params,
             kwargs...,
         )
+    end
+
+    chains = if init_params === nothing
+        map(sample_chain, 1:nchains, seeds)
+    else
+        map(sample_chain, 1:nchains, seeds, init_params)
     end
 
     # Concatenate the chains together.
@@ -498,12 +510,29 @@ tighten_eltype(x) = x
 tighten_eltype(x::Vector{Any}) = map(identity, x)
 
 """
-    _init_params(x, i::Int)
+    _first_or_nothing(x, n::Int)
 
-Return initial parameters of the `i`th chain from a collection of initial parameters `x`.
+Return the first `n` elements of collection `x`, or `nothing` if `x === nothing`.
 
-By default, `x[i]` is returned. If `x === nothing`, then the initial parameters are `nothing` as well.
+If `x !== nothing`, then `x` has to contain at least `n` elements.
 """
-_init_params(x, i::Int) = x[i]
-_init_params(::Nothing, ::Int) = nothing
-_init_params(x::Iterators.Repeated, ::Int) = x.x
+function _first_or_nothing(x, n::Int)
+    y = _first(x, n)
+    length(y) == n ||
+        throw(ArgumentError("not enough initial parameters (expected $n, received $(length(y))"))
+    return y
+end
+_first_or_nothing(::Nothing, ::Int) = nothing
+
+# `first(x, n::Int)` requires Julia 1.6
+function _first(x, n::Int)
+    @static if VERSION >= v"1.6.0-DEV.431"
+        first(x, n)
+    else
+        if x isa AbstractVector
+            @inbounds x[firstindex(x):min(firstindex(x) + n - 1, lastindex(x))]
+        else
+            collect(Iterators.take(x, n))
+        end
+    end
+end
