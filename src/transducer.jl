@@ -1,4 +1,5 @@
-struct Sample{A<:Random.AbstractRNG,M<:AbstractModel,S<:AbstractSampler,K} <: Transducers.Transducer
+struct Sample{A<:Random.AbstractRNG,M<:AbstractModel,S<:AbstractSampler,K} <:
+       Transducers.Transducer
     rng::A
     model::M
     sampler::S
@@ -34,10 +35,7 @@ true
 ```
 """
 function Sample(
-    rng::Random.AbstractRNG,
-    model::AbstractModel,
-    sampler::AbstractSampler;
-    kwargs...
+    rng::Random.AbstractRNG, model::AbstractModel, sampler::AbstractSampler; kwargs...
 )
     return Sample(rng, model, sampler, kwargs)
 end

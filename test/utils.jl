@@ -20,10 +20,10 @@ function AbstractMCMC.step(
     rng::AbstractRNG,
     model::MyModel,
     sampler::MySampler,
-    state::Union{Nothing,Integer} = nothing;
-    sleepy = false,
-    loggers = false,
-    kwargs...
+    state::Union{Nothing,Integer}=nothing;
+    sleepy=false,
+    loggers=false,
+    kwargs...,
 )
     # sample `a` is missing in the first step
     a = state === nothing ? missing : rand(rng)
@@ -43,8 +43,8 @@ function AbstractMCMC.bundle_samples(
     sampler::MySampler,
     ::Any,
     ::Type{MyChain};
-    stats = nothing,
-    kwargs...
+    stats=nothing,
+    kwargs...,
 )
     as = [t.a for t in samples]
     bs = [t.b for t in samples]
@@ -59,7 +59,7 @@ function isdone(
     samples,
     state,
     iteration::Int;
-    kwargs...
+    kwargs...,
 )
     # Calculate the mean of x.b.
     bmean = mean(x.b for x in samples)
@@ -72,11 +72,10 @@ function AbstractMCMC.sample(model, sampler::MySampler; kwargs...)
 end
 
 function AbstractMCMC.chainscat(
-    chain::Union{MyChain,Vector{<:MyChain}},
-    chains::Union{MyChain,Vector{<:MyChain}}...
+    chain::Union{MyChain,Vector{<:MyChain}}, chains::Union{MyChain,Vector{<:MyChain}}...
 )
     return vcat(chain, chains...)
 end
 
 # Conversion to NamedTuple
-Base.convert(::Type{NamedTuple}, x::MySample) = (a = x.a, b = x.b)
+Base.convert(::Type{NamedTuple}, x::MySample) = (a=x.a, b=x.b)
