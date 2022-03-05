@@ -7,7 +7,7 @@ using TerminalLoggers: TerminalLogger
 using Transducers
 
 using Distributed
-import Logging
+using Logging: Logging
 using Random
 using Statistics
 using Test
