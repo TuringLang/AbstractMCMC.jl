@@ -283,6 +283,7 @@ function mcmcsample(
     nchains::Integer;
     progress=PROGRESS[],
     progressname="Sampling ($(min(nchains, Threads.nthreads())) threads)",
+    init_params=nothing,
     kwargs...,
 )
     # Check if actually multiple threads are used.
@@ -298,13 +299,16 @@ function mcmcsample(
     # Copy the random number generator, model, and sample for each thread
     nchunks = min(nchains, Threads.nthreads())
     chunksize = cld(nchains, nchunks)
-    interval = 1:min(nchains, Threads.nthreads())
+    interval = 1:nchunks
     rngs = [deepcopy(rng) for _ in interval]
     models = [deepcopy(model) for _ in interval]
     samplers = [deepcopy(sampler) for _ in interval]
 
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
+
+    # Ensure that initial parameters are `nothing` or indexable
+    _init_params = _first_or_nothing(init_params, nchains)
 
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
@@ -350,7 +354,17 @@ function mcmcsample(
 
                             # Sample a chain and save it to the vector.
                             chains[chainidx] = StatsBase.sample(
-                                _rng, _model, _sampler, N; progress=false, kwargs...
+                                _rng,
+                                _model,
+                                _sampler,
+                                N;
+                                progress=false,
+                                init_params=if _init_params === nothing
+                                    nothing
+                                else
+                                    _init_params[chainidx]
+                                end,
+                                kwargs...,
                             )
 
                             # Update the progress bar.
@@ -378,6 +392,7 @@ function mcmcsample(
     nchains::Integer;
     progress=PROGRESS[],
     progressname="Sampling ($(Distributed.nworkers()) processes)",
+    init_params=nothing,
     kwargs...,
 )
     # Check if actually multiple processes are used.
@@ -425,13 +440,19 @@ function mcmcsample(
 
             Distributed.@async begin
                 try
-                    chains = Distributed.pmap(pool, seeds) do seed
+                    function sample_chain(seed, init_params=nothing)
                         # Seed a new random number generator with the pre-made seed.
                         Random.seed!(rng, seed)
 
                         # Sample a chain.
                         chain = StatsBase.sample(
-                            rng, model, sampler, N; progress=false, kwargs...
+                            rng,
+                            model,
+                            sampler,
+                            N;
+                            progress=false,
+                            init_params=init_params,
+                            kwargs...,
                         )
 
                         # Update the progress bar.
@@ -439,6 +460,11 @@ function mcmcsample(
 
                         # Return the new chain.
                         return chain
+                    end
+                    chains = if init_params === nothing
+                        Distributed.pmap(sample_chain, pool, seeds)
+                    else
+                        Distributed.pmap(sample_chain, pool, seeds, init_params)
                     end
                 finally
                     # Stop updating the progress bar.
@@ -460,6 +486,7 @@ function mcmcsample(
     N::Integer,
     nchains::Integer;
     progressname="Sampling",
+    init_params=nothing,
     kwargs...,
 )
     # Check if the number of chains is larger than the number of samples
@@ -471,16 +498,26 @@ function mcmcsample(
     seeds = rand(rng, UInt, nchains)
 
     # Sample the chains.
-    chains = map(enumerate(seeds)) do (i, seed)
+    function sample_chain(i, seed, init_params=nothing)
+        # Seed a new random number generator with the pre-made seed.
         Random.seed!(rng, seed)
+
+        # Sample a chain.
         return StatsBase.sample(
             rng,
             model,
             sampler,
             N;
             progressname=string(progressname, " (Chain ", i, " of ", nchains, ")"),
+            init_params=init_params,
             kwargs...,
         )
+    end
+
+    chains = if init_params === nothing
+        map(sample_chain, 1:nchains, seeds)
+    else
+        map(sample_chain, 1:nchains, seeds, init_params)
     end
 
     # Concatenate the chains together.
@@ -489,3 +526,32 @@ end
 
 tighten_eltype(x) = x
 tighten_eltype(x::Vector{Any}) = map(identity, x)
+
+"""
+    _first_or_nothing(x, n::Int)
+
+Return the first `n` elements of collection `x`, or `nothing` if `x === nothing`.
+
+If `x !== nothing`, then `x` has to contain at least `n` elements.
+"""
+function _first_or_nothing(x, n::Int)
+    y = _first(x, n)
+    length(y) == n || throw(
+        ArgumentError("not enough initial parameters (expected $n, received $(length(y))"),
+    )
+    return y
+end
+_first_or_nothing(::Nothing, ::Int) = nothing
+
+# `first(x, n::Int)` requires Julia 1.6
+function _first(x, n::Int)
+    @static if VERSION >= v"1.6.0-DEV.431"
+        first(x, n)
+    else
+        if x isa AbstractVector
+            @inbounds x[firstindex(x):min(firstindex(x) + n - 1, lastindex(x))]
+        else
+            collect(Iterators.take(x, n))
+        end
+    end
+end

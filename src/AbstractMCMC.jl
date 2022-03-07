@@ -84,6 +84,5 @@ include("interface.jl")
 include("sample.jl")
 include("stepper.jl")
 include("transducer.jl")
-include("deprecations.jl")
 
 end # module AbstractMCMC

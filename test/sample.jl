@@ -25,6 +25,13 @@
             @test var(x.a for x in tail_chain) ≈ 1 / 12 atol = 5e-3
             @test mean(x.b for x in tail_chain) ≈ 0.0 atol = 5e-2
             @test var(x.b for x in tail_chain) ≈ 1 atol = 6e-2
+
+            # initial parameters
+            chain = sample(
+                MyModel(), MySampler(), 3; progress=false, init_params=(b=3.2, a=-1.8)
+            )
+            @test chain[1].a == -1.8
+            @test chain[1].b == 3.2
         end
 
         @testset "Juno" begin
@@ -168,6 +175,38 @@
         if Threads.nthreads() == 2
             sample(MyModel(), MySampler(), MCMCThreads(), N, 1)
         end
+
+        # initial parameters
+        init_params = [(b=randn(), a=rand()) for _ in 1:100]
+        chains = sample(
+            MyModel(),
+            MySampler(),
+            MCMCThreads(),
+            3,
+            100;
+            progress=false,
+            init_params=init_params,
+        )
+        @test length(chains) == 100
+        @test all(
+            chain[1].a == params.a && chain[1].b == params.b for
+            (chain, params) in zip(chains, init_params)
+        )
+
+        init_params = (a=randn(), b=rand())
+        chains = sample(
+            MyModel(),
+            MySampler(),
+            MCMCThreads(),
+            3,
+            100;
+            progress=false,
+            init_params=Iterators.repeated(init_params),
+        )
+        @test length(chains) == 100
+        @test all(
+            chain[1].a == init_params.a && chain[1].b == init_params.b for chain in chains
+        )
     end
 
     @testset "Multicore sampling" begin
@@ -244,6 +283,38 @@
             )
         end
         @test all(l.level > Logging.LogLevel(-1) for l in logs)
+
+        # initial parameters
+        init_params = [(a=randn(), b=rand()) for _ in 1:100]
+        chains = sample(
+            MyModel(),
+            MySampler(),
+            MCMCDistributed(),
+            3,
+            100;
+            progress=false,
+            init_params=init_params,
+        )
+        @test length(chains) == 100
+        @test all(
+            chain[1].a == params.a && chain[1].b == params.b for
+            (chain, params) in zip(chains, init_params)
+        )
+
+        init_params = (b=randn(), a=rand())
+        chains = sample(
+            MyModel(),
+            MySampler(),
+            MCMCDistributed(),
+            3,
+            100;
+            progress=false,
+            init_params=Iterators.repeated(init_params),
+        )
+        @test length(chains) == 100
+        @test all(
+            chain[1].a == init_params.a && chain[1].b == init_params.b for chain in chains
+        )
     end
 
     @testset "Serial sampling" begin
@@ -295,6 +366,38 @@
             )
         end
         @test all(l.level > Logging.LogLevel(-1) for l in logs)
+
+        # initial parameters
+        init_params = [(a=rand(), b=randn()) for _ in 1:100]
+        chains = sample(
+            MyModel(),
+            MySampler(),
+            MCMCSerial(),
+            3,
+            100;
+            progress=false,
+            init_params=init_params,
+        )
+        @test length(chains) == 100
+        @test all(
+            chain[1].a == params.a && chain[1].b == params.b for
+            (chain, params) in zip(chains, init_params)
+        )
+
+        init_params = (b=rand(), a=randn())
+        chains = sample(
+            MyModel(),
+            MySampler(),
+            MCMCSerial(),
+            3,
+            100;
+            progress=false,
+            init_params=Iterators.repeated(init_params),
+        )
+        @test length(chains) == 100
+        @test all(
+            chain[1].a == init_params.a && chain[1].b == init_params.b for chain in chains
+        )
     end
 
     @testset "Ensemble sampling: Reproducibility" begin
