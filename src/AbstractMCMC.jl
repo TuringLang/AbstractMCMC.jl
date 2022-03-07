@@ -1,16 +1,16 @@
 module AbstractMCMC
 
-import BangBang
-import ConsoleProgressMonitor
-import LoggingExtras
-import ProgressLogging
-import StatsBase
-import TerminalLoggers
-import Transducers
+using BangBang: BangBang
+using ConsoleProgressMonitor: ConsoleProgressMonitor
+using LoggingExtras: LoggingExtras
+using ProgressLogging: ProgressLogging
+using StatsBase: StatsBase
+using TerminalLoggers: TerminalLoggers
+using Transducers: Transducers
 
-import Distributed
-import Logging
-import Random
+using Distributed: Distributed
+using Logging: Logging
+using Random: Random
 
 # Reexport sample
 using StatsBase: sample
@@ -70,7 +70,6 @@ The `MCMCDistributed` algorithm allows users to sample MCMC chains in parallel u
 processes.
 """
 struct MCMCDistributed <: AbstractMCMCEnsemble end
-
 
 """
     MCMCSerial
