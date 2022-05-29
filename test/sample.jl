@@ -473,9 +473,19 @@
     end
 
     @testset "Discard initial samples" begin
-        chain = sample(MyModel(), MySampler(), 100; sleepy=true, discard_initial=50)
-        @test length(chain) == 100
+        # Create a chain and discard initial samples.
+        Random.seed!(1234)
+        N = 100
+        discard_initial = 50
+        chain = sample(MyModel(), MySampler(), N; discard_initial=discard_initial)
+        @test length(chain) == N
         @test !ismissing(chain[1].a)
+
+        # Repeat sampling without discarding initial samples.
+        Random.seed!(1234)
+        ref_chain = sample(MyModel(), MySampler(), N + discard_initial; progress=false)
+        @test all(chain[i].a === ref_chain[i + discard_initial].a for i in 1:N)
+        @test all(chain[i].b === ref_chain[i + discard_initial].b for i in 1:N)
     end
 
     @testset "Thin chain by a factor of `thinning`" begin
@@ -483,13 +493,13 @@
         Random.seed!(1234)
         N = 100
         thinning = 3
-        chain = sample(MyModel(), MySampler(), N; sleepy=true, thinning=thinning)
+        chain = sample(MyModel(), MySampler(), N; thinning=thinning)
         @test length(chain) == N
         @test ismissing(chain[1].a)
 
         # Repeat sampling without thinning.
         Random.seed!(1234)
-        ref_chain = sample(MyModel(), MySampler(), N * thinning; sleepy=true)
+        ref_chain = sample(MyModel(), MySampler(), N * thinning; progress=false)
         @test all(chain[i].a === ref_chain[(i - 1) * thinning + 1].a for i in 1:N)
     end
 
@@ -501,16 +511,34 @@
         @test abs(bmean) <= 0.001 || length(chain) == 10_000
 
         # Discard initial samples.
-        chain = sample(MyModel(), MySampler(); discard_initial=50)
+        Random.seed!(1234)
+        discard_initial = 50
+        chain = sample(MyModel(), MySampler(); discard_initial=discard_initial)
         bmean = mean(x.b for x in chain)
         @test !ismissing(chain[1].a)
         @test abs(bmean) <= 0.001 || length(chain) == 10_000
 
+        Random.seed!(1234)
+        N = length(chain)
+        ref_chain = sample(
+            MyModel(), MySampler(), N; discard_initial=discard_initial, progress=false
+        )
+        @test all(chain[i].a === ref_chain[i].a for i in 1:N)
+        @test all(chain[i].b === ref_chain[i].b for i in 1:N)
+
         # Thin chain by a factor of `thinning`.
-        chain = sample(MyModel(), MySampler(); thinning=3)
+        Random.seed!(1234)
+        thinning = 3
+        chain = sample(MyModel(), MySampler(); thinning=thinning)
         bmean = mean(x.b for x in chain)
         @test ismissing(chain[1].a)
         @test abs(bmean) <= 0.001 || length(chain) == 10_000
+
+        Random.seed!(1234)
+        N = length(chain)
+        ref_chain = sample(MyModel(), MySampler(), N; thinning=thinning, progress=false)
+        @test all(chain[i].a === ref_chain[i].a for i in 1:N)
+        @test all(chain[i].b === ref_chain[i].b for i in 1:N)
     end
 
     @testset "Sample vector of `NamedTuple`s" begin
