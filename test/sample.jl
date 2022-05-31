@@ -494,7 +494,7 @@
 
     @testset "Thin chain by a factor of `thinning`" begin
         # Run a thinned chain with `N` samples thinned by factor of `thinning`.
-        Random.seed!(1234)
+        Random.seed!(100)
         N = 100
         thinning = 3
         chain = sample(MyModel(), MySampler(), N; thinning=thinning)
@@ -504,9 +504,10 @@
         # Repeat sampling without thinning.
         # On Julia < 1.6 progress logging changes the global RNG and hence is enabled here.
         # https://github.com/TuringLang/AbstractMCMC.jl/pull/102#issuecomment-1142253258
-        Random.seed!(1234)
+        Random.seed!(100)
         ref_chain = sample(MyModel(), MySampler(), N * thinning; progress=VERSION < v"1.6")
         @test all(chain[i].a === ref_chain[(i - 1) * thinning + 1].a for i in 1:N)
+        @test all(chain[i].b === ref_chain[(i - 1) * thinning + 1].b for i in 1:N)
     end
 
     @testset "Sample without predetermined N" begin
