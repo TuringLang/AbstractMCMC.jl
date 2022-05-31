@@ -482,8 +482,12 @@
         @test !ismissing(chain[1].a)
 
         # Repeat sampling without discarding initial samples.
+        # On Julia < 1.6 progress logging changes the global RNG and hence is enabled here.
+        # https://github.com/TuringLang/AbstractMCMC.jl/pull/102#issuecomment-1142253258
         Random.seed!(1234)
-        ref_chain = sample(MyModel(), MySampler(), N + discard_initial)
+        ref_chain = sample(
+            MyModel(), MySampler(), N + discard_initial; progress=VERSION < v"1.6"
+        )
         @test all(chain[i].a === ref_chain[i + discard_initial].a for i in 1:N)
         @test all(chain[i].b === ref_chain[i + discard_initial].b for i in 1:N)
     end
@@ -498,8 +502,10 @@
         @test ismissing(chain[1].a)
 
         # Repeat sampling without thinning.
+        # On Julia < 1.6 progress logging changes the global RNG and hence is enabled here.
+        # https://github.com/TuringLang/AbstractMCMC.jl/pull/102#issuecomment-1142253258
         Random.seed!(1234)
-        ref_chain = sample(MyModel(), MySampler(), N * thinning)
+        ref_chain = sample(MyModel(), MySampler(), N * thinning; progress=VERSION < v"1.6")
         @test all(chain[i].a === ref_chain[(i - 1) * thinning + 1].a for i in 1:N)
     end
 
@@ -518,9 +524,17 @@
         @test !ismissing(chain[1].a)
         @test abs(bmean) <= 0.001 || length(chain) == 10_000
 
+        # On Julia < 1.6 progress logging changes the global RNG and hence is enabled here.
+        # https://github.com/TuringLang/AbstractMCMC.jl/pull/102#issuecomment-1142253258
         Random.seed!(1234)
         N = length(chain)
-        ref_chain = sample(MyModel(), MySampler(), N; discard_initial=discard_initial)
+        ref_chain = sample(
+            MyModel(),
+            MySampler(),
+            N;
+            discard_initial=discard_initial,
+            progress=VERSION < v"1.6",
+        )
         @test all(chain[i].a === ref_chain[i].a for i in 1:N)
         @test all(chain[i].b === ref_chain[i].b for i in 1:N)
 
@@ -532,9 +546,13 @@
         @test ismissing(chain[1].a)
         @test abs(bmean) <= 0.001 || length(chain) == 10_000
 
+        # On Julia < 1.6 progress logging changes the global RNG and hence is enabled here.
+        # https://github.com/TuringLang/AbstractMCMC.jl/pull/102#issuecomment-1142253258
         Random.seed!(1234)
         N = length(chain)
-        ref_chain = sample(MyModel(), MySampler(), N; thinning=thinning)
+        ref_chain = sample(
+            MyModel(), MySampler(), N; thinning=thinning, progress=VERSION < v"1.6"
+        )
         @test all(chain[i].a === ref_chain[i].a for i in 1:N)
         @test all(chain[i].b === ref_chain[i].b for i in 1:N)
     end
