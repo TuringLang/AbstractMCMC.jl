@@ -483,7 +483,7 @@
 
         # Repeat sampling without discarding initial samples.
         Random.seed!(1234)
-        ref_chain = sample(MyModel(), MySampler(), N + discard_initial; progress=false)
+        ref_chain = sample(MyModel(), MySampler(), N + discard_initial)
         @test all(chain[i].a === ref_chain[i + discard_initial].a for i in 1:N)
         @test all(chain[i].b === ref_chain[i + discard_initial].b for i in 1:N)
     end
@@ -499,7 +499,7 @@
 
         # Repeat sampling without thinning.
         Random.seed!(1234)
-        ref_chain = sample(MyModel(), MySampler(), N * thinning; progress=false)
+        ref_chain = sample(MyModel(), MySampler(), N * thinning)
         @test all(chain[i].a === ref_chain[(i - 1) * thinning + 1].a for i in 1:N)
     end
 
@@ -520,9 +520,7 @@
 
         Random.seed!(1234)
         N = length(chain)
-        ref_chain = sample(
-            MyModel(), MySampler(), N; discard_initial=discard_initial, progress=false
-        )
+        ref_chain = sample(MyModel(), MySampler(), N; discard_initial=discard_initial)
         @test all(chain[i].a === ref_chain[i].a for i in 1:N)
         @test all(chain[i].b === ref_chain[i].b for i in 1:N)
 
@@ -536,7 +534,7 @@
 
         Random.seed!(1234)
         N = length(chain)
-        ref_chain = sample(MyModel(), MySampler(), N; thinning=thinning, progress=false)
+        ref_chain = sample(MyModel(), MySampler(), N; thinning=thinning)
         @test all(chain[i].a === ref_chain[i].a for i in 1:N)
         @test all(chain[i].b === ref_chain[i].b for i in 1:N)
     end
