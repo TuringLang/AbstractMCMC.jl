@@ -120,7 +120,7 @@ function mcmcsample(
         sample, state = step(rng, model, sampler; kwargs...)
 
         # Discard initial samples.
-        for i in 1:(discard_initial - 1)
+        for i in 1:discard_initial
             # Update the progress bar.
             if progress && i >= next_update
                 ProgressLogging.@logprogress i / Ntotal
@@ -218,7 +218,7 @@ function mcmcsample(
         sample, state = step(rng, model, sampler; kwargs...)
 
         # Discard initial samples.
-        for _ in 2:discard_initial
+        for _ in 1:discard_initial
             # Obtain the next sample and state.
             sample, state = step(rng, model, sampler, state; kwargs...)
         end

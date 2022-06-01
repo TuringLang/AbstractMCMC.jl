@@ -5,9 +5,37 @@ struct Stepper{A<:Random.AbstractRNG,M<:AbstractModel,S<:AbstractSampler,K}
     kwargs::K
 end
 
-Base.iterate(stp::Stepper) = step(stp.rng, stp.model, stp.sampler; stp.kwargs...)
+# Initial sample.
+function Base.iterate(stp::Stepper)
+    # Unpack iterator.
+    rng = stp.rng
+    model = stp.model
+    sampler = stp.sampler
+    kwargs = stp.kwargs
+    discard_initial = get(kwargs, :discard_initial, 0)::Int
+
+    # Start sampling algorithm and discard initial samples if desired.
+    sample, state = step(rng, model, sampler; kwargs...)
+    for _ in 1:discard_initial
+        sample, state = step(rng, model, sampler, state; kwargs...)
+    end
+    return sample, state
+end
+
+# Subsequent samples.
 function Base.iterate(stp::Stepper, state)
-    return step(stp.rng, stp.model, stp.sampler, state; stp.kwargs...)
+    # Unpack iterator.
+    rng = stp.rng
+    model = stp.model
+    sampler = stp.sampler
+    kwargs = stp.kwargs
+    thinning = get(kwargs, :thinning, 1)::Int
+
+    # Return next sample, possibly after thinning the chain if desired.
+    for _ in 1:(thinning - 1)
+        _, state = step(rng, model, sampler, state; kwargs...)
+    end
+    return step(rng, model, sampler, state; kwargs...)
 end
 
 Base.IteratorSize(::Type{<:Stepper}) = Base.IsInfinite()

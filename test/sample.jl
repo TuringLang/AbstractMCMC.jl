@@ -137,6 +137,7 @@
         @test chains isa Vector{<:MyChain}
         @test length(chains) == 1000
         @test all(x -> length(x.as) == length(x.bs) == N, chains)
+        @test all(ismissing(x.as[1]) for x in chains)
 
         # test some statistical properties
         @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=5e-2), chains)
@@ -147,9 +148,9 @@
         # test reproducibility
         Random.seed!(1234)
         chains2 = sample(MyModel(), MySampler(), MCMCThreads(), N, 1000; chain_type=MyChain)
-
-        @test all(c1.as[i] === c2.as[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
-        @test all(c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
+        @test all(ismissing(x.as[1]) for x in chains2)
+        @test all(c1.as[i] == c2.as[i] for (c1, c2) in zip(chains, chains2), i in 2:N)
+        @test all(c1.bs[i] == c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
 
         # Unexpected order of arguments.
         str = "Number of chains (10) is greater than number of samples per chain (5)"
@@ -245,7 +246,7 @@
 
         # Test output type and size.
         @test chains isa Vector{<:MyChain}
-        @test all(c.as[1] === missing for c in chains)
+        @test all(ismissing(c.as[1]) for c in chains)
         @test length(chains) == 1000
         @test all(x -> length(x.as) == length(x.bs) == N, chains)
 
@@ -260,9 +261,9 @@
         chains2 = sample(
             MyModel(), MySampler(), MCMCDistributed(), N, 1000; chain_type=MyChain
         )
-
-        @test all(c1.as[i] === c2.as[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
-        @test all(c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
+        @test all(ismissing(c.as[1]) for c in chains2)
+        @test all(c1.as[i] == c2.as[i] for (c1, c2) in zip(chains, chains2), i in 2:N)
+        @test all(c1.bs[i] == c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
 
         # Unexpected order of arguments.
         str = "Number of chains (10) is greater than number of samples per chain (5)"
@@ -330,7 +331,7 @@
 
         # Test output type and size.
         @test chains isa Vector{<:MyChain}
-        @test all(c.as[1] === missing for c in chains)
+        @test all(ismissing(c.as[1]) for c in chains)
         @test length(chains) == 1000
         @test all(x -> length(x.as) == length(x.bs) == N, chains)
 
@@ -343,9 +344,9 @@
         # Test reproducibility.
         Random.seed!(1234)
         chains2 = sample(MyModel(), MySampler(), MCMCSerial(), N, 1000; chain_type=MyChain)
-
-        @test all(c1.as[i] === c2.as[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
-        @test all(c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
+        @test all(ismissing(c.as[1]) for c in chains2)
+        @test all(c1.as[i] == c2.as[i] for (c1, c2) in zip(chains, chains2), i in 2:N)
+        @test all(c1.bs[i] == c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
 
         # Unexpected order of arguments.
         str = "Number of chains (10) is greater than number of samples per chain (5)"
@@ -415,6 +416,7 @@
             progress=false,
             chain_type=MyChain,
         )
+        @test all(ismissing(c.as[1]) for c in chains_serial)
 
         # Multi-threaded sampling
         Random.seed!(1234)
@@ -427,12 +429,13 @@
             progress=false,
             chain_type=MyChain,
         )
+        @test all(ismissing(c.as[1]) for c in chains_threads)
         @test all(
-            c1.as[i] === c2.as[i] for (c1, c2) in zip(chains_serial, chains_threads),
-            i in 1:N
+            c1.as[i] == c2.as[i] for (c1, c2) in zip(chains_serial, chains_threads),
+            i in 2:N
         )
         @test all(
-            c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains_serial, chains_threads),
+            c1.bs[i] == c2.bs[i] for (c1, c2) in zip(chains_serial, chains_threads),
             i in 1:N
         )
 
@@ -447,12 +450,13 @@
             progress=false,
             chain_type=MyChain,
         )
+        @test all(ismissing(c.as[1]) for c in chains_distributed)
         @test all(
-            c1.as[i] === c2.as[i] for (c1, c2) in zip(chains_serial, chains_distributed),
-            i in 1:N
+            c1.as[i] == c2.as[i] for (c1, c2) in zip(chains_serial, chains_distributed),
+            i in 2:N
         )
         @test all(
-            c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains_serial, chains_distributed),
+            c1.bs[i] == c2.bs[i] for (c1, c2) in zip(chains_serial, chains_distributed),
             i in 1:N
         )
     end
@@ -473,24 +477,41 @@
     end
 
     @testset "Discard initial samples" begin
-        chain = sample(MyModel(), MySampler(), 100; sleepy=true, discard_initial=50)
-        @test length(chain) == 100
+        # Create a chain and discard initial samples.
+        Random.seed!(1234)
+        N = 100
+        discard_initial = 50
+        chain = sample(MyModel(), MySampler(), N; discard_initial=discard_initial)
+        @test length(chain) == N
         @test !ismissing(chain[1].a)
+
+        # Repeat sampling without discarding initial samples.
+        # On Julia < 1.6 progress logging changes the global RNG and hence is enabled here.
+        # https://github.com/TuringLang/AbstractMCMC.jl/pull/102#issuecomment-1142253258
+        Random.seed!(1234)
+        ref_chain = sample(
+            MyModel(), MySampler(), N + discard_initial; progress=VERSION < v"1.6"
+        )
+        @test all(chain[i].a == ref_chain[i + discard_initial].a for i in 1:N)
+        @test all(chain[i].b == ref_chain[i + discard_initial].b for i in 1:N)
     end
 
     @testset "Thin chain by a factor of `thinning`" begin
         # Run a thinned chain with `N` samples thinned by factor of `thinning`.
-        Random.seed!(1234)
+        Random.seed!(100)
         N = 100
         thinning = 3
-        chain = sample(MyModel(), MySampler(), N; sleepy=true, thinning=thinning)
+        chain = sample(MyModel(), MySampler(), N; thinning=thinning)
         @test length(chain) == N
         @test ismissing(chain[1].a)
 
         # Repeat sampling without thinning.
-        Random.seed!(1234)
-        ref_chain = sample(MyModel(), MySampler(), N * thinning; sleepy=true)
-        @test all(chain[i].a === ref_chain[(i - 1) * thinning + 1].a for i in 1:N)
+        # On Julia < 1.6 progress logging changes the global RNG and hence is enabled here.
+        # https://github.com/TuringLang/AbstractMCMC.jl/pull/102#issuecomment-1142253258
+        Random.seed!(100)
+        ref_chain = sample(MyModel(), MySampler(), N * thinning; progress=VERSION < v"1.6")
+        @test all(chain[i].a == ref_chain[(i - 1) * thinning + 1].a for i in 2:N)
+        @test all(chain[i].b == ref_chain[(i - 1) * thinning + 1].b for i in 1:N)
     end
 
     @testset "Sample without predetermined N" begin
@@ -501,16 +522,44 @@
         @test abs(bmean) <= 0.001 || length(chain) == 10_000
 
         # Discard initial samples.
-        chain = sample(MyModel(), MySampler(); discard_initial=50)
+        Random.seed!(1234)
+        discard_initial = 50
+        chain = sample(MyModel(), MySampler(); discard_initial=discard_initial)
         bmean = mean(x.b for x in chain)
         @test !ismissing(chain[1].a)
         @test abs(bmean) <= 0.001 || length(chain) == 10_000
 
+        # On Julia < 1.6 progress logging changes the global RNG and hence is enabled here.
+        # https://github.com/TuringLang/AbstractMCMC.jl/pull/102#issuecomment-1142253258
+        Random.seed!(1234)
+        N = length(chain)
+        ref_chain = sample(
+            MyModel(),
+            MySampler(),
+            N;
+            discard_initial=discard_initial,
+            progress=VERSION < v"1.6",
+        )
+        @test all(chain[i].a == ref_chain[i].a for i in 1:N)
+        @test all(chain[i].b == ref_chain[i].b for i in 1:N)
+
         # Thin chain by a factor of `thinning`.
-        chain = sample(MyModel(), MySampler(); thinning=3)
+        Random.seed!(1234)
+        thinning = 3
+        chain = sample(MyModel(), MySampler(); thinning=thinning)
         bmean = mean(x.b for x in chain)
         @test ismissing(chain[1].a)
         @test abs(bmean) <= 0.001 || length(chain) == 10_000
+
+        # On Julia < 1.6 progress logging changes the global RNG and hence is enabled here.
+        # https://github.com/TuringLang/AbstractMCMC.jl/pull/102#issuecomment-1142253258
+        Random.seed!(1234)
+        N = length(chain)
+        ref_chain = sample(
+            MyModel(), MySampler(), N; thinning=thinning, progress=VERSION < v"1.6"
+        )
+        @test all(chain[i].a == ref_chain[i].a for i in 2:N)
+        @test all(chain[i].b == ref_chain[i].b for i in 1:N)
     end
 
     @testset "Sample vector of `NamedTuple`s" begin

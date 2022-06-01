@@ -49,4 +49,50 @@
         @test mean(bs) ≈ 0.0 atol = 5e-2
         @test var(bs) ≈ 1 atol = 5e-2
     end
+
+    @testset "Discard initial samples" begin
+        # Create a chain of `N` samples after discarding some initial samples.
+        Random.seed!(1234)
+        N = 50
+        discard_initial = 10
+        xf = opcompose(
+            AbstractMCMC.Sample(MyModel(), MySampler(); discard_initial=discard_initial),
+            Map(x -> (x.a, x.b)),
+        )
+        as, bs = foldl(xf, 1:N; init=([], [])) do (as, bs), (a, b)
+            push!(as, a)
+            push!(bs, b)
+            as, bs
+        end
+
+        # Repeat sampling with `sample`.
+        Random.seed!(1234)
+        chain = sample(
+            MyModel(), MySampler(), N; discard_initial=discard_initial, progress=false
+        )
+        @test all(as[i] === chain[i].a for i in 1:N)
+        @test all(bs[i] === chain[i].b for i in 1:N)
+    end
+
+    @testset "Thin chain by a factor of `thinning`" begin
+        # Create a thinned chain with a thinning factor of `thinning`.
+        Random.seed!(1234)
+        N = 50
+        thinning = 3
+        xf = opcompose(
+            AbstractMCMC.Sample(MyModel(), MySampler(); thinning=thinning),
+            Map(x -> (x.a, x.b)),
+        )
+        as, bs = foldl(xf, 1:N; init=([], [])) do (as, bs), (a, b)
+            push!(as, a)
+            push!(bs, b)
+            as, bs
+        end
+
+        # Repeat sampling with `sample`.
+        Random.seed!(1234)
+        chain = sample(MyModel(), MySampler(), N; thinning=thinning, progress=false)
+        @test all(as[i] === chain[i].a for i in 1:N)
+        @test all(bs[i] === chain[i].b for i in 1:N)
+    end
 end

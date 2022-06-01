@@ -43,8 +43,7 @@ AbstractMCMC.MCMCSerial
 
 ## Common keyword arguments
 
-Common keyword arguments for regular and parallel sampling (not supported by the iterator and transducer)
-are:
+Common keyword arguments for regular and parallel sampling are:
 - `progress` (default: `AbstractMCMC.PROGRESS[]` which is `true` initially):  toggles progress logging
 - `chain_type` (default: `Any`): determines the type of the returned chain
 - `callback` (default: `nothing`): if `callback !== nothing`, then
@@ -52,6 +51,9 @@ are:
   where `sample` is the most recent sample of the Markov chain and `iteration` is the current iteration
 - `discard_initial` (default: `0`): number of initial samples that are discarded
 - `thinning` (default: `1`): factor by which to thin samples.
+
+!!! info
+    The common keyword arguments `progress`, `chain_type`, and `callback` are not supported by the iterator [`AbstractMCMC.steps`](@ref) and the transducer [`AbstractMCMC.Sample`](@ref).
 
 There is no "official" way for providing initial parameter values yet.
 However, multiple packages such as [EllipticalSliceSampling.jl](https://github.com/TuringLang/EllipticalSliceSampling.jl) and [AdvancedMH.jl](https://github.com/TuringLang/AdvancedMH.jl) support an `init_params` keyword argument for setting the initial values when sampling a single chain.
