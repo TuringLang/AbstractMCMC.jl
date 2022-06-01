@@ -72,7 +72,7 @@ end
 
 # Set a default convergence function.
 function AbstractMCMC.sample(model, sampler::MySampler; kwargs...)
-    return sample(Random.GLOBAL_RNG, model, sampler, isdone; kwargs...)
+    return sample(Random.default_rng(), model, sampler, isdone; kwargs...)
 end
 
 function AbstractMCMC.chainscat(

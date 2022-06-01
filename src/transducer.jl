@@ -7,7 +7,7 @@ struct Sample{A<:Random.AbstractRNG,M<:AbstractModel,S<:AbstractSampler,K} <:
 end
 
 function Sample(model::AbstractModel, sampler::AbstractSampler; kwargs...)
-    return Sample(Random.GLOBAL_RNG, model, sampler; kwargs...)
+    return Sample(Random.default_rng(), model, sampler; kwargs...)
 end
 
 """
