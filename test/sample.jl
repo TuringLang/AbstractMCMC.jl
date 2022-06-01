@@ -488,8 +488,8 @@
         ref_chain = sample(
             MyModel(), MySampler(), N + discard_initial; progress=VERSION < v"1.6"
         )
-        @test all(chain[i].a === ref_chain[i + discard_initial].a for i in 1:N)
-        @test all(chain[i].b === ref_chain[i + discard_initial].b for i in 1:N)
+        @test all(chain[i].a == ref_chain[i + discard_initial].a for i in 1:N)
+        @test all(chain[i].b == ref_chain[i + discard_initial].b for i in 1:N)
     end
 
     @testset "Thin chain by a factor of `thinning`" begin
@@ -506,8 +506,8 @@
         # https://github.com/TuringLang/AbstractMCMC.jl/pull/102#issuecomment-1142253258
         Random.seed!(100)
         ref_chain = sample(MyModel(), MySampler(), N * thinning; progress=VERSION < v"1.6")
-        @test all(chain[i].a === ref_chain[(i - 1) * thinning + 1].a for i in 1:N)
-        @test all(chain[i].b === ref_chain[(i - 1) * thinning + 1].b for i in 1:N)
+        @test all(chain[i].a == ref_chain[(i - 1) * thinning + 1].a for i in 2:N)
+        @test all(chain[i].b == ref_chain[(i - 1) * thinning + 1].b for i in 1:N)
     end
 
     @testset "Sample without predetermined N" begin
@@ -536,8 +536,8 @@
             discard_initial=discard_initial,
             progress=VERSION < v"1.6",
         )
-        @test all(chain[i].a === ref_chain[i].a for i in 1:N)
-        @test all(chain[i].b === ref_chain[i].b for i in 1:N)
+        @test all(chain[i].a == ref_chain[i].a for i in 1:N)
+        @test all(chain[i].b == ref_chain[i].b for i in 1:N)
 
         # Thin chain by a factor of `thinning`.
         Random.seed!(1234)
@@ -554,8 +554,8 @@
         ref_chain = sample(
             MyModel(), MySampler(), N; thinning=thinning, progress=VERSION < v"1.6"
         )
-        @test all(chain[i].a === ref_chain[i].a for i in 1:N)
-        @test all(chain[i].b === ref_chain[i].b for i in 1:N)
+        @test all(chain[i].a == ref_chain[i].a for i in 2:N)
+        @test all(chain[i].b == ref_chain[i].b for i in 1:N)
     end
 
     @testset "Sample vector of `NamedTuple`s" begin
