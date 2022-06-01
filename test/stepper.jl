@@ -48,8 +48,8 @@
         chain = sample(
             MyModel(), MySampler(), N; discard_initial=discard_initial, progress=false
         )
-        @test all(as[i] === chain[i].a for i in 1:N)
-        @test all(bs[i] === chain[i].b for i in 1:N)
+        @test all(as[i] == chain[i].a for i in 1:N)
+        @test all(bs[i] == chain[i].b for i in 1:N)
     end
 
     @testset "Thin chain by a factor of `thinning`" begin
@@ -68,7 +68,8 @@
         # Repeat sampling with `sample`.
         Random.seed!(1234)
         chain = sample(MyModel(), MySampler(), N; thinning=thinning, progress=false)
-        @test all(as[i] === chain[i].a for i in 1:N)
-        @test all(bs[i] === chain[i].b for i in 1:N)
+        @test as[1] === chain[1].a === missing
+        @test all(as[i] == chain[i].a for i in 2:N)
+        @test all(bs[i] == chain[i].b for i in 1:N)
     end
 end
