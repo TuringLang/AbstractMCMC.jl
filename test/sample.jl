@@ -137,6 +137,7 @@
         @test chains isa Vector{<:MyChain}
         @test length(chains) == 1000
         @test all(x -> length(x.as) == length(x.bs) == N, chains)
+        @test all(ismissing(x.as[1]) for x in chains)
 
         # test some statistical properties
         @test all(x -> isapprox(mean(@view x.as[2:end]), 0.5; atol=5e-2), chains)
@@ -147,9 +148,9 @@
         # test reproducibility
         Random.seed!(1234)
         chains2 = sample(MyModel(), MySampler(), MCMCThreads(), N, 1000; chain_type=MyChain)
-
-        @test all(c1.as[i] === c2.as[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
-        @test all(c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
+        @test all(ismissing(x.as[1]) for x in chains2)
+        @test all(c1.as[i] == c2.as[i] for (c1, c2) in zip(chains, chains2), i in 2:N)
+        @test all(c1.bs[i] == c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
 
         # Unexpected order of arguments.
         str = "Number of chains (10) is greater than number of samples per chain (5)"
@@ -245,7 +246,7 @@
 
         # Test output type and size.
         @test chains isa Vector{<:MyChain}
-        @test all(c.as[1] === missing for c in chains)
+        @test all(ismissing(c.as[1]) for c in chains)
         @test length(chains) == 1000
         @test all(x -> length(x.as) == length(x.bs) == N, chains)
 
@@ -260,9 +261,9 @@
         chains2 = sample(
             MyModel(), MySampler(), MCMCDistributed(), N, 1000; chain_type=MyChain
         )
-
-        @test all(c1.as[i] === c2.as[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
-        @test all(c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
+        @test all(ismissing(c.as[1]) for c in chains2)
+        @test all(c1.as[i] == c2.as[i] for (c1, c2) in zip(chains, chains2), i in 2:N)
+        @test all(c1.bs[i] == c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
 
         # Unexpected order of arguments.
         str = "Number of chains (10) is greater than number of samples per chain (5)"
@@ -330,7 +331,7 @@
 
         # Test output type and size.
         @test chains isa Vector{<:MyChain}
-        @test all(c.as[1] === missing for c in chains)
+        @test all(ismissing(c.as[1]) for c in chains)
         @test length(chains) == 1000
         @test all(x -> length(x.as) == length(x.bs) == N, chains)
 
@@ -343,9 +344,9 @@
         # Test reproducibility.
         Random.seed!(1234)
         chains2 = sample(MyModel(), MySampler(), MCMCSerial(), N, 1000; chain_type=MyChain)
-
-        @test all(c1.as[i] === c2.as[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
-        @test all(c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
+        @test all(ismissing(c.as[1]) for c in chains2)
+        @test all(c1.as[i] == c2.as[i] for (c1, c2) in zip(chains, chains2), i in 2:N)
+        @test all(c1.bs[i] == c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
 
         # Unexpected order of arguments.
         str = "Number of chains (10) is greater than number of samples per chain (5)"
@@ -415,6 +416,7 @@
             progress=false,
             chain_type=MyChain,
         )
+        @test all(ismissing(c.as[1]) for c in chains_serial)
 
         # Multi-threaded sampling
         Random.seed!(1234)
@@ -427,12 +429,13 @@
             progress=false,
             chain_type=MyChain,
         )
+        @test all(ismissing(c.as[1]) for c in chains_threads)
         @test all(
-            c1.as[i] === c2.as[i] for (c1, c2) in zip(chains_serial, chains_threads),
-            i in 1:N
+            c1.as[i] == c2.as[i] for (c1, c2) in zip(chains_serial, chains_threads),
+            i in 2:N
         )
         @test all(
-            c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains_serial, chains_threads),
+            c1.bs[i] == c2.bs[i] for (c1, c2) in zip(chains_serial, chains_threads),
             i in 1:N
         )
 
@@ -447,12 +450,13 @@
             progress=false,
             chain_type=MyChain,
         )
+        @test all(ismissing(c.as[1]) for c in chains_distributed)
         @test all(
-            c1.as[i] === c2.as[i] for (c1, c2) in zip(chains_serial, chains_distributed),
-            i in 1:N
+            c1.as[i] == c2.as[i] for (c1, c2) in zip(chains_serial, chains_distributed),
+            i in 2:N
         )
         @test all(
-            c1.bs[i] === c2.bs[i] for (c1, c2) in zip(chains_serial, chains_distributed),
+            c1.bs[i] == c2.bs[i] for (c1, c2) in zip(chains_serial, chains_distributed),
             i in 1:N
         )
     end
