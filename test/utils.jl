@@ -21,7 +21,6 @@ function AbstractMCMC.step(
     model::MyModel,
     sampler::MySampler,
     state::Union{Nothing,Integer}=nothing;
-    sleepy=false,
     loggers=false,
     init_params=nothing,
     kwargs...,
@@ -34,7 +33,6 @@ function AbstractMCMC.step(
     end
 
     loggers && push!(LOGGERS, Logging.current_logger())
-    sleepy && sleep(0.001)
 
     _state = state === nothing ? 1 : state + 1
 
