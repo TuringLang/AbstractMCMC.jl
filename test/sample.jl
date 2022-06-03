@@ -5,7 +5,7 @@
 
             Random.seed!(1234)
             N = 1_000
-            chain = sample(MyModel(), MySampler(), N; sleepy=true, loggers=true)
+            chain = sample(MyModel(), MySampler(), N; loggers=true)
 
             @test length(LOGGERS) == 1
             logger = first(LOGGERS)
@@ -42,7 +42,7 @@
 
             logger = JunoProgressLogger()
             Logging.with_logger(logger) do
-                sample(MyModel(), MySampler(), N; sleepy=true, loggers=true)
+                sample(MyModel(), MySampler(), N; loggers=true)
             end
 
             @test length(LOGGERS) == 1
@@ -60,7 +60,7 @@
 
             Random.seed!(1234)
             N = 10
-            sample(MyModel(), MySampler(), N; sleepy=true, loggers=true)
+            sample(MyModel(), MySampler(), N; loggers=true)
 
             @test length(LOGGERS) == 1
             logger = first(LOGGERS)
@@ -82,7 +82,7 @@
 
             logger = Logging.ConsoleLogger(stderr, Logging.LogLevel(-1))
             Logging.with_logger(logger) do
-                sample(MyModel(), MySampler(), N; sleepy=true, loggers=true)
+                sample(MyModel(), MySampler(), N; loggers=true)
             end
 
             @test length(LOGGERS) == 1
@@ -92,7 +92,7 @@
 
         @testset "Suppress output" begin
             logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
-                sample(MyModel(), MySampler(), 100; progress=false, sleepy=true)
+                sample(MyModel(), MySampler(), 100; progress=false)
             end
             @test all(l.level > Logging.LogLevel(-1) for l in logs)
 
@@ -103,7 +103,7 @@
             @test !AbstractMCMC.PROGRESS[]
 
             logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
-                sample(MyModel(), MySampler(), 100; sleepy=true)
+                sample(MyModel(), MySampler(), 100)
             end
             @test all(l.level > Logging.LogLevel(-1) for l in logs)
 
@@ -462,8 +462,8 @@
     end
 
     @testset "Chain constructors" begin
-        chain1 = sample(MyModel(), MySampler(), 100; sleepy=true)
-        chain2 = sample(MyModel(), MySampler(), 100; sleepy=true, chain_type=MyChain)
+        chain1 = sample(MyModel(), MySampler(), 100)
+        chain2 = sample(MyModel(), MySampler(), 100; chain_type=MyChain)
 
         @test chain1 isa Vector{<:MySample}
         @test chain2 isa MyChain
