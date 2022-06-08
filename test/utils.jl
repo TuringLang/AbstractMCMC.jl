@@ -21,7 +21,6 @@ function AbstractMCMC.step(
     model::MyModel,
     sampler::MySampler,
     state::Union{Nothing,Integer}=nothing;
-    sleepy=false,
     loggers=false,
     init_params=nothing,
     kwargs...,
@@ -34,7 +33,6 @@ function AbstractMCMC.step(
     end
 
     loggers && push!(LOGGERS, Logging.current_logger())
-    sleepy && sleep(0.001)
 
     _state = state === nothing ? 1 : state + 1
 
@@ -72,7 +70,7 @@ end
 
 # Set a default convergence function.
 function AbstractMCMC.sample(model, sampler::MySampler; kwargs...)
-    return sample(Random.GLOBAL_RNG, model, sampler, isdone; kwargs...)
+    return sample(Random.default_rng(), model, sampler, isdone; kwargs...)
 end
 
 function AbstractMCMC.chainscat(

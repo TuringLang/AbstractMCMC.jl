@@ -42,7 +42,7 @@ Base.IteratorSize(::Type{<:Stepper}) = Base.IsInfinite()
 Base.IteratorEltype(::Type{<:Stepper}) = Base.EltypeUnknown()
 
 function steps(model::AbstractModel, sampler::AbstractSampler; kwargs...)
-    return steps(Random.GLOBAL_RNG, model, sampler; kwargs...)
+    return steps(Random.default_rng(), model, sampler; kwargs...)
 end
 
 """

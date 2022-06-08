@@ -13,7 +13,7 @@ function setprogress!(progress::Bool)
 end
 
 function StatsBase.sample(model::AbstractModel, sampler::AbstractSampler, arg; kwargs...)
-    return StatsBase.sample(Random.GLOBAL_RNG, model, sampler, arg; kwargs...)
+    return StatsBase.sample(Random.default_rng(), model, sampler, arg; kwargs...)
 end
 
 """
@@ -63,7 +63,7 @@ function StatsBase.sample(
     kwargs...,
 )
     return StatsBase.sample(
-        Random.GLOBAL_RNG, model, sampler, parallel, N, nchains; kwargs...
+        Random.default_rng(), model, sampler, parallel, N, nchains; kwargs...
     )
 end
 
