@@ -7,6 +7,7 @@ using ProgressLogging: ProgressLogging
 using StatsBase: StatsBase
 using TerminalLoggers: TerminalLoggers
 using Transducers: Transducers
+using LogDensityProblems: LogDensityProblems
 
 using Distributed: Distributed
 using Logging: Logging
@@ -84,5 +85,6 @@ include("interface.jl")
 include("sample.jl")
 include("stepper.jl")
 include("transducer.jl")
+include("logdensityproblems.jl")
 
 end # module AbstractMCMC
