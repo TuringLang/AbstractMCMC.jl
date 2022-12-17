@@ -1,23 +1,15 @@
 """
     LogDensityModel <: AbstractMCMC.AbstractModel
 
-Wrapper around something that implements the `LogDensityProblem` interface.
+Wrapper around something that implements the LogDensityProblem.jl interface.
 
-This itself then implements the `LogDensityProblem` interface by simply deferring to the wrapped object.
+Note that this does _not_ implement the LogDensityProblems.jl interface itself,
+but it simply useful for indicating to the `sample` and other `AbstractMCMC` methods
+that the wrapped object implements the LogDensityProblems.jl interface.
+
+# Fields
+- `logdensity`: The object that implements the LogDensityProblems.jl interface.
 """
 struct LogDensityModel{L} <: AbstractModel
     logdensity::L
-end
-
-function LogDensityProblems.dimension(model::LogDensityModel)
-    return LogDensityProblems.dimension(model.logdensity)
-end
-function LogDensityProblems.capabilities(model::LogDensityModel)
-    return LogDensityProblems.capabilities(model.logdensity)
-end
-function LogDensityProblems.logdensity(model::LogDensityModel, x)
-    return LogDensityProblems.logdensity(model.logdensity, x)
-end
-function LogDensityProblems.logdensity_and_gradient(model::LogDensityModel, x)
-    return LogDensityProblems.logdensity_and_gradient(model.logdensity, x)
 end
