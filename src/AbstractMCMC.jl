@@ -7,7 +7,6 @@ using ProgressLogging: ProgressLogging
 using StatsBase: StatsBase
 using TerminalLoggers: TerminalLoggers
 using Transducers: Transducers
-using LogDensityProblems: LogDensityProblems
 
 using Distributed: Distributed
 using Logging: Logging
