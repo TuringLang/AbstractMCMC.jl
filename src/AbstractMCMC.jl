@@ -2,6 +2,7 @@ module AbstractMCMC
 
 using BangBang: BangBang
 using ConsoleProgressMonitor: ConsoleProgressMonitor
+using LogDensityProblems: LogDensityProblems
 using LoggingExtras: LoggingExtras
 using ProgressLogging: ProgressLogging
 using StatsBase: StatsBase
