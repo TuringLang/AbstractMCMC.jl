@@ -14,7 +14,11 @@ struct LogDensityModel{L} <: AbstractModel
     logdensity::L
     function LogDensityModel{L}(logdensity::L) where {L}
         if LogDensityProblems.capabilities(logdensity) === nothing
-            throw(ArgumentError("The log density function does not support the LogDensityProblems.jl interface"))
+            throw(
+                ArgumentError(
+                    "The log density function does not support the LogDensityProblems.jl interface",
+                ),
+            )
         end
         return new{L}(logdensity)
     end
