@@ -92,8 +92,6 @@ Wrap the `logdensity` function in a [`LogDensityModel`](@ref), and call `steps` 
 
 The `logdensity` function has to support the [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl) interface.
 """
-function steps(
-    rng::Random.AbstractRNG, logdensity, sampler::AbstractSampler; kwargs...
-)
+function steps(rng::Random.AbstractRNG, logdensity, sampler::AbstractSampler; kwargs...)
     return steps(rng, _model(logdensity), sampler; kwargs...)
 end
