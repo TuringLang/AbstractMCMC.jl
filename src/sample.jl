@@ -12,7 +12,7 @@ function setprogress!(progress::Bool)
     return progress
 end
 
-function StatsBase.sample(model::AbstractModel, sampler::AbstractSampler, arg; kwargs...)
+function StatsBase.sample(model, sampler::AbstractSampler, arg; kwargs...)
     return StatsBase.sample(Random.default_rng(), model, sampler, arg; kwargs...)
 end
 
@@ -20,18 +20,9 @@ end
     sample([rng, ]model, sampler, N; kwargs...)
 
 Return `N` samples from the `model` with the Markov chain Monte Carlo `sampler`.
-"""
-function StatsBase.sample(
-    rng::Random.AbstractRNG,
-    model::AbstractModel,
-    sampler::AbstractSampler,
-    N::Integer;
-    kwargs...,
-)
-    return mcmcsample(rng, model, sampler, N; kwargs...)
-end
 
-"""
+---
+
     sample([rng, ]model, sampler, isdone; kwargs...)
 
 Sample from the `model` with the Markov chain Monte Carlo `sampler` until a
@@ -46,16 +37,16 @@ It should return `true` when sampling should end, and `false` otherwise.
 """
 function StatsBase.sample(
     rng::Random.AbstractRNG,
-    model::AbstractModel,
+    model,
     sampler::AbstractSampler,
-    isdone;
+    arg;
     kwargs...,
 )
-    return mcmcsample(rng, model, sampler, isdone; kwargs...)
+    return mcmcsample(rng, _model(model), sampler, arg; kwargs...)
 end
 
 function StatsBase.sample(
-    model::AbstractModel,
+    model,
     sampler::AbstractSampler,
     parallel::AbstractMCMCEnsemble,
     N::Integer,
@@ -75,14 +66,14 @@ using the `parallel` algorithm, and combine them into a single chain.
 """
 function StatsBase.sample(
     rng::Random.AbstractRNG,
-    model::AbstractModel,
+    model,
     sampler::AbstractSampler,
     parallel::AbstractMCMCEnsemble,
     N::Integer,
     nchains::Integer;
     kwargs...,
 )
-    return mcmcsample(rng, model, sampler, parallel, N, nchains; kwargs...)
+    return mcmcsample(rng, _model(model), sampler, parallel, N, nchains; kwargs...)
 end
 
 # Default implementations of regular and parallel sampling.
@@ -526,6 +517,8 @@ end
 
 tighten_eltype(x) = x
 tighten_eltype(x::Vector{Any}) = map(identity, x)
+
+_model(model::AbstractModel) = model
 
 """
     _first_or_nothing(x, n::Int)
