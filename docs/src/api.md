@@ -5,8 +5,9 @@ AbstractMCMC defines an interface for sampling Markov chains.
 ## Sampling a single chain
 
 ```@docs
-AbstractMCMC.sample(::AbstractRNG, ::AbstractMCMC.AbstractModel, ::AbstractMCMC.AbstractSampler, ::Integer)
 AbstractMCMC.sample(::AbstractRNG, ::AbstractMCMC.AbstractModel, ::AbstractMCMC.AbstractSampler, ::Any)
+AbstractMCMC.sample(::AbstractRNG, ::Any, ::AbstractMCMC.AbstractSampler, ::Any)
+
 ```
 
 ### Iterator
@@ -27,6 +28,14 @@ AbstractMCMC.Sample(::AbstractRNG, ::AbstractMCMC.AbstractModel, ::AbstractMCMC.
 AbstractMCMC.sample(
     ::AbstractRNG,
     ::AbstractMCMC.AbstractModel,
+    ::AbstractMCMC.AbstractSampler,
+    ::AbstractMCMC.AbstractMCMCEnsemble,
+    ::Integer,
+    ::Integer,
+)
+AbstractMCMC.sample(
+    ::AbstractRNG,
+    ::Any,
     ::AbstractMCMC.AbstractSampler,
     ::AbstractMCMC.AbstractMCMCEnsemble,
     ::Integer,
