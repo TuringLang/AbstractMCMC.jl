@@ -12,18 +12,30 @@ function setprogress!(progress::Bool)
     return progress
 end
 
-function StatsBase.sample(model, sampler::AbstractSampler, arg; kwargs...)
-    return StatsBase.sample(Random.default_rng(), model, sampler, arg; kwargs...)
+function StatsBase.sample(model_or_logdensity, sampler::AbstractSampler, N_or_isdone; kwargs...)
+    return StatsBase.sample(Random.default_rng(), model_or_logdensity, sampler, N_or_isdone; kwargs...)
 end
 
 """
-    sample([rng, ]model, sampler, N; kwargs...)
+    sample(
+        rng::Random.AbatractRNG=Random.default_rng(),
+        model::AbstractModel,
+        sampler::AbstractSampler,
+        N::Integer;
+        kwargs...,
+    )
 
 Return `N` samples from the `model` with the Markov chain Monte Carlo `sampler`.
 
 ---
 
-    sample([rng, ]model, sampler, isdone; kwargs...)
+    sample(
+        rng::Random.AbatractRNG,
+        model::AbstractModel,
+        sampler::AbstractSampler,
+        isdone;
+        kwargs...,
+    )
 
 Sample from the `model` with the Markov chain Monte Carlo `sampler` until a
 convergence criterion `isdone` returns `true`, and return the samples.
@@ -37,16 +49,40 @@ It should return `true` when sampling should end, and `false` otherwise.
 """
 function StatsBase.sample(
     rng::Random.AbstractRNG,
-    model,
+    model::AbstractModel,
     sampler::AbstractSampler,
-    arg;
+    N_or_isdone;
     kwargs...,
 )
-    return mcmcsample(rng, _model(model), sampler, arg; kwargs...)
+    return mcmcsample(rng, model, sampler, N_or_isdone; kwargs...)
+end
+
+# Fallback: Wrap log density function in a model
+"""
+    sample(
+        rng::Random.AbstractRNG=Random.default_rng(),
+        logdensity,
+        sampler::AbstractSampler,
+        N_or_isdone;
+        kwargs...,
+    )
+
+Wrap the `logdensity` function in a [`LogDensityModel`](@ref), and call `sample` with the resulting model instead of `logdensity`.
+
+The `logdensity` function has to support the [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl) interface.
+"""
+function StatsBase.sample(
+    rng::Random.AbstractRNG,
+    logdensity,
+    sampler::AbstractSampler,
+    N_or_isdone;
+    kwargs...,
+)
+    return StatsBase.sample(rng, _model(logdensity), sampler, N_or_isdone; kwargs...)
 end
 
 function StatsBase.sample(
-    model,
+    model_or_logdensity,
     sampler::AbstractSampler,
     parallel::AbstractMCMCEnsemble,
     N::Integer,
@@ -54,27 +90,64 @@ function StatsBase.sample(
     kwargs...,
 )
     return StatsBase.sample(
-        Random.default_rng(), model, sampler, parallel, N, nchains; kwargs...
+        Random.default_rng(), model_or_logdensity, sampler, parallel, N, nchains; kwargs...
     )
 end
 
 """
-    sample([rng, ]model, sampler, parallel, N, nchains; kwargs...)
+    sample(
+        rng::Random.AbstractRNG=Random.default_rng(),
+        model::AbstractModel,
+        sampler::AbstractSampler,
+        parallel::AbstractMCMCEnsemble,
+        N::Integer,
+        nchains::Integer;
+        kwargs...,
+    )
 
 Sample `nchains` Monte Carlo Markov chains from the `model` with the `sampler` in parallel
 using the `parallel` algorithm, and combine them into a single chain.
 """
 function StatsBase.sample(
     rng::Random.AbstractRNG,
-    model,
+    model::AbstractModel,
     sampler::AbstractSampler,
     parallel::AbstractMCMCEnsemble,
     N::Integer,
     nchains::Integer;
     kwargs...,
 )
-    return mcmcsample(rng, _model(model), sampler, parallel, N, nchains; kwargs...)
+    return mcmcsample(rng, model, sampler, parallel, N, nchains; kwargs...)
 end
+
+# Fallback: Wrap log density function in a model
+"""
+    sample(
+        rng::Random.AbstractRNG=Random.default_rng(),,
+        logdensity,
+        sampler::AbstractSampler,
+        parallel::AbstractMCMCEnsemble,
+        N::Integer,
+        nchains::Integer;
+        kwargs...,
+    )
+
+Wrap the `logdensity` function in a [`LogDensityModel`](@ref), and call `sample` with the resulting model instead of `logdensity`.
+
+The `logdensity` function has to support the [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl) interface.
+"""
+function StatsBase.sample(
+    rng::Random.AbstractRNG,
+    logdensity,
+    sampler::AbstractSampler,
+    parallel::AbstractMCMCEnsemble,
+    N::Integer,
+    nchains::Integer;
+    kwargs...,
+)
+    return StatsBase.sample(rng, _model(logdensity), sampler, parallel, N, nchains; kwargs...)
+end
+
 
 # Default implementations of regular and parallel sampling.
 
@@ -518,7 +591,12 @@ end
 tighten_eltype(x) = x
 tighten_eltype(x::Vector{Any}) = map(identity, x)
 
-_model(model::AbstractModel) = model
+function _model(logdensity)
+    if LogDensityProblems.capabilities(logdensity) === nothing
+        throw(ArgumentError("the log density function does not support the LogDensityProblems.jl interface. Please implement the interface or provide a model of type `AbstractMCMC.AbstractModel`"))
+    end
+    return LogDensityModel(logdensity)
+end
 
 """
     _first_or_nothing(x, n::Int)
