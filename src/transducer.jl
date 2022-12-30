@@ -57,9 +57,7 @@ Wrap the `logdensity` function in a [`LogDensityModel`](@ref), and call `Sample`
 
 The `logdensity` function has to support the [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl) interface.
 """
-function Sample(
-    rng::Random.AbstractRNG, logdensity, sampler::AbstractSampler; kwargs...
-)
+function Sample(rng::Random.AbstractRNG, logdensity, sampler::AbstractSampler; kwargs...)
     return Sample(rng, _model(logdensity), sampler; kwargs...)
 end
 
