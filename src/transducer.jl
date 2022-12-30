@@ -6,12 +6,17 @@ struct Sample{A<:Random.AbstractRNG,M<:AbstractModel,S<:AbstractSampler,K} <:
     kwargs::K
 end
 
-function Sample(model::AbstractModel, sampler::AbstractSampler; kwargs...)
-    return Sample(Random.default_rng(), model, sampler; kwargs...)
+function Sample(model_or_logdensity, sampler::AbstractSampler; kwargs...)
+    return Sample(Random.default_rng(), model_or_logdensity, sampler; kwargs...)
 end
 
 """
-    Sample([rng, ]model, sampler; kwargs...)
+    Sample(
+        rng::Random.AbstractRNG=Random.default_rng(),
+        model::AbstractModel,
+        sampler::AbstractSampler;
+        kwargs...,
+    )
 
 Create a transducer that returns samples from the `model` with the Markov chain Monte Carlo
 `sampler`.
@@ -38,6 +43,24 @@ function Sample(
     rng::Random.AbstractRNG, model::AbstractModel, sampler::AbstractSampler; kwargs...
 )
     return Sample(rng, model, sampler, kwargs)
+end
+
+"""
+    Sample(
+        rng::Random.AbstractRNG=Random.default_rng(),
+        logdensity,
+        sampler::AbstractSampler;
+        kwargs...,
+    )
+
+Wrap the `logdensity` function in a [`LogDensityModel`](@ref), and call `Sample` with the resulting model instead of `logdensity`.
+
+The `logdensity` function has to support the [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl) interface.
+"""
+function Sample(
+    rng::Random.AbstractRNG, logdensity, sampler::AbstractSampler; kwargs...
+)
+    return Sample(rng, _model(logdensity), sampler; kwargs...)
 end
 
 # Initial sample.
