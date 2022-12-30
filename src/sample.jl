@@ -12,8 +12,12 @@ function setprogress!(progress::Bool)
     return progress
 end
 
-function StatsBase.sample(model_or_logdensity, sampler::AbstractSampler, N_or_isdone; kwargs...)
-    return StatsBase.sample(Random.default_rng(), model_or_logdensity, sampler, N_or_isdone; kwargs...)
+function StatsBase.sample(
+    model_or_logdensity, sampler::AbstractSampler, N_or_isdone; kwargs...
+)
+    return StatsBase.sample(
+        Random.default_rng(), model_or_logdensity, sampler, N_or_isdone; kwargs...
+    )
 end
 
 """
@@ -72,11 +76,7 @@ Wrap the `logdensity` function in a [`LogDensityModel`](@ref), and call `sample`
 The `logdensity` function has to support the [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl) interface.
 """
 function StatsBase.sample(
-    rng::Random.AbstractRNG,
-    logdensity,
-    sampler::AbstractSampler,
-    N_or_isdone;
-    kwargs...,
+    rng::Random.AbstractRNG, logdensity, sampler::AbstractSampler, N_or_isdone; kwargs...
 )
     return StatsBase.sample(rng, _model(logdensity), sampler, N_or_isdone; kwargs...)
 end
@@ -145,9 +145,10 @@ function StatsBase.sample(
     nchains::Integer;
     kwargs...,
 )
-    return StatsBase.sample(rng, _model(logdensity), sampler, parallel, N, nchains; kwargs...)
+    return StatsBase.sample(
+        rng, _model(logdensity), sampler, parallel, N, nchains; kwargs...
+    )
 end
-
 
 # Default implementations of regular and parallel sampling.
 
@@ -593,7 +594,11 @@ tighten_eltype(x::Vector{Any}) = map(identity, x)
 
 function _model(logdensity)
     if LogDensityProblems.capabilities(logdensity) === nothing
-        throw(ArgumentError("the log density function does not support the LogDensityProblems.jl interface. Please implement the interface or provide a model of type `AbstractMCMC.AbstractModel`"))
+        throw(
+            ArgumentError(
+                "the log density function does not support the LogDensityProblems.jl interface. Please implement the interface or provide a model of type `AbstractMCMC.AbstractModel`",
+            ),
+        )
     end
     return LogDensityModel(logdensity)
 end
