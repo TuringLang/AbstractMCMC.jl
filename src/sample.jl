@@ -123,7 +123,7 @@ end
 # Fallback: Wrap log density function in a model
 """
     sample(
-        rng::Random.AbstractRNG=Random.default_rng(),,
+        rng::Random.AbstractRNG=Random.default_rng(),
         logdensity,
         sampler::AbstractSampler,
         parallel::AbstractMCMCEnsemble,
