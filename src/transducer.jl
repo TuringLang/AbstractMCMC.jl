@@ -45,22 +45,6 @@ function Sample(
     return Sample(rng, model, sampler, kwargs)
 end
 
-"""
-    Sample(
-        rng::Random.AbstractRNG=Random.default_rng(),
-        logdensity,
-        sampler::AbstractSampler;
-        kwargs...,
-    )
-
-Wrap the `logdensity` function in a [`LogDensityModel`](@ref), and call `Sample` with the resulting model instead of `logdensity`.
-
-The `logdensity` function has to support the [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl) interface.
-"""
-function Sample(rng::Random.AbstractRNG, logdensity, sampler::AbstractSampler; kwargs...)
-    return Sample(rng, _model(logdensity), sampler; kwargs...)
-end
-
 # Initial sample.
 function Transducers.start(rf::Transducers.R_{<:Sample}, result)
     # Unpack transducer.

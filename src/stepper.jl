@@ -79,19 +79,3 @@ function steps(
 )
     return Stepper(rng, model, sampler, kwargs)
 end
-
-"""
-    steps(
-        rng::Random.AbstractRNG=Random.default_rng(),
-        logdensity,
-        sampler::AbstractSampler;
-        kwargs...,
-    )
-
-Wrap the `logdensity` function in a [`LogDensityModel`](@ref), and call `steps` with the resulting model instead of `logdensity`.
-
-The `logdensity` function has to support the [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl) interface.
-"""
-function steps(rng::Random.AbstractRNG, logdensity, sampler::AbstractSampler; kwargs...)
-    return steps(rng, _model(logdensity), sampler; kwargs...)
-end
