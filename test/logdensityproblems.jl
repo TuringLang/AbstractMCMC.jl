@@ -9,7 +9,9 @@
     end
     LogDensityProblems.logdensity(::MyLogDensity, x) = mylogdensity(x)
     LogDensityProblems.dimension(m::MyLogDensity) = m.dim
-    LogDensityProblems.capabilities(::Type{MyLogDensity}) = LogDensityProblems.LogDensityOrder{0}()
+    function LogDensityProblems.capabilities(::Type{MyLogDensity})
+        return LogDensityProblems.LogDensityOrder{0}()
+    end
 
     # Define "sampling"
     function AbstractMCMC.step(
@@ -26,7 +28,6 @@
         logdensity_θ = LogDensityProblems.logdensity(ℓ, θ)
 
         _state = state === nothing ? 1 : state + 1
-    
         return MySample(θ, logdensity_θ), _state
     end
 
@@ -93,7 +94,9 @@
         @test_throws ArgumentError sample(mylogdensity, MySampler(), isdone)
         @test_throws ArgumentError sample(mylogdensity, MySampler(), MCMCSerial(), N, 2)
         @test_throws ArgumentError sample(mylogdensity, MySampler(), MCMCThreads(), N, 2)
-        @test_throws ArgumentError sample(mylogdensity, MySampler(), MCMCDistributed(), N, 2)
+        @test_throws ArgumentError sample(
+            mylogdensity, MySampler(), MCMCDistributed(), N, 2
+        )
         @test_throws ArgumentError AbstractMCMC.steps(mylogdensity, MySampler())
         @test_throws ArgumentError AbstractMCMC.Sample(mylogdensity, MySampler())
     end
