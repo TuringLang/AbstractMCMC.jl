@@ -6,12 +6,17 @@ struct Sample{A<:Random.AbstractRNG,M<:AbstractModel,S<:AbstractSampler,K} <:
     kwargs::K
 end
 
-function Sample(model::AbstractModel, sampler::AbstractSampler; kwargs...)
-    return Sample(Random.default_rng(), model, sampler; kwargs...)
+function Sample(model_or_logdensity, sampler::AbstractSampler; kwargs...)
+    return Sample(Random.default_rng(), model_or_logdensity, sampler; kwargs...)
 end
 
 """
-    Sample([rng, ]model, sampler; kwargs...)
+    Sample(
+        rng::Random.AbstractRNG=Random.default_rng(),
+        model::AbstractModel,
+        sampler::AbstractSampler;
+        kwargs...,
+    )
 
 Create a transducer that returns samples from the `model` with the Markov chain Monte Carlo
 `sampler`.

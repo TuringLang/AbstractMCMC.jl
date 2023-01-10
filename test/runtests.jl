@@ -2,6 +2,7 @@ using AbstractMCMC
 using Atom.Progress: JunoProgressLogger
 using ConsoleProgressMonitor: ProgressLogger
 using IJulia
+using LogDensityProblems
 using LoggingExtras: TeeLogger, EarlyFilteredLogger
 using TerminalLoggers: TerminalLogger
 using Transducers
@@ -22,4 +23,5 @@ include("utils.jl")
     include("sample.jl")
     include("stepper.jl")
     include("transducer.jl")
+    include("logdensityproblems.jl")
 end

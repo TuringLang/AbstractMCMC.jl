@@ -41,12 +41,17 @@ end
 Base.IteratorSize(::Type{<:Stepper}) = Base.IsInfinite()
 Base.IteratorEltype(::Type{<:Stepper}) = Base.EltypeUnknown()
 
-function steps(model::AbstractModel, sampler::AbstractSampler; kwargs...)
-    return steps(Random.default_rng(), model, sampler; kwargs...)
+function steps(model_or_logdensity, sampler::AbstractSampler; kwargs...)
+    return steps(Random.default_rng(), model_or_logdensity, sampler; kwargs...)
 end
 
 """
-    steps([rng, ]model, sampler; kwargs...)
+    steps(
+        rng::Random.AbstractRNG=Random.default_rng(),
+        model::AbstractModel,
+        sampler::AbstractSampler;
+        kwargs...,
+    )
 
 Create an iterator that returns samples from the `model` with the Markov chain Monte Carlo
 `sampler`.

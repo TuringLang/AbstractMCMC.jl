@@ -12,32 +12,29 @@ function setprogress!(progress::Bool)
     return progress
 end
 
-function StatsBase.sample(model::AbstractModel, sampler::AbstractSampler, arg; kwargs...)
-    return StatsBase.sample(Random.default_rng(), model, sampler, arg; kwargs...)
-end
-
-"""
-    sample([rng, ]model, sampler, N; kwargs...)
-
-Return `N` samples from the `model` with the Markov chain Monte Carlo `sampler`.
-"""
 function StatsBase.sample(
-    rng::Random.AbstractRNG,
-    model::AbstractModel,
-    sampler::AbstractSampler,
-    N::Integer;
-    kwargs...,
+    model_or_logdensity, sampler::AbstractSampler, N_or_isdone; kwargs...
 )
-    return mcmcsample(rng, model, sampler, N; kwargs...)
+    return StatsBase.sample(
+        Random.default_rng(), model_or_logdensity, sampler, N_or_isdone; kwargs...
+    )
 end
 
 """
-    sample([rng, ]model, sampler, isdone; kwargs...)
+    sample(
+        rng::Random.AbatractRNG=Random.default_rng(),
+        model::AbstractModel,
+        sampler::AbstractSampler,
+        N_or_isdone;
+        kwargs...,
+    )
 
-Sample from the `model` with the Markov chain Monte Carlo `sampler` until a
-convergence criterion `isdone` returns `true`, and return the samples.
+Sample from the `model` with the Markov chain Monte Carlo `sampler` and return the samples.
 
-The function `isdone` has the signature
+If `N_or_isdone` is an `Integer`, exactly `N_or_isdone` samples are returned.
+
+Otherwise, sampling is performed until a convergence criterion `N_or_isdone` returns `true`.
+The convergence criterion has to be a function with the signature
 ```julia
 isdone(rng, model, sampler, samples, state, iteration; kwargs...)
 ```
@@ -48,14 +45,14 @@ function StatsBase.sample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
     sampler::AbstractSampler,
-    isdone;
+    N_or_isdone;
     kwargs...,
 )
-    return mcmcsample(rng, model, sampler, isdone; kwargs...)
+    return mcmcsample(rng, model, sampler, N_or_isdone; kwargs...)
 end
 
 function StatsBase.sample(
-    model::AbstractModel,
+    model_or_logdensity,
     sampler::AbstractSampler,
     parallel::AbstractMCMCEnsemble,
     N::Integer,
@@ -63,12 +60,20 @@ function StatsBase.sample(
     kwargs...,
 )
     return StatsBase.sample(
-        Random.default_rng(), model, sampler, parallel, N, nchains; kwargs...
+        Random.default_rng(), model_or_logdensity, sampler, parallel, N, nchains; kwargs...
     )
 end
 
 """
-    sample([rng, ]model, sampler, parallel, N, nchains; kwargs...)
+    sample(
+        rng::Random.AbstractRNG=Random.default_rng(),
+        model::AbstractModel,
+        sampler::AbstractSampler,
+        parallel::AbstractMCMCEnsemble,
+        N::Integer,
+        nchains::Integer;
+        kwargs...,
+    )
 
 Sample `nchains` Monte Carlo Markov chains from the `model` with the `sampler` in parallel
 using the `parallel` algorithm, and combine them into a single chain.

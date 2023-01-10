@@ -2,23 +2,39 @@
 
 AbstractMCMC defines an interface for sampling Markov chains.
 
+## Model
+
+```@docs
+AbstractMCMC.AbstractModel
+AbstractMCMC.LogDensityModel
+```
+
+## Sampler
+
+```@docs
+AbstractMCMC.AbstractSampler
+```
+
 ## Sampling a single chain
 
 ```@docs
-AbstractMCMC.sample(::AbstractRNG, ::AbstractMCMC.AbstractModel, ::AbstractMCMC.AbstractSampler, ::Integer)
 AbstractMCMC.sample(::AbstractRNG, ::AbstractMCMC.AbstractModel, ::AbstractMCMC.AbstractSampler, ::Any)
+AbstractMCMC.sample(::AbstractRNG, ::Any, ::AbstractMCMC.AbstractSampler, ::Any)
+
 ```
 
 ### Iterator
 
 ```@docs
 AbstractMCMC.steps(::AbstractRNG, ::AbstractMCMC.AbstractModel, ::AbstractMCMC.AbstractSampler)
+AbstractMCMC.steps(::AbstractRNG, ::Any, ::AbstractMCMC.AbstractSampler)
 ```
 
 ### Transducer
 
 ```@docs
 AbstractMCMC.Sample(::AbstractRNG, ::AbstractMCMC.AbstractModel, ::AbstractMCMC.AbstractSampler)
+AbstractMCMC.Sample(::AbstractRNG, ::Any, ::AbstractMCMC.AbstractSampler)
 ```
 
 ## Sampling multiple chains in parallel
@@ -27,6 +43,14 @@ AbstractMCMC.Sample(::AbstractRNG, ::AbstractMCMC.AbstractModel, ::AbstractMCMC.
 AbstractMCMC.sample(
     ::AbstractRNG,
     ::AbstractMCMC.AbstractModel,
+    ::AbstractMCMC.AbstractSampler,
+    ::AbstractMCMC.AbstractMCMCEnsemble,
+    ::Integer,
+    ::Integer,
+)
+AbstractMCMC.sample(
+    ::AbstractRNG,
+    ::Any,
     ::AbstractMCMC.AbstractSampler,
     ::AbstractMCMC.AbstractMCMCEnsemble,
     ::Integer,
