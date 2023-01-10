@@ -221,7 +221,9 @@
         # Add worker processes.
         # Memory requirements on Windows are ~4x larger than on Linux, hence number of processes is reduced
         # See, e.g., https://github.com/JuliaLang/julia/issues/40766 and https://github.com/JuliaLang/Pkg.jl/pull/2366
-        pids = addprocs(Sys.iswindows() ? div(Sys.CPU_THREADS::Int, 2) : Sys.CPU_THREADS::Int)
+        pids = addprocs(
+            Sys.iswindows() ? div(Sys.CPU_THREADS::Int, 2) : Sys.CPU_THREADS::Int
+        )
 
         # Load all required packages (`utils.jl` needs LogDensityProblems, Logging, and Random).
         @everywhere begin
