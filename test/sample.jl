@@ -34,22 +34,6 @@
             @test chain[1].b == 3.2
         end
 
-        @testset "Juno" begin
-            empty!(LOGGERS)
-
-            Random.seed!(1234)
-            N = 10
-
-            logger = JunoProgressLogger()
-            Logging.with_logger(logger) do
-                sample(MyModel(), MySampler(), N; loggers=true)
-            end
-
-            @test length(LOGGERS) == 1
-            @test first(LOGGERS) === logger
-            @test Logging.current_logger() === CURRENT_LOGGER
-        end
-
         @testset "IJulia" begin
             # emulate running IJulia kernel
             @eval IJulia begin

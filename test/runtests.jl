@@ -1,5 +1,4 @@
 using AbstractMCMC
-using Atom.Progress: JunoProgressLogger
 using ConsoleProgressMonitor: ProgressLogger
 using IJulia
 using LogDensityProblems
