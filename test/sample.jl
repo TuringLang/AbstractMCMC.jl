@@ -221,13 +221,15 @@
         # Add worker processes.
         # Memory requirements on Windows are ~4x larger than on Linux, hence number of processes is reduced
         # See, e.g., https://github.com/JuliaLang/julia/issues/40766 and https://github.com/JuliaLang/Pkg.jl/pull/2366
-        addprocs(Sys.iswindows() ? div(Sys.CPU_THREADS::Int, 2) : Sys.CPU_THREADS::Int)
+        pids = addprocs(Sys.iswindows() ? div(Sys.CPU_THREADS::Int, 2) : Sys.CPU_THREADS::Int)
 
-        # Load all required packages (`interface.jl` needs Random).
+        # Load all required packages (`utils.jl` needs LogDensityProblems, Logging, and Random).
         @everywhere begin
             using AbstractMCMC
             using AbstractMCMC: sample
+            using LogDensityProblems
 
+            using Logging
             using Random
             include("utils.jl")
         end
@@ -316,6 +318,9 @@
         @test all(
             chain[1].a == init_params.a && chain[1].b == init_params.b for chain in chains
         )
+
+        # Remove workers
+        rmprocs(pids...)
     end
 
     @testset "Serial sampling" begin

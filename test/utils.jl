@@ -81,3 +81,35 @@ end
 
 # Conversion to NamedTuple
 Base.convert(::Type{NamedTuple}, x::MySample) = (a=x.a, b=x.b)
+
+# Gaussian log density (without additive constants)
+# Without LogDensityProblems.jl interface
+mylogdensity(x) = -sum(abs2, x) / 2
+
+# With LogDensityProblems.jl interface
+struct MyLogDensity
+    dim::Int
+end
+LogDensityProblems.logdensity(::MyLogDensity, x) = mylogdensity(x)
+LogDensityProblems.dimension(m::MyLogDensity) = m.dim
+function LogDensityProblems.capabilities(::Type{MyLogDensity})
+    return LogDensityProblems.LogDensityOrder{0}()
+end
+
+# Define "sampling"
+function AbstractMCMC.step(
+    rng::AbstractRNG,
+    model::AbstractMCMC.LogDensityModel{MyLogDensity},
+    ::MySampler,
+    state::Union{Nothing,Integer}=nothing;
+    kwargs...,
+)
+    # Sample from multivariate normal distribution    
+    ℓ = model.logdensity
+    dim = LogDensityProblems.dimension(ℓ)
+    θ = randn(rng, dim)
+    logdensity_θ = LogDensityProblems.logdensity(ℓ, θ)
+
+    _state = state === nothing ? 1 : state + 1
+    return MySample(θ, logdensity_θ), _state
+end

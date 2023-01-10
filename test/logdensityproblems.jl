@@ -1,34 +1,18 @@
 @testset "logdensityproblems.jl" begin
-    # Gaussian log density (without additive constants)
-    # Without LogDensityProblems.jl interface
-    mylogdensity(x) = -sum(abs2, x) / 2
+    # Add worker processes.
+    # Memory requirements on Windows are ~4x larger than on Linux, hence number of processes is reduced
+    # See, e.g., https://github.com/JuliaLang/julia/issues/40766 and https://github.com/JuliaLang/Pkg.jl/pull/2366
+    pids = addprocs(Sys.iswindows() ? div(Sys.CPU_THREADS::Int, 2) : Sys.CPU_THREADS::Int)
 
-    # With LogDensityProblems.jl interface
-    struct MyLogDensity
-        dim::Int
-    end
-    LogDensityProblems.logdensity(::MyLogDensity, x) = mylogdensity(x)
-    LogDensityProblems.dimension(m::MyLogDensity) = m.dim
-    function LogDensityProblems.capabilities(::Type{MyLogDensity})
-        return LogDensityProblems.LogDensityOrder{0}()
-    end
+    # Load all required packages (`utils.jl` needs LogDensityProblems, Logging, and Random).
+    @everywhere begin
+        using AbstractMCMC
+        using AbstractMCMC: sample
+        using LogDensityProblems
 
-    # Define "sampling"
-    function AbstractMCMC.step(
-        rng::AbstractRNG,
-        model::AbstractMCMC.LogDensityModel{MyLogDensity},
-        ::MySampler,
-        state::Union{Nothing,Integer}=nothing;
-        kwargs...,
-    )
-        # Sample from multivariate normal distribution    
-        ℓ = model.logdensity
-        dim = LogDensityProblems.dimension(ℓ)
-        θ = randn(rng, dim)
-        logdensity_θ = LogDensityProblems.logdensity(ℓ, θ)
-
-        _state = state === nothing ? 1 : state + 1
-        return MySample(θ, logdensity_θ), _state
+        using Logging
+        using Random
+        include("utils.jl")
     end
 
     @testset "LogDensityModel" begin
@@ -100,4 +84,7 @@
         @test_throws ArgumentError AbstractMCMC.steps(mylogdensity, MySampler())
         @test_throws ArgumentError AbstractMCMC.Sample(mylogdensity, MySampler())
     end
+
+    # Remove workers
+    rmprocs(pids...)
 end
