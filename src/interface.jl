@@ -57,6 +57,19 @@ current `state` of the sampler.
 function step end
 
 """
+    step_warmup(rng, model, sampler[, state; kwargs...])
+
+Return a 2-tuple of the next sample and the next state of the MCMC `sampler` for `model`.
+
+When sampling using [`sample`](@ref), this takes the place of [`step`](@ref) in the first `discard_initial`
+number of iterations. This is useful if the sampler has a "warmup"-stage initial stage
+that is different from the standard iteration.
+
+By default, this simply calls [`step`](@ref.)
+"""
+step_warmup(rng, model, sampler, state; kwargs...) = step(rng, model, sampler, state; kwargs...)
+
+"""
     samples(sample, model, sampler[, N; kwargs...])
 
 Generate a container for the samples of the MCMC `sampler` for the `model`, whose first

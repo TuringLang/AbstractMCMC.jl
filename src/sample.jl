@@ -133,7 +133,7 @@ function mcmcsample(
             end
 
             # Obtain the next sample and state.
-            sample, state = step(rng, model, sampler, state; kwargs...)
+            sample, state = step_warmup(rng, model, sampler, state; kwargs...)
         end
 
         # Run callback.
