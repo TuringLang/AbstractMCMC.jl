@@ -63,6 +63,14 @@ the sampling step of the inference method.
 AbstractMCMC.step
 ```
 
+If one also has some special handling of the warmup-stage of sampling, then this can be specified by overloading
+
+```@docs
+AbstractMCMC.step_warmup
+```
+
+Note that this is optional; by default it simply calls [`AbstractMCMC.step`](@ref) from above.
+
 ## Collecting samples
 
 !!! note
