@@ -69,7 +69,7 @@ If one also has some special handling of the warmup-stage of sampling, then this
 AbstractMCMC.step_warmup
 ```
 
-which will be used for the first `num_warmup`, as specified as a keyword argument to [`AbstractMCMC.sample`](@ref). 
+which will be used for the first `num_warmup` iterations, as specified as a keyword argument to [`AbstractMCMC.sample`](@ref). 
 Note that this is optional; by default it simply calls [`AbstractMCMC.step`](@ref) from above.
 
 ## Collecting samples
