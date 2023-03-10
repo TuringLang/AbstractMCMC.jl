@@ -100,14 +100,15 @@ function mcmcsample(
     progress=PROGRESS[],
     progressname="Sampling",
     callback=nothing,
-    discard_initial=0,
+    num_warmup=0,
+    discard_initial=num_warmup,
     thinning=1,
     chain_type::Type=Any,
     kwargs...,
 )
     # Check the number of requested samples.
     N > 0 || error("the number of samples must be ≥ 1")
-    Ntotal = thinning * (N - 1) + discard_initial + 1
+    Ntotal = thinning * (N - 1) + discard_initial + num_warmup + 1
 
     # Start the timer
     start = time()
@@ -125,7 +126,7 @@ function mcmcsample(
         sample, state = step(rng, model, sampler; kwargs...)
 
         # Discard initial samples.
-        for i in 1:discard_initial
+        for i in 1:num_warmup
             # Update the progress bar.
             if progress && i >= next_update
                 ProgressLogging.@logprogress i / Ntotal
@@ -136,6 +137,18 @@ function mcmcsample(
             sample, state = step_warmup(rng, model, sampler, state; kwargs...)
         end
 
+        # Discard initial samples.
+        for i in 1:discard_initial
+            # Update the progress bar.
+            if progress && i >= next_update
+                ProgressLogging.@logprogress i / Ntotal
+                next_update = i + threshold
+            end
+
+            # Obtain the next sample and state.
+            sample, state = step(rng, model, sampler, state; kwargs...)
+        end
+
         # Run callback.
         callback === nothing || callback(rng, model, sampler, sample, state, 1; kwargs...)
 
@@ -144,7 +157,7 @@ function mcmcsample(
         samples = save!!(samples, sample, 1, model, sampler, N; kwargs...)
 
         # Update the progress bar.
-        itotal = 1 + discard_initial
+        itotal = 1 + num_warmup + discard_initial
         if progress && itotal >= next_update
             ProgressLogging.@logprogress itotal / Ntotal
             next_update = itotal + threshold
