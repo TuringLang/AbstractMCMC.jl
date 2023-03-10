@@ -154,7 +154,7 @@ function mcmcsample(
         sample, state = step(rng, model, sampler; kwargs...)
 
         # Warmup sampling.
-        for _ = 1:discard_from_warmup
+        for _ in 1:discard_from_warmup
             # Obtain the next sample and state.
             sample, state = step_warmup(rng, model, sampler, state; kwargs...)
         end
@@ -162,7 +162,8 @@ function mcmcsample(
         i = 1
         if keep_from_warmup > 0
             # Run callback.
-            callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
+            callback === nothing ||
+                callback(rng, model, sampler, sample, state, i; kwargs...)
 
             # Save the sample.
             samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
@@ -181,7 +182,8 @@ function mcmcsample(
                 sample, state = step_warmup(rng, model, sampler, state; kwargs...)
 
                 # Run callback.
-                callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
+                callback === nothing ||
+                    callback(rng, model, sampler, sample, state, i; kwargs...)
 
                 # Save the sample.
                 samples = save!!(samples, sample, i, model, sampler; kwargs...)
@@ -201,7 +203,8 @@ function mcmcsample(
             end
 
             # Run callback.
-            callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
+            callback === nothing ||
+                callback(rng, model, sampler, sample, state, i; kwargs...)
 
             # Save the sample.
             samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
@@ -300,7 +303,7 @@ function mcmcsample(
         sample, state = step(rng, model, sampler; kwargs...)
 
         # Warmup sampling.
-        for _ = 1:discard_from_warmup
+        for _ in 1:discard_from_warmup
             # Obtain the next sample and state.
             sample, state = step_warmup(rng, model, sampler, state; kwargs...)
         end
@@ -308,7 +311,8 @@ function mcmcsample(
         i = 1
         if keep_from_warmup > 0
             # Run callback.
-            callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
+            callback === nothing ||
+                callback(rng, model, sampler, sample, state, i; kwargs...)
 
             # Save the sample.
             samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
@@ -321,7 +325,8 @@ function mcmcsample(
                 sample, state = step_warmup(rng, model, sampler, state; kwargs...)
 
                 # Run callback.
-                callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
+                callback === nothing ||
+                    callback(rng, model, sampler, sample, state, i; kwargs...)
 
                 # Save the sample.
                 samples = save!!(samples, sample, i, model, sampler; kwargs...)
@@ -335,7 +340,8 @@ function mcmcsample(
             end
 
             # Run callback.
-            callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
+            callback === nothing ||
+                callback(rng, model, sampler, sample, state, i; kwargs...)
 
             # Save the sample.
             samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
