@@ -91,7 +91,29 @@ function StatsBase.sample(
 end
 
 # Default implementations of regular and parallel sampling.
+"""
+    mcmcsample(rng, model, sampler, N_or_is_done; kwargs...)
 
+Default implementation of `sample` for a `model` and `sampler`.
+
+# Arguments
+- `rng::Random.AbstractRNG`: the random number generator to use.
+- `model::AbstractModel`: the model to sample from.
+- `sampler::AbstractSampler`: the sampler to use.
+- `N::Integer`: the number of samples to draw.
+
+# Keyword arguments
+- `progress`: whether to display a progress bar. Defaults to `true`.
+- `progressname`: the name of the progress bar. Defaults to `"Sampling"`.
+- `callback`: a function that is called after each [`AbstractMCMC.step`](@ref).
+   Defaults to `nothing`.
+- `num_warmup`: number of warmup samples to draw. Defaults to `0`.
+- `discard_initial`: number of initial samples to discard. Defaults to `num_warmup`.
+- `thinning`: number of samples to discard between samples. Defaults to `1`.
+- `chain_type`: the type to pass to [`AbstractMCMC.bundle_samples`](@ref) at the
+  end of sampling to wrap up the resulting samples nicely. Defaults to `Any`.
+- `kwargs...`: Additional keyword arguments to pass on to [`AbstractMCMC.step`](@ref).
+"""
 function mcmcsample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
