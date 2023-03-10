@@ -73,7 +73,11 @@ Common keyword arguments for regular and parallel sampling are:
 - `callback` (default: `nothing`): if `callback !== nothing`, then
   `callback(rng, model, sampler, sample, iteration)` is called after every sampling step,
   where `sample` is the most recent sample of the Markov chain and `iteration` is the current iteration
-- `discard_initial` (default: `0`): number of initial samples that are discarded
+- `num_warmup` (default: `0`): number of "warm-up" steps to take before the first "regular" step, 
+   i.e. number of times to call [`AbstractMCMC.step_warmup`](@ref) before the first call to 
+   [`AbstractMCMC.step`](@ref).
+- `discard_initial` (default: `num_warmup`): number of initial samples that are discarded. Note that
+  if `discard_initial < num_warmup`, warm-up samples will also be included in the resulting samples.
 - `thinning` (default: `1`): factor by which to thin samples.
 
 !!! info
