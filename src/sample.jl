@@ -159,17 +159,17 @@ function mcmcsample(
 
         # Discard initial samples.
         for j in 1:discard_initial
-            # Update the progress bar.
-            if progress && (itotal += 1) >= next_update
-                ProgressLogging.@logprogress itotal / Ntotal
-                next_update = itotal + threshold
-            end
-
             # Obtain the next sample and state.
             sample, state = if j ≤ num_warmup
                 step_warmup(rng, model, sampler, state; kwargs...)
             else
                 step(rng, model, sampler, state; kwargs...)
+            end
+
+            # Update the progress bar.
+            if progress && (itotal += 1) >= next_update
+                ProgressLogging.@logprogress itotal / Ntotal
+                next_update = itotal + threshold
             end
         end
 
