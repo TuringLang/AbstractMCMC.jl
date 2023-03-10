@@ -109,15 +109,18 @@ function mcmcsample(
     progress=PROGRESS[],
     progressname="Sampling",
     callback=nothing,
-    num_warmup=0,
-    discard_initial=num_warmup,
+    num_warmup::Int=0,
+    discard_initial::Int=num_warmup,
     thinning=1,
     chain_type::Type=Any,
     kwargs...,
 )
     # Check the number of requested samples.
     N > 0 || error("the number of samples must be ≥ 1")
-    Ntotal = thinning * (N - 1) + discard_initial + num_warmup + 1
+    discard_initial >= 0 || throw(ArgumentError("number of discarded samples must be non-negative"))
+    num_warmup >= 0 || throw(ArgumentError("number of warm-up samples must be non-negative"))
+    Ntotal = thinning * (N - 1) + discard_initial + 1
+    Ntotal >= num_warmup || throw(ArgumentError("number of warm-up samples exceeds the total number of samples"))
 
     # Determine how many samples to drop from `num_warmup` and the
     # main sampling process before we start saving samples.
@@ -141,7 +144,7 @@ function mcmcsample(
         sample, state = step(rng, model, sampler; kwargs...)
 
         # Warmup sampling.
-        for _ = 1:discard_from_warmup
+        for _ in 1:discard_from_warmup
             # Obtain the next sample and state.
             sample, state = step_warmup(rng, model, sampler, state; kwargs...)
         end
@@ -149,7 +152,8 @@ function mcmcsample(
         i = 1
         if keep_from_warmup > 0
             # Run callback.
-            callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
+            callback === nothing ||
+                callback(rng, model, sampler, sample, state, i; kwargs...)
 
             # Save the sample.
             samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
@@ -168,7 +172,8 @@ function mcmcsample(
                 sample, state = step_warmup(rng, model, sampler, state; kwargs...)
 
                 # Run callback.
-                callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
+                callback === nothing ||
+                    callback(rng, model, sampler, sample, state, i; kwargs...)
 
                 # Save the sample.
                 samples = save!!(samples, sample, i, model, sampler; kwargs...)
@@ -188,7 +193,8 @@ function mcmcsample(
             end
 
             # Run callback.
-            callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
+            callback === nothing ||
+                callback(rng, model, sampler, sample, state, i; kwargs...)
 
             # Save the sample.
             samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
@@ -287,7 +293,7 @@ function mcmcsample(
         sample, state = step(rng, model, sampler; kwargs...)
 
         # Warmup sampling.
-        for _ = 1:discard_from_warmup
+        for _ in 1:discard_from_warmup
             # Obtain the next sample and state.
             sample, state = step_warmup(rng, model, sampler, state; kwargs...)
         end
@@ -295,7 +301,8 @@ function mcmcsample(
         i = 1
         if keep_from_warmup > 0
             # Run callback.
-            callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
+            callback === nothing ||
+                callback(rng, model, sampler, sample, state, i; kwargs...)
 
             # Save the sample.
             samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
@@ -308,7 +315,8 @@ function mcmcsample(
                 sample, state = step_warmup(rng, model, sampler, state; kwargs...)
 
                 # Run callback.
-                callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
+                callback === nothing ||
+                    callback(rng, model, sampler, sample, state, i; kwargs...)
 
                 # Save the sample.
                 samples = save!!(samples, sample, i, model, sampler; kwargs...)
@@ -322,7 +330,8 @@ function mcmcsample(
             end
 
             # Run callback.
-            callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
+            callback === nothing ||
+                callback(rng, model, sampler, sample, state, i; kwargs...)
 
             # Save the sample.
             samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
