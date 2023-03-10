@@ -157,7 +157,7 @@ function mcmcsample(
             next_update = itotal + threshold
         end
 
-        # Warmup sampling.
+        # Discard initial samples.
         for j in 1:discard_initial
             # Update the progress bar.
             if progress && (itotal += 1) >= next_update
