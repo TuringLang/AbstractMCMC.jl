@@ -150,8 +150,21 @@ function mcmcsample(
             step(rng, model, sampler; kwargs...)
         end
 
+        # Update the progress bar.
+        itotal = 1
+        if progress && itotal >= next_update
+            ProgressLogging.@logprogress itotal / Ntotal
+            next_update = itotal + threshold
+        end
+
         # Warmup sampling.
         for j in 1:discard_initial
+            # Update the progress bar.
+            if progress && (itotal += 1) >= next_update
+                ProgressLogging.@logprogress itotal / Ntotal
+                next_update = itotal + threshold
+            end
+
             # Obtain the next sample and state.
             sample, state = if j ≤ num_warmup
                 step_warmup(rng, model, sampler, state; kwargs...)
@@ -173,12 +186,6 @@ function mcmcsample(
         # Step through remainder of warmup iterations and save.
         i += 1
         for _ in 1:keep_from_warmup
-            # Update the progress bar.
-            if progress && i >= next_update
-                ProgressLogging.@logprogress i / Ntotal
-                next_update = i + threshold
-            end
-
             # Obtain the next sample and state.
             sample, state = step_warmup(rng, model, sampler, state; kwargs...)
 
@@ -189,13 +196,12 @@ function mcmcsample(
             # Save the sample.
             samples = save!!(samples, sample, i, model, sampler; kwargs...)
             i += 1
-        end
 
-        # Update the progress bar.
-        itotal = i
-        if progress && itotal >= next_update
-            ProgressLogging.@logprogress itotal / Ntotal
-            next_update = itotal + threshold
+            # Update progress bar.
+            if progress && (itotal += 1) >= next_update
+                ProgressLogging.@logprogress itotal / Ntotal
+                next_update = itotal + threshold
+            end
         end
 
         # Step through the sampler.
