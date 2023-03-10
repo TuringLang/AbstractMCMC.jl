@@ -141,7 +141,11 @@ function mcmcsample(
         end
 
         # Obtain the initial sample and state.
-        sample, state = step(rng, model, sampler; kwargs...)
+        sample, state = if num_warmup > 0
+            step_warmup(rng, model, sampler; kwargs...)
+        else
+            step(rng, model, sampler; kwargs...)
+        end
 
         # Warmup sampling.
         for _ in 1:discard_from_warmup
@@ -290,7 +294,11 @@ function mcmcsample(
 
     @ifwithprogresslogger progress name = progressname begin
         # Obtain the initial sample and state.
-        sample, state = step(rng, model, sampler; kwargs...)
+        sample, state = if num_warmup > 0
+            step_warmup(rng, model, sampler; kwargs...)
+        else
+            step(rng, model, sampler; kwargs...)
+        end
 
         # Warmup sampling.
         for _ in 1:discard_from_warmup

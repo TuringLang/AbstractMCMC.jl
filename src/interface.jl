@@ -68,9 +68,8 @@ standard iteration.
 
 By default, this simply calls [`step`](@ref.)
 """
-function step_warmup(rng, model, sampler, state; kwargs...)
-    return step(rng, model, sampler, state; kwargs...)
-end
+step_warmup(rng, model, sampler; kwargs...) = step(rng, model, sampler; kwargs...)
+step_warmup(rng, model, sampler, state; kwargs...) = step(rng, model, sampler, state; kwargs...)
 
 """
     samples(sample, model, sampler[, N; kwargs...])
