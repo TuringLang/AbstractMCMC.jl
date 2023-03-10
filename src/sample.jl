@@ -122,7 +122,9 @@ function mcmcsample(
     num_warmup >= 0 ||
         throw(ArgumentError("number of warm-up samples must be non-negative"))
     Ntotal = thinning * (N - 1) + discard_initial + 1
-    Ntotal >= num_warmup || throw(ArgumentError("number of warm-up samples exceeds the total number of samples"))
+    Ntotal >= num_warmup || throw(
+        ArgumentError("number of warm-up samples exceeds the total number of samples")
+    )
 
     # Determine how many samples to drop from `num_warmup` and the
     # main sampling process before we start saving samples.
