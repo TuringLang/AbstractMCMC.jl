@@ -117,8 +117,10 @@ function mcmcsample(
 )
     # Check the number of requested samples.
     N > 0 || error("the number of samples must be ≥ 1")
-    discard_initial >= 0 || throw(ArgumentError("number of discarded samples must be non-negative"))
-    num_warmup >= 0 || throw(ArgumentError("number of warm-up samples must be non-negative"))
+    discard_initial >= 0 ||
+        throw(ArgumentError("number of discarded samples must be non-negative"))
+    num_warmup >= 0 ||
+        throw(ArgumentError("number of warm-up samples must be non-negative"))
     Ntotal = thinning * (N - 1) + discard_initial + 1
     Ntotal >= num_warmup || throw(ArgumentError("number of warm-up samples exceeds the total number of samples"))
 
