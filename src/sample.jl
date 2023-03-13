@@ -185,31 +185,17 @@ function mcmcsample(
 
         # Step through remainder of warmup iterations and save.
         i += 1
-        for _ in 1:keep_from_warmup
-            # Obtain the next sample and state.
-            sample, state = step_warmup(rng, model, sampler, state; kwargs...)
-
-            # Run callback.
-            callback === nothing ||
-                callback(rng, model, sampler, sample, state, i; kwargs...)
-
-            # Save the sample.
-            samples = save!!(samples, sample, i, model, sampler; kwargs...)
-            i += 1
-
-            # Update progress bar.
-            if progress && (itotal += 1) >= next_update
-                ProgressLogging.@logprogress itotal / Ntotal
-                next_update = itotal + threshold
-            end
-        end
 
         # Step through the sampler.
         while i ≤ N
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
-                sample, state = step(rng, model, sampler, state; kwargs...)
+                sample, state = if i ≤ keep_from_warmup
+                    step_warmup(rng, model, sampler, state; kwargs...)
+                else
+                    step(rng, model, sampler, state; kwargs...)
+                end
 
                 # Update progress bar.
                 if progress && (itotal += 1) >= next_update
@@ -219,7 +205,12 @@ function mcmcsample(
             end
 
             # Obtain the next sample and state.
-            sample, state = step(rng, model, sampler, state; kwargs...)
+            sample, state = if i ≤ keep_from_warmup
+                step_warmup(rng, model, sampler, state; kwargs...)
+            else
+                step(rng, model, sampler, state; kwargs...)
+            end
+
 
             # Run callback.
             callback === nothing ||
@@ -308,30 +299,23 @@ function mcmcsample(
         samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
         samples = save!!(samples, sample, i, model, sampler; kwargs...)
 
-        # Step through remainder of warmup iterations and save.
-        i += 1
-        for _ in 1:keep_from_warmup
-            # Obtain the next sample and state.
-            sample, state = step_warmup(rng, model, sampler, state; kwargs...)
-
-            # Run callback.
-            callback === nothing ||
-                callback(rng, model, sampler, sample, state, i; kwargs...)
-
-            # Save the sample.
-            samples = save!!(samples, sample, i, model, sampler; kwargs...)
-            i += 1
-        end
-
         while !isdone(rng, model, sampler, samples, state, i; progress=progress, kwargs...)
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
-                sample, state = step(rng, model, sampler, state; kwargs...)
+                sample, state = if i ≤ keep_from_warmup
+                    step_warmup(rng, model, sampler, state; kwargs...)
+                else
+                    step(rng, model, sampler, state; kwargs...)
+                end
             end
 
             # Obtain the next sample and state.
-            sample, state = step(rng, model, sampler, state; kwargs...)
+            sample, state = if i ≤ keep_from_warmup
+                step_warmup(rng, model, sampler, state; kwargs...)
+            else
+                step(rng, model, sampler, state; kwargs...)
+            end
 
             # Run callback.
             callback === nothing ||
