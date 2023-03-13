@@ -414,7 +414,7 @@ function mcmcsample(
     progress=PROGRESS[],
     progressname="Sampling ($(Distributed.nworkers()) processes)",
     init_params=nothing,
-    initial_state=nothing,  # TODO: Add support for this here.
+    initial_state=nothing,
     kwargs...,
 )
     # Check if actually multiple processes are used.
@@ -432,6 +432,10 @@ function mcmcsample(
 
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
+
+    # Create initial parameters.
+    _init_params = init_params === nothing ? fill(nothing, nchains) : init_params
+    _initial_state = initial_state === nothing ? fill(nothing, nchains) : initial_state
 
     # Set up worker pool.
     pool = Distributed.CachingPool(Distributed.workers())
@@ -465,7 +469,7 @@ function mcmcsample(
 
             Distributed.@async begin
                 try
-                    function sample_chain(seed, init_params=nothing)
+                    function sample_chain(seed, init_params, initial_state)
                         # Seed a new random number generator with the pre-made seed.
                         Random.seed!(rng, seed)
 
@@ -477,6 +481,7 @@ function mcmcsample(
                             N;
                             progress=false,
                             init_params=init_params,
+                            initial_state=initial_state,
                             kwargs...,
                         )
 
@@ -486,11 +491,7 @@ function mcmcsample(
                         # Return the new chain.
                         return chain
                     end
-                    chains = if init_params === nothing
-                        Distributed.pmap(sample_chain, pool, seeds)
-                    else
-                        Distributed.pmap(sample_chain, pool, seeds, init_params)
-                    end
+                    chains = Distributed.pmap(sample_chain, pool, seeds, _init_params, _initial_state)
                 finally
                     # Stop updating the progress bar.
                     progress && put!(channel, false)
