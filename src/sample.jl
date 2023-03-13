@@ -491,7 +491,9 @@ function mcmcsample(
                         # Return the new chain.
                         return chain
                     end
-                    chains = Distributed.pmap(sample_chain, pool, seeds, _init_params, _initial_state)
+                    chains = Distributed.pmap(
+                        sample_chain, pool, seeds, _init_params, _initial_state
+                    )
                 finally
                     # Stop updating the progress bar.
                     progress && put!(channel, false)
