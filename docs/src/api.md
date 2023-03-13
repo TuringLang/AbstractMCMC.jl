@@ -75,6 +75,8 @@ Common keyword arguments for regular and parallel sampling are:
   where `sample` is the most recent sample of the Markov chain and `state` and `iteration` are the current state and iteration of the sampler
 - `discard_initial` (default: `0`): number of initial samples that are discarded
 - `thinning` (default: `1`): factor by which to thin samples.
+- `initial_state` (default: `nothing`): if `initial_state !== nothing`, the first call to [`AbstractMCMC.step`](@ref)
+  is passed `initial_state` as the `state` argument.
 
 !!! info
     The common keyword arguments `progress`, `chain_type`, and `callback` are not supported by the iterator [`AbstractMCMC.steps`](@ref) and the transducer [`AbstractMCMC.Sample`](@ref).

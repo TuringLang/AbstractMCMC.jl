@@ -103,6 +103,7 @@ function mcmcsample(
     discard_initial=0,
     thinning=1,
     chain_type::Type=Any,
+    initial_state=nothing,
     kwargs...,
 )
     # Check the number of requested samples.
@@ -122,7 +123,11 @@ function mcmcsample(
         end
 
         # Obtain the initial sample and state.
-        sample, state = step(rng, model, sampler; kwargs...)
+        sample, state = if initial_state === nothing
+            step(rng, model, sampler; kwargs...)
+        else
+            step(rng, model, sampler, state; kwargs...)
+        end
 
         # Discard initial samples.
         for i in 1:discard_initial
@@ -211,6 +216,7 @@ function mcmcsample(
     callback=nothing,
     discard_initial=0,
     thinning=1,
+    initial_state=nothing,
     kwargs...,
 )
 
@@ -220,7 +226,11 @@ function mcmcsample(
 
     @ifwithprogresslogger progress name = progressname begin
         # Obtain the initial sample and state.
-        sample, state = step(rng, model, sampler; kwargs...)
+        sample, state = if initial_state === nothing
+            step(rng, model, sampler; kwargs...)
+        else
+            step(rng, model, sampler, state; kwargs...)
+        end
 
         # Discard initial samples.
         for _ in 1:discard_initial
