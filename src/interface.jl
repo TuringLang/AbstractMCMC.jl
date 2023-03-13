@@ -35,14 +35,6 @@ function bundle_samples(
     return samples
 end
 
-function bundle_samples(
-    samples::Vector, ::AbstractModel, ::AbstractSampler, ::Any, ::Type{Vector{T}}; kwargs...
-) where {T}
-    return map(samples) do sample
-        convert(T, sample)
-    end
-end
-
 """
     step(rng, model, sampler[, state; kwargs...])
 
