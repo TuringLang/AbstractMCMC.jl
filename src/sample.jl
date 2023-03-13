@@ -211,7 +211,6 @@ function mcmcsample(
                 step(rng, model, sampler, state; kwargs...)
             end
 
-
             # Run callback.
             callback === nothing ||
                 callback(rng, model, sampler, sample, state, i; kwargs...)
