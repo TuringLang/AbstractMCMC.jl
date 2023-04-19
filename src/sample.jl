@@ -181,7 +181,7 @@ function mcmcsample(
         samples = save!!(samples, sample, 1, model, sampler, N; kwargs...)
 
         # Step through the sampler.
-        for i = 2:N
+        for i in 2:N
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
