@@ -288,6 +288,8 @@ function mcmcsample(
         # Save the sample.
         samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
         samples = save!!(samples, sample, 1, model, sampler; kwargs...)
+
+        # Step through the sampler until stopping.
         i = 2
         while !isdone(rng, model, sampler, samples, state, i; progress=progress, kwargs...)
             # Discard thinned samples.
