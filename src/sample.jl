@@ -180,8 +180,8 @@ function mcmcsample(
         callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
 
         # Save the sample.
-        samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
-        samples = save!!(samples, sample, i, model, sampler; kwargs...)
+        samples = AbstractMCMC.samples(sample, model, sampler, N; kwargs...)
+        samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
 
         # Step through remainder of warmup iterations and save.
         i += 1
@@ -278,10 +278,10 @@ function mcmcsample(
             step(rng, model, sampler; kwargs...)
         end
 
-        # Warmup sampling.
+        # Discard initial samples.
         for j in 1:discard_initial
             # Obtain the next sample and state.
-            sample, state = if j ≤ num_warmup
+            sample, state = if j ≤ discard_num_warmup
                 step_warmup(rng, model, sampler, state; kwargs...)
             else
                 step(rng, model, sampler, state; kwargs...)
@@ -297,6 +297,8 @@ function mcmcsample(
         # Save the sample.
         samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
         samples = save!!(samples, sample, i, model, sampler; kwargs...)
+        
+        i += 1
 
         while !isdone(rng, model, sampler, samples, state, i; progress=progress, kwargs...)
             # Discard thinned samples.
