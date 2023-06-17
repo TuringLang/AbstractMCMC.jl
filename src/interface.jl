@@ -38,19 +38,27 @@ function bundle_samples(
 end
 
 function _bundle_samples(
-    samples, @nospecialize(::AbstractModel), @nospecialize(::AbstractSampler), @nospecialize(::Any), ::Type; kwargs...
+    samples,
+    @nospecialize(::AbstractModel),
+    @nospecialize(::AbstractSampler),
+    @nospecialize(::Any),
+    ::Type;
+    kwargs...,
 )
     return samples
 end
-    
 function _bundle_samples(
-    samples::Vector, @nospecialize(::AbstractModel), @nospecialize(::AbstractSampler), @nospecialize(::Any), ::Type{Vector{T}}; kwargs...
+    samples::Vector,
+    @nospecialize(::AbstractModel),
+    @nospecialize(::AbstractSampler),
+    @nospecialize(::Any),
+    ::Type{Vector{T}};
+    kwargs...,
 ) where {T}
     return map(samples) do sample
         convert(T, sample)
     end
 end
-
 
 """
     step(rng, model, sampler[, state; kwargs...])
