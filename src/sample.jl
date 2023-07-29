@@ -100,6 +100,7 @@ function mcmcsample(
     progress=PROGRESS[],
     progressname="Sampling",
     callback=nothing,
+    n_adapts=0,
     discard_initial=0,
     thinning=1,
     chain_type::Type=Any,
@@ -209,6 +210,7 @@ function mcmcsample(
     progress=PROGRESS[],
     progressname="Convergence sampling",
     callback=nothing,
+    n_adapts=0,
     discard_initial=0,
     thinning=1,
     kwargs...,
@@ -287,6 +289,8 @@ function mcmcsample(
     N::Integer,
     nchains::Integer;
     progress=PROGRESS[],
+    n_adapts=0,
+    discard_initial=0,
     progressname="Sampling ($(min(nchains, Threads.nthreads())) threads)",
     init_params=nothing,
     kwargs...,
@@ -395,6 +399,8 @@ function mcmcsample(
     ::MCMCDistributed,
     N::Integer,
     nchains::Integer;
+    n_adapts=0,
+    discard_initial=0,
     progress=PROGRESS[],
     progressname="Sampling ($(Distributed.nworkers()) processes)",
     init_params=nothing,
@@ -490,6 +496,8 @@ function mcmcsample(
     ::MCMCSerial,
     N::Integer,
     nchains::Integer;
+    n_adapts=0,
+    discard_initial=0,
     progressname="Sampling",
     init_params=nothing,
     kwargs...,
