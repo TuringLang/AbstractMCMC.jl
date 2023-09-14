@@ -314,6 +314,8 @@ function mcmcsample(
 
     # Ensure that initial parameters are `nothing` or of the correct length
     check_initial_params(init_params, nchains)
+    # We will use `getindex` later so we need to `collect`.
+    _init_params = collect(init_params)
 
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
@@ -364,10 +366,10 @@ function mcmcsample(
                                 _sampler,
                                 N;
                                 progress=false,
-                                init_params=if init_params === nothing
+                                init_params=if _init_params === nothing
                                     nothing
                                 else
-                                    init_params[chainidx]
+                                    _init_params[chainidx]
                                 end,
                                 kwargs...,
                             )
