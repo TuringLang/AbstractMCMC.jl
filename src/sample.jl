@@ -540,7 +540,9 @@ tighten_eltype(x::Vector{Any}) = map(identity, x)
 
 check_initial_params(x::Nothing, n::Int) = nothing
 function check_initial_params(x, n::Int)
-    length(x) == n || throw(
-        ArgumentError("not enough initial parameters (expected $n, received $(length(y))"),
-    )
+    if length(x) != n
+        throw(
+            ArgumentError("not enough initial parameters (expected $n, received $(length(x))"),
+        )
+    end
 end
