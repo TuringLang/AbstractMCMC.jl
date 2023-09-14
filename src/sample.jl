@@ -544,7 +544,7 @@ check_initial_params(x::Nothing, n::Int) = nothing
 function check_initial_params(x, n::Int)
     if length(x) != n
         throw(
-            ArgumentError("not enough initial parameters (expected $n, received $(length(x))"),
+            ArgumentError("incorrect number of initial parameters (expected $n, received $(length(x))"),
         )
     end
 end
