@@ -333,7 +333,7 @@
         @test_throws ArgumentError sample(
             MyModel(),
             MySampler(),
-            MCMCThrMCMCDistributedeads(),
+            MCMCDistributed(),
             3,
             nchains;
             progress=false,
