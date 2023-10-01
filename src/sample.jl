@@ -298,7 +298,7 @@ function mcmcsample(
     nchains::Integer;
     progress=PROGRESS[],
     progressname="Sampling ($(min(nchains, Threads.nthreads())) threads)",
-    init_params=nothing,
+    initial_params=nothing,
     initial_state=nothing,
     kwargs...,
 )
@@ -324,7 +324,7 @@ function mcmcsample(
     seeds = rand(rng, UInt, nchains)
 
     # Ensure that initial parameters and states are `nothing` or of the correct length
-    check_initial_params(init_params, nchains)
+    check_initial_params(initial_params, nchains)
     check_initial_state(initial_state, nchains)
 
     # Set up a chains vector.
@@ -376,10 +376,10 @@ function mcmcsample(
                                 _sampler,
                                 N;
                                 progress=false,
-                                init_params=if init_params === nothing
+                                initial_params=if initial_params === nothing
                                     nothing
                                 else
-                                    init_params[chainidx]
+                                    initial_params[chainidx]
                                 end,
                                 initial_state=if initial_state === nothing
                                     nothing
@@ -414,7 +414,7 @@ function mcmcsample(
     nchains::Integer;
     progress=PROGRESS[],
     progressname="Sampling ($(Distributed.nworkers()) processes)",
-    init_params=nothing,
+    initial_params=nothing,
     initial_state=nothing,
     kwargs...,
 )
@@ -429,7 +429,7 @@ function mcmcsample(
     end
 
     # Ensure that initial parameters and states are `nothing` or of the correct length
-    check_initial_params(init_params, nchains)
+    check_initial_params(initial_params, nchains)
     check_initial_state(initial_state, nchains)
 
     # Create a seed for each chain using the provided random number generator.
@@ -467,7 +467,7 @@ function mcmcsample(
 
             Distributed.@async begin
                 try
-                    function sample_chain(seed, init_params, initial_state)
+                    function sample_chain(seed, initial_params, initial_state)
                         # Seed a new random number generator with the pre-made seed.
                         Random.seed!(rng, seed)
 
@@ -478,7 +478,7 @@ function mcmcsample(
                             sampler,
                             N;
                             progress=false,
-                            init_params=init_params,
+                            initial_params=initial_params,
                             initial_state=initial_state,
                             kwargs...,
                         )
@@ -490,7 +490,7 @@ function mcmcsample(
                         return chain
                     end
                     chains = Distributed.pmap(
-                        sample_chain, pool, seeds, init_params, initial_state
+                        sample_chain, pool, seeds, initial_params, initial_state
                     )
                 finally
                     # Stop updating the progress bar.
@@ -512,7 +512,7 @@ function mcmcsample(
     N::Integer,
     nchains::Integer;
     progressname="Sampling",
-    init_params=nothing,
+    initial_params=nothing,
     kwargs...,
 )
     # Check if the number of chains is larger than the number of samples
@@ -521,14 +521,14 @@ function mcmcsample(
     end
 
     # Ensure that initial parameters and states are `nothing` or of the correct length
-    check_initial_params(init_params, nchains)
+    check_initial_params(initial_params, nchains)
     check_initial_state(initial_state, nchains)
 
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
 
     # Sample the chains.
-    function sample_chain(i, seed, init_params=nothing)
+    function sample_chain(i, seed, initial_params=nothing)
         # Seed a new random number generator with the pre-made seed.
         Random.seed!(rng, seed)
 
@@ -539,15 +539,15 @@ function mcmcsample(
             sampler,
             N;
             progressname=string(progressname, " (Chain ", i, " of ", nchains, ")"),
-            init_params=init_params,
+            initial_params=initial_params,
             kwargs...,
         )
     end
 
-    chains = if init_params === nothing
+    chains = if initial_params === nothing
         map(sample_chain, 1:nchains, seeds)
     else
-        map(sample_chain, 1:nchains, seeds, init_params)
+        map(sample_chain, 1:nchains, seeds, initial_params)
     end
 
     # Concatenate the chains together.
