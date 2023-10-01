@@ -323,8 +323,9 @@ function mcmcsample(
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
 
-    # Ensure that initial parameters are `nothing` or of the correct length
+    # Ensure that initial parameters and states are `nothing` or of the correct length
     check_initial_params(init_params, nchains)
+    check_initial_state(initial_state, nchains)
 
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
@@ -427,8 +428,9 @@ function mcmcsample(
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
     end
 
-    # Ensure that initial parameters are `nothing` or of the correct length
+    # Ensure that initial parameters and states are `nothing` or of the correct length
     check_initial_params(init_params, nchains)
+    check_initial_state(initial_state, nchains)
 
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
@@ -518,8 +520,9 @@ function mcmcsample(
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
     end
 
-    # Ensure that initial parameters are `nothing` or of the correct length
+    # Ensure that initial parameters and states are `nothing` or of the correct length
     check_initial_params(init_params, nchains)
+    check_initial_state(initial_state, nchains)
 
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
@@ -559,13 +562,30 @@ tighten_eltype(x::Vector{Any}) = map(identity, x)
         "initial parameters must be specified as a vector of length equal to the number of chains or `nothing`",
     ),
 )
-
 check_initial_params(::Nothing, n) = nothing
 function check_initial_params(x::AbstractArray, n)
     if length(x) != n
         throw(
             ArgumentError(
                 "incorrect number of initial parameters (expected $n, received $(length(x))"
+            ),
+        )
+    end
+
+    return nothing
+end
+
+@nospecialize check_initial_state(x, n) = throw(
+    ArgumentError(
+        "initial states must be specified as a vector of length equal to the number of chains or `nothing`",
+    ),
+)
+check_initial_state(::Nothing, n) = nothing
+function check_initial_state(x::AbstractArray, n)
+    if length(x) != n
+        throw(
+            ArgumentError(
+                "incorrect number of initial states (expected $n, received $(length(x))"
             ),
         )
     end
