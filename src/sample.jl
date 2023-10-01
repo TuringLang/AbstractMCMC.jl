@@ -513,6 +513,7 @@ function mcmcsample(
     nchains::Integer;
     progressname="Sampling",
     initial_params=nothing,
+    initial_state=nothing,
     kwargs...,
 )
     # Check if the number of chains is larger than the number of samples
