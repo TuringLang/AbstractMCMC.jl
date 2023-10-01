@@ -28,7 +28,7 @@
 
             # initial parameters
             chain = sample(
-                MyModel(), MySampler(), 3; progress=false, init_params=(b=3.2, a=-1.8)
+                MyModel(), MySampler(), 3; progress=false, initial_params=(b=3.2, a=-1.8)
             )
             @test chain[1].a == -1.8
             @test chain[1].b == 3.2
@@ -163,7 +163,7 @@
 
         # initial parameters
         nchains = 100
-        init_params = [(b=randn(), a=rand()) for _ in 1:nchains]
+        initial_params = [(b=randn(), a=rand()) for _ in 1:nchains]
         chains = sample(
             MyModel(),
             MySampler(),
@@ -171,15 +171,15 @@
             3,
             nchains;
             progress=false,
-            init_params=init_params,
+            initial_params=initial_params,
         )
         @test length(chains) == nchains
         @test all(
             chain[1].a == params.a && chain[1].b == params.b for
-            (chain, params) in zip(chains, init_params)
+            (chain, params) in zip(chains, initial_params)
         )
 
-        init_params = (a=randn(), b=rand())
+        initial_params = (a=randn(), b=rand())
         chains = sample(
             MyModel(),
             MySampler(),
@@ -187,14 +187,14 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains),
+            initial_params=Iterators.repeated(initial_params, nchains),
         )
         @test length(chains) == nchains
         @test all(
-            chain[1].a == init_params.a && chain[1].b == init_params.b for chain in chains
+            chain[1].a == initial_params.a && chain[1].b == initial_params.b for chain in chains
         )
 
-        # Too many `init_params`
+        # Too many `initial_params`
         @test_throws ArgumentError sample(
             MyModel(),
             MySampler(),
@@ -205,7 +205,7 @@
             init_params=FillArrays.Fill(init_params, nchains + 1),
         )
 
-        # Too few `init_params`
+        # Too few `initial_params`
         @test_throws ArgumentError sample(
             MyModel(),
             MySampler(),
@@ -298,7 +298,7 @@
 
         # initial parameters
         nchains = 100
-        init_params = [(a=randn(), b=rand()) for _ in 1:nchains]
+        initial_params = [(a=randn(), b=rand()) for _ in 1:nchains]
         chains = sample(
             MyModel(),
             MySampler(),
@@ -306,15 +306,15 @@
             3,
             nchains;
             progress=false,
-            init_params=init_params,
+            initial_params=initial_params,
         )
         @test length(chains) == nchains
         @test all(
             chain[1].a == params.a && chain[1].b == params.b for
-            (chain, params) in zip(chains, init_params)
+            (chain, params) in zip(chains, initial_params)
         )
 
-        init_params = (b=randn(), a=rand())
+        initial_params = (b=randn(), a=rand())
         chains = sample(
             MyModel(),
             MySampler(),
@@ -326,10 +326,10 @@
         )
         @test length(chains) == nchains
         @test all(
-            chain[1].a == init_params.a && chain[1].b == init_params.b for chain in chains
+            chain[1].a == initial_params.a && chain[1].b == initial_params.b for chain in chains
         )
 
-        # Too many `init_params`
+        # Too many `initial_params`
         @test_throws ArgumentError sample(
             MyModel(),
             MySampler(),
@@ -340,7 +340,7 @@
             init_params=FillArrays.Fill(init_params, nchains + 1),
         )
 
-        # Too few `init_params`
+        # Too few `initial_params`
         @test_throws ArgumentError sample(
             MyModel(),
             MySampler(),
@@ -407,7 +407,7 @@
 
         # initial parameters
         nchains = 100
-        init_params = [(a=rand(), b=randn()) for _ in 1:nchains]
+        initial_params = [(a=rand(), b=randn()) for _ in 1:nchains]
         chains = sample(
             MyModel(),
             MySampler(),
@@ -415,15 +415,15 @@
             3,
             nchains;
             progress=false,
-            init_params=init_params,
+            initial_params=initial_params,
         )
         @test length(chains) == nchains
         @test all(
             chain[1].a == params.a && chain[1].b == params.b for
-            (chain, params) in zip(chains, init_params)
+            (chain, params) in zip(chains, initial_params)
         )
 
-        init_params = (b=rand(), a=randn())
+        initial_params = (b=rand(), a=randn())
         chains = sample(
             MyModel(),
             MySampler(),
@@ -435,10 +435,10 @@
         )
         @test length(chains) == nchains
         @test all(
-            chain[1].a == init_params.a && chain[1].b == init_params.b for chain in chains
+            chain[1].a == initial_params.a && chain[1].b == initial_params.b for chain in chains
         )
 
-        # Too many `init_params`
+        # Too many `initial_params`
         @test_throws ArgumentError sample(
             MyModel(),
             MySampler(),
@@ -449,7 +449,7 @@
             init_params=FillArrays.Fill(init_params, nchains + 1),
         )
 
-        # Too few `init_params`
+        # Too few `initial_params`
         @test_throws ArgumentError sample(
             MyModel(),
             MySampler(),
