@@ -314,8 +314,6 @@ function mcmcsample(
 
     # Ensure that initial parameters are `nothing` or of the correct length
     check_initial_params(init_params, nchains)
-    # We will use `getindex` later so we need to `collect`.
-    _init_params = init_params !== nothing ? collect(init_params) : nothing
 
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
@@ -366,10 +364,10 @@ function mcmcsample(
                                 _sampler,
                                 N;
                                 progress=false,
-                                init_params=if _init_params === nothing
+                                init_params=if init_params === nothing
                                     nothing
                                 else
-                                    _init_params[chainidx]
+                                    init_params[chainidx]
                                 end,
                                 kwargs...,
                             )
@@ -540,8 +538,14 @@ end
 tighten_eltype(x) = x
 tighten_eltype(x::Vector{Any}) = map(identity, x)
 
-check_initial_params(x::Nothing, n::Int) = nothing
-function check_initial_params(x, n::Int)
+@nospecialize check_initial_params(x, n) = throw(
+    ArgumentError(
+        "initial parameters must be specified as a vector of length equal to the number of chains or `nothing`",
+    ),
+)
+
+check_initial_params(::Nothing, n) = nothing
+function check_initial_params(x::AbstractArray, n)
     if length(x) != n
         throw(
             ArgumentError(
@@ -549,4 +553,6 @@ function check_initial_params(x, n::Int)
             ),
         )
     end
+
+    return nothing
 end
