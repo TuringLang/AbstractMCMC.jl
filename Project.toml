@@ -30,9 +30,10 @@ Transducers = "0.4.30"
 julia = "1.6"
 
 [extras]
+FillArrays = "1a297f60-69ca-5386-bcde-b61e274b549b"
 IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["IJulia", "Statistics", "Test"]
+test = ["FillArrays", "IJulia", "Statistics", "Test"]
