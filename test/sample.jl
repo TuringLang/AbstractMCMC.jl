@@ -191,7 +191,8 @@
         )
         @test length(chains) == nchains
         @test all(
-            chain[1].a == initial_params.a && chain[1].b == initial_params.b for chain in chains
+            chain[1].a == initial_params.a && chain[1].b == initial_params.b for
+            chain in chains
         )
 
         # Too many `initial_params`
@@ -326,7 +327,8 @@
         )
         @test length(chains) == nchains
         @test all(
-            chain[1].a == initial_params.a && chain[1].b == initial_params.b for chain in chains
+            chain[1].a == initial_params.a && chain[1].b == initial_params.b for
+            chain in chains
         )
 
         # Too many `initial_params`
@@ -435,7 +437,8 @@
         )
         @test length(chains) == nchains
         @test all(
-            chain[1].a == initial_params.a && chain[1].b == initial_params.b for chain in chains
+            chain[1].a == initial_params.a && chain[1].b == initial_params.b for
+            chain in chains
         )
 
         # Too many `initial_params`
