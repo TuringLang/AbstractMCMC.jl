@@ -384,7 +384,7 @@ function mcmcsample(
                                     nothing
                                 else
                                     initial_state[chainidx]
-                                end
+                                end,
                                 kwargs...,
                             )
 
@@ -432,10 +432,6 @@ function mcmcsample(
 
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
-
-    # Create initial parameters.
-    _init_params = init_params === nothing ? fill(nothing, nchains) : init_params
-    _initial_state = initial_state === nothing ? fill(nothing, nchains) : initial_state
 
     # Set up worker pool.
     pool = Distributed.CachingPool(Distributed.workers())
@@ -492,7 +488,7 @@ function mcmcsample(
                         return chain
                     end
                     chains = Distributed.pmap(
-                        sample_chain, pool, seeds, _init_params, _initial_state
+                        sample_chain, pool, seeds, init_params, initial_state
                     )
                 finally
                     # Stop updating the progress bar.
