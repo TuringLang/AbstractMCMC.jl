@@ -299,6 +299,7 @@ function mcmcsample(
     progress=PROGRESS[],
     progressname="Sampling ($(min(nchains, Threads.nthreads())) threads)",
     init_params=nothing,
+    initial_state=nothing,
     kwargs...,
 )
     # Check if actually multiple threads are used.
@@ -379,6 +380,11 @@ function mcmcsample(
                                 else
                                     init_params[chainidx]
                                 end,
+                                initial_state=if initial_state === nothing
+                                    nothing
+                                else
+                                    initial_state[chainidx]
+                                end
                                 kwargs...,
                             )
 
@@ -408,6 +414,7 @@ function mcmcsample(
     progress=PROGRESS[],
     progressname="Sampling ($(Distributed.nworkers()) processes)",
     init_params=nothing,
+    initial_state=nothing,  # TODO: Add support for this here.
     kwargs...,
 )
     # Check if actually multiple processes are used.
