@@ -432,8 +432,10 @@ function mcmcsample(
     check_initial_params(initial_params, nchains)
     check_initial_state(initial_state, nchains)
 
-    _initial_params = initial_params === nothing ? FillArrays.Fill(nothing, nchains) : initial_params
-    _initial_state = initial_state === nothing ? FillArrays.Fill(nothing, nchains) : initial_state
+    _initial_params =
+        initial_params === nothing ? FillArrays.Fill(nothing, nchains) : initial_params
+    _initial_state =
+        initial_state === nothing ? FillArrays.Fill(nothing, nchains) : initial_state
 
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
@@ -528,8 +530,10 @@ function mcmcsample(
     check_initial_params(initial_params, nchains)
     check_initial_state(initial_state, nchains)
 
-    _initial_params = initial_params === nothing ? FillArrays.Fill(nothing, nchains) : initial_params
-    _initial_state = initial_state === nothing ? FillArrays.Fill(nothing, nchains) : initial_state
+    _initial_params =
+        initial_params === nothing ? FillArrays.Fill(nothing, nchains) : initial_params
+    _initial_state =
+        initial_state === nothing ? FillArrays.Fill(nothing, nchains) : initial_state
 
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
