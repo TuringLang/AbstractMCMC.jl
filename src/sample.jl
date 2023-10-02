@@ -528,11 +528,14 @@ function mcmcsample(
     check_initial_params(initial_params, nchains)
     check_initial_state(initial_state, nchains)
 
+    _initial_params = initial_params === nothing ? FillArrays.Fill(nothing, nchains) : initial_params
+    _initial_state = initial_state === nothing ? FillArrays.Fill(nothing, nchains) : initial_state
+
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
 
     # Sample the chains.
-    function sample_chain(i, seed, initial_params=nothing)
+    function sample_chain(i, seed, initial_params, initial_state)
         # Seed a new random number generator with the pre-made seed.
         Random.seed!(rng, seed)
 
@@ -544,15 +547,12 @@ function mcmcsample(
             N;
             progressname=string(progressname, " (Chain ", i, " of ", nchains, ")"),
             initial_params=initial_params,
+            initial_state=initial_state,
             kwargs...,
         )
     end
 
-    chains = if initial_params === nothing
-        map(sample_chain, 1:nchains, seeds)
-    else
-        map(sample_chain, 1:nchains, seeds, initial_params)
-    end
+    chains = map(sample_chain, 1:nchains, seeds, _initial_params, _initial_state)
 
     # Concatenate the chains together.
     return chainsstack(tighten_eltype(chains))
