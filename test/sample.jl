@@ -360,13 +360,13 @@
     @testset "Serial sampling" begin
         # No dedicated chains type
         N = 10_000
-        chains = sample(MyModel(), MySampler(), MCMCSerial(), N, 1000)
+        chains = sample(MyModel(), MySampler(), MCMCSerial(), N, 1000; progress=false)
         @test chains isa Vector{<:Vector{<:MySample}}
         @test length(chains) == 1000
         @test all(length(x) == N for x in chains)
 
         Random.seed!(1234)
-        chains = sample(MyModel(), MySampler(), MCMCSerial(), N, 1000; chain_type=MyChain)
+        chains = sample(MyModel(), MySampler(), MCMCSerial(), N, 1000; chain_type=MyChain, progress=false)
 
         # Test output type and size.
         @test chains isa Vector{<:MyChain}
@@ -382,7 +382,7 @@
 
         # Test reproducibility.
         Random.seed!(1234)
-        chains2 = sample(MyModel(), MySampler(), MCMCSerial(), N, 1000; chain_type=MyChain)
+        chains2 = sample(MyModel(), MySampler(), MCMCSerial(), N, 1000; chain_type=MyChain, progress=false)
         @test all(ismissing(c.as[1]) for c in chains2)
         @test all(c1.as[i] == c2.as[i] for (c1, c2) in zip(chains, chains2), i in 2:N)
         @test all(c1.bs[i] == c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
