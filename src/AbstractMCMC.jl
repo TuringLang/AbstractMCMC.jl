@@ -8,6 +8,7 @@ using ProgressLogging: ProgressLogging
 using StatsBase: StatsBase
 using TerminalLoggers: TerminalLoggers
 using Transducers: Transducers
+using FillArrays: FillArrays
 
 using Distributed: Distributed
 using Logging: Logging
