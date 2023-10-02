@@ -187,7 +187,7 @@
             3,
             nchains;
             progress=false,
-            initial_params=Iterators.repeated(initial_params, nchains),
+            initial_params=FillArrays.Fill(initial_params, nchains),
         )
         @test length(chains) == nchains
         @test all(
@@ -203,7 +203,7 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains + 1),
+            initial_params=FillArrays.Fill(initial_params, nchains + 1),
         )
 
         # Too few `initial_params`
@@ -214,7 +214,7 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains - 1),
+            initial_params=FillArrays.Fill(initial_params, nchains - 1),
         )
     end
 
@@ -323,7 +323,7 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains),
+            initial_params=FillArrays.Fill(initial_params, nchains),
         )
         @test length(chains) == nchains
         @test all(
@@ -339,7 +339,7 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains + 1),
+            initial_params=FillArrays.Fill(initial_params, nchains + 1),
         )
 
         # Too few `initial_params`
@@ -350,7 +350,7 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains - 1),
+            initial_params=FillArrays.Fill(initial_params, nchains - 1),
         )
 
         # Remove workers
@@ -433,7 +433,7 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains),
+            initial_params=FillArrays.Fill(initial_params, nchains),
         )
         @test length(chains) == nchains
         @test all(
@@ -449,7 +449,7 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains + 1),
+            initial_params=FillArrays.Fill(initial_params, nchains + 1),
         )
 
         # Too few `initial_params`
@@ -460,7 +460,7 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains - 1),
+            initial_params=FillArrays.Fill(initial_params, nchains - 1),
         )
     end
 
