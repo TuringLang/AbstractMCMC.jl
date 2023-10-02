@@ -126,7 +126,7 @@ function mcmcsample(
         sample, state = if initial_state === nothing
             step(rng, model, sampler; kwargs...)
         else
-            step(rng, model, sampler, state; kwargs...)
+            step(rng, model, sampler, initial_state; kwargs...)
         end
 
         # Discard initial samples.
