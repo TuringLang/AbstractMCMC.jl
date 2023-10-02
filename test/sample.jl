@@ -658,4 +658,58 @@
         )
         @test it_array == collect(1:size(chain, 1))
     end
+
+    @testset "Providing initial state" begin
+        function record_state(rng, model, sampler, sample, state, i; states_channel, kwargs...)
+            put!(states_channel, state)
+        end
+
+        initial_state = 10
+
+        @testset "sample" begin
+            n = 10
+            states_channel = Channel{Int}(n)
+            chain = sample(
+                MyModel(), MySampler(), n;
+                initial_state=initial_state,
+                callback=record_state,
+                states_channel=states_channel
+            )
+
+            # Extract the states.
+            states = [take!(states_channel) for _ in 1:n]
+            @test length(states) == n
+            for i in 1:n
+                @test states[i] == initial_state + i
+            end
+        end
+
+        @testset "sample with $mode" for mode in [
+            MCMCSerial(),
+            MCMCThreads(),
+            MCMCDistributed(),
+        ]
+            nchains = 4
+            initial_state = 10
+            states_channel = if mode === MCMCDistributed()
+                # Need to use `RemoteChannel` for this.
+                RemoteChannel(() -> Channel{Int}(nchains))
+            else
+                Channel{Int}(nchains)
+            end
+            chain = sample(
+                MyModel(), MySampler(), mode, 1, nchains;
+                initial_state=FillArrays.Fill(initial_state, nchains),
+                callback=record_state,
+                states_channel=states_channel
+            )
+
+            # Extract the states.
+            states = [take!(states_channel) for _ in 1:nchains]
+            @test length(states) == nchains
+            for i = 1:nchains
+                @test states[i] == initial_state + 1
+            end
+        end
+    end
 end
