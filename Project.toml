@@ -3,7 +3,7 @@ uuid = "80f14c24-f653-4e6a-9b94-39d6b0f70001"
 keywords = ["markov chain monte carlo", "probablistic programming"]
 license = "MIT"
 desc = "A lightweight interface for common MCMC methods."
-version = "4.4.1"
+version = "4.5.0"
 
 [deps]
 BangBang = "198e06fe-97b7-11e9-32a5-e1d131e6ad66"
@@ -24,15 +24,16 @@ ConsoleProgressMonitor = "0.1"
 LogDensityProblems = "2"
 LoggingExtras = "0.4, 0.5, 1"
 ProgressLogging = "0.1"
-StatsBase = "0.32, 0.33"
+StatsBase = "0.32, 0.33, 0.34"
 TerminalLoggers = "0.1"
 Transducers = "0.4.30"
 julia = "1.6"
 
 [extras]
+FillArrays = "1a297f60-69ca-5386-bcde-b61e274b549b"
 IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["IJulia", "Statistics", "Test"]
+test = ["FillArrays", "IJulia", "Statistics", "Test"]

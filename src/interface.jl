@@ -30,13 +30,30 @@ be specified with the `chain_type` argument.
 By default, this method returns `samples`.
 """
 function bundle_samples(
-    samples, ::AbstractModel, ::AbstractSampler, ::Any, ::Type; kwargs...
+    samples, model::AbstractModel, sampler::AbstractSampler, state, ::Type{T}; kwargs...
+) where {T}
+    # dispatch to internal method for default implementations to fix
+    # method ambiguity issues (see #120)
+    return _bundle_samples(samples, model, sampler, state, T; kwargs...)
+end
+
+function _bundle_samples(
+    samples,
+    @nospecialize(::AbstractModel),
+    @nospecialize(::AbstractSampler),
+    @nospecialize(::Any),
+    ::Type;
+    kwargs...,
 )
     return samples
 end
-
-function bundle_samples(
-    samples::Vector, ::AbstractModel, ::AbstractSampler, ::Any, ::Type{Vector{T}}; kwargs...
+function _bundle_samples(
+    samples::Vector,
+    @nospecialize(::AbstractModel),
+    @nospecialize(::AbstractSampler),
+    @nospecialize(::Any),
+    ::Type{Vector{T}};
+    kwargs...,
 ) where {T}
     return map(samples) do sample
         convert(T, sample)
