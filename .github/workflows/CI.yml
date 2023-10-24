@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         version:
-          - '1.0'
+          - '1.6'
           - '1'
           - nightly
         os:
@@ -31,7 +31,7 @@ jobs:
             arch: x86
           - os: macOS-latest
             arch: x86
-          - version: '1.0'
+          - version: '1.6'
             num_threads: 2
         include:
           - version: '1'
@@ -45,16 +45,9 @@ jobs:
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: actions/cache@v1
-        env:
-          cache-name: cache-artifacts
+      - uses: julia-actions/cache@v1
         with:
-          path: ~/.julia/artifacts
-          key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-test-${{ env.cache-name }}-
-            ${{ runner.os }}-test-
-            ${{ runner.os }}-
+          cache-packages: "false" # caching Conda.jl causes precompilation error
       - uses: julia-actions/julia-buildpkg@latest
       - uses: julia-actions/julia-runtest@latest
         env:

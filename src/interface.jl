@@ -30,24 +30,31 @@ be specified with the `chain_type` argument.
 By default, this method returns `samples`.
 """
 function bundle_samples(
+    samples, model::AbstractModel, sampler::AbstractSampler, state, ::Type{T}; kwargs...
+) where {T}
+    # dispatch to internal method for default implementations to fix
+    # method ambiguity issues (see #120)
+    return _bundle_samples(samples, model, sampler, state, T; kwargs...)
+end
+
+function _bundle_samples(
     samples,
-    ::AbstractModel,
-    ::AbstractSampler,
-    ::Any,
+    @nospecialize(::AbstractModel),
+    @nospecialize(::AbstractSampler),
+    @nospecialize(::Any),
     ::Type;
-    kwargs...
+    kwargs...,
 )
     return samples
 end
-
-function bundle_samples(
+function _bundle_samples(
     samples::Vector,
-    ::AbstractModel,
-    ::AbstractSampler,
-    ::Any,
+    @nospecialize(::AbstractModel),
+    @nospecialize(::AbstractSampler),
+    @nospecialize(::Any),
     ::Type{Vector{T}};
-    kwargs...
-) where T
+    kwargs...,
+) where {T}
     return map(samples) do sample
         convert(T, sample)
     end
@@ -74,24 +81,13 @@ sample is `sample`.
 
 The method can be called with and without a predefined number `N` of samples.
 """
-function samples(
-    sample,
-    ::AbstractModel,
-    ::AbstractSampler,
-    N::Integer;
-    kwargs...
-)
+function samples(sample, ::AbstractModel, ::AbstractSampler, N::Integer; kwargs...)
     ts = Vector{typeof(sample)}(undef, 0)
     sizehint!(ts, N)
     return ts
 end
 
-function samples(
-    sample,
-    ::AbstractModel,
-    ::AbstractSampler;
-    kwargs...
-)
+function samples(sample, ::AbstractModel, ::AbstractSampler; kwargs...)
     return Vector{typeof(sample)}(undef, 0)
 end
 
@@ -113,7 +109,7 @@ function save!!(
     ::AbstractModel,
     ::AbstractSampler,
     N::Integer;
-    kwargs...
+    kwargs...,
 )
     s = BangBang.push!!(samples, sample)
     s !== samples && sizehint!(s, N)
@@ -121,27 +117,15 @@ function save!!(
 end
 
 function save!!(
-    samples,
-    sample,
-    iteration::Integer,
-    ::AbstractModel,
-    ::AbstractSampler;
-    kwargs...
+    samples, sample, iteration::Integer, ::AbstractModel, ::AbstractSampler; kwargs...
 )
     return BangBang.push!!(samples, sample)
 end
 
 # Deprecations
 Base.@deprecate transitions(
-    transition,
-    model::AbstractModel,
-    sampler::AbstractSampler,
-    N::Integer;
-    kwargs...
+    transition, model::AbstractModel, sampler::AbstractSampler, N::Integer; kwargs...
 ) samples(transition, model, sampler, N; kwargs...) false
 Base.@deprecate transitions(
-    transition,
-    model::AbstractModel,
-    sampler::AbstractSampler;
-    kwargs...
+    transition, model::AbstractModel, sampler::AbstractSampler; kwargs...
 ) samples(transition, model, sampler; kwargs...) false

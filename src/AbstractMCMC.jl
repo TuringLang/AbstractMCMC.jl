@@ -1,16 +1,17 @@
 module AbstractMCMC
 
-import BangBang
-import ConsoleProgressMonitor
-import LoggingExtras
-import ProgressLogging
-import StatsBase
-import TerminalLoggers
-import Transducers
+using BangBang: BangBang
+using ConsoleProgressMonitor: ConsoleProgressMonitor
+using LogDensityProblems: LogDensityProblems
+using LoggingExtras: LoggingExtras
+using ProgressLogging: ProgressLogging
+using StatsBase: StatsBase
+using TerminalLoggers: TerminalLoggers
+using Transducers: Transducers
 
-import Distributed
-import Logging
-import Random
+using Distributed: Distributed
+using Logging: Logging
+using Random: Random
 
 # Reexport sample
 using StatsBase: sample
@@ -71,7 +72,6 @@ processes.
 """
 struct MCMCDistributed <: AbstractMCMCEnsemble end
 
-
 """
     MCMCSerial
 
@@ -115,6 +115,6 @@ include("interface.jl")
 include("sample.jl")
 include("stepper.jl")
 include("transducer.jl")
-include("deprecations.jl")
+include("logdensityproblems.jl")
 
 end # module AbstractMCMC

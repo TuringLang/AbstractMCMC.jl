@@ -20,17 +20,19 @@ function AbstractMCMC.step(
     rng::AbstractRNG,
     model::MyModel,
     sampler::MySampler,
-    state::Union{Nothing,Integer} = nothing;
-    sleepy = false,
-    loggers = false,
-    kwargs...
+    state::Union{Nothing,Integer}=nothing;
+    loggers=false,
+    init_params=nothing,
+    kwargs...,
 )
-    # sample `a` is missing in the first step
-    a = state === nothing ? missing : rand(rng)
-    b = randn(rng)
+    # sample `a` is missing in the first step if not provided
+    a, b = if state === nothing && init_params !== nothing
+        init_params.a, init_params.b
+    else
+        (state === nothing ? missing : rand(rng)), randn(rng)
+    end
 
     loggers && push!(LOGGERS, Logging.current_logger())
-    sleepy && sleep(0.001)
 
     _state = state === nothing ? 1 : state + 1
 
@@ -43,8 +45,8 @@ function AbstractMCMC.bundle_samples(
     sampler::MySampler,
     ::Any,
     ::Type{MyChain};
-    stats = nothing,
-    kwargs...
+    stats=nothing,
+    kwargs...,
 )
     as = [t.a for t in samples]
     bs = [t.b for t in samples]
@@ -59,24 +61,55 @@ function isdone(
     samples,
     state,
     iteration::Int;
-    kwargs...
+    kwargs...,
 )
     # Calculate the mean of x.b.
     bmean = mean(x.b for x in samples)
-    return abs(bmean) <= 0.001 || iteration >= 10_000 || state >= 10_000
+    return abs(bmean) <= 0.001 || iteration > 10_000
 end
 
 # Set a default convergence function.
 function AbstractMCMC.sample(model, sampler::MySampler; kwargs...)
-    return sample(Random.GLOBAL_RNG, model, sampler, isdone; kwargs...)
+    return sample(Random.default_rng(), model, sampler, isdone; kwargs...)
 end
 
 function AbstractMCMC.chainscat(
-    chain::Union{MyChain,Vector{<:MyChain}},
-    chains::Union{MyChain,Vector{<:MyChain}}...
+    chain::Union{MyChain,Vector{<:MyChain}}, chains::Union{MyChain,Vector{<:MyChain}}...
 )
     return vcat(chain, chains...)
 end
 
 # Conversion to NamedTuple
-Base.convert(::Type{NamedTuple}, x::MySample) = (a = x.a, b = x.b)
+Base.convert(::Type{NamedTuple}, x::MySample) = (a=x.a, b=x.b)
+
+# Gaussian log density (without additive constants)
+# Without LogDensityProblems.jl interface
+mylogdensity(x) = -sum(abs2, x) / 2
+
+# With LogDensityProblems.jl interface
+struct MyLogDensity
+    dim::Int
+end
+LogDensityProblems.logdensity(::MyLogDensity, x) = mylogdensity(x)
+LogDensityProblems.dimension(m::MyLogDensity) = m.dim
+function LogDensityProblems.capabilities(::Type{MyLogDensity})
+    return LogDensityProblems.LogDensityOrder{0}()
+end
+
+# Define "sampling"
+function AbstractMCMC.step(
+    rng::AbstractRNG,
+    model::AbstractMCMC.LogDensityModel{MyLogDensity},
+    ::MySampler,
+    state::Union{Nothing,Integer}=nothing;
+    kwargs...,
+)
+    # Sample from multivariate normal distribution    
+    ℓ = model.logdensity
+    dim = LogDensityProblems.dimension(ℓ)
+    θ = randn(rng, dim)
+    logdensity_θ = LogDensityProblems.logdensity(ℓ, θ)
+
+    _state = state === nothing ? 1 : state + 1
+    return MySample(θ, logdensity_θ), _state
+end

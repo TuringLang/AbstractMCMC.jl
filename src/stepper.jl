@@ -5,24 +5,53 @@ struct Stepper{A<:Random.AbstractRNG,M<:AbstractModel,S<:AbstractSampler,K}
     kwargs::K
 end
 
-Base.iterate(stp::Stepper) = step(stp.rng, stp.model, stp.sampler; stp.kwargs...)
+# Initial sample.
+function Base.iterate(stp::Stepper)
+    # Unpack iterator.
+    rng = stp.rng
+    model = stp.model
+    sampler = stp.sampler
+    kwargs = stp.kwargs
+    discard_initial = get(kwargs, :discard_initial, 0)::Int
+
+    # Start sampling algorithm and discard initial samples if desired.
+    sample, state = step(rng, model, sampler; kwargs...)
+    for _ in 1:discard_initial
+        sample, state = step(rng, model, sampler, state; kwargs...)
+    end
+    return sample, state
+end
+
+# Subsequent samples.
 function Base.iterate(stp::Stepper, state)
-    return step(stp.rng, stp.model, stp.sampler, state; stp.kwargs...)
+    # Unpack iterator.
+    rng = stp.rng
+    model = stp.model
+    sampler = stp.sampler
+    kwargs = stp.kwargs
+    thinning = get(kwargs, :thinning, 1)::Int
+
+    # Return next sample, possibly after thinning the chain if desired.
+    for _ in 1:(thinning - 1)
+        _, state = step(rng, model, sampler, state; kwargs...)
+    end
+    return step(rng, model, sampler, state; kwargs...)
 end
 
 Base.IteratorSize(::Type{<:Stepper}) = Base.IsInfinite()
 Base.IteratorEltype(::Type{<:Stepper}) = Base.EltypeUnknown()
 
-function steps(
-    model::AbstractModel,
-    sampler::AbstractSampler;
-    kwargs...
-)
-    return steps(Random.GLOBAL_RNG, model, sampler; kwargs...)
+function steps(model_or_logdensity, sampler::AbstractSampler; kwargs...)
+    return steps(Random.default_rng(), model_or_logdensity, sampler; kwargs...)
 end
 
 """
-    steps([rng, ]model, sampler; kwargs...)
+    steps(
+        rng::Random.AbstractRNG=Random.default_rng(),
+        model::AbstractModel,
+        sampler::AbstractSampler;
+        kwargs...,
+    )
 
 Create an iterator that returns samples from the `model` with the Markov chain Monte Carlo
 `sampler`.
@@ -46,10 +75,7 @@ true
 ```
 """
 function steps(
-    rng::Random.AbstractRNG,
-    model::AbstractModel,
-    sampler::AbstractSampler;
-    kwargs...
+    rng::Random.AbstractRNG, model::AbstractModel, sampler::AbstractSampler; kwargs...
 )
     return Stepper(rng, model, sampler, kwargs)
 end
