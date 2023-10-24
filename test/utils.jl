@@ -22,12 +22,12 @@ function AbstractMCMC.step(
     sampler::MySampler,
     state::Union{Nothing,Integer}=nothing;
     loggers=false,
-    initial_params=nothing,
+    init_params=nothing,
     kwargs...,
 )
     # sample `a` is missing in the first step if not provided
-    a, b = if state === nothing && initial_params !== nothing
-        initial_params.a, initial_params.b
+    a, b = if state === nothing && init_params !== nothing
+        init_params.a, init_params.b
     else
         (state === nothing ? missing : rand(rng)), randn(rng)
     end
