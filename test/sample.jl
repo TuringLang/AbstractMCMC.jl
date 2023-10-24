@@ -162,18 +162,17 @@
         end
 
         # initial parameters
-        nchains = 100
-        init_params = [(b=randn(), a=rand()) for _ in 1:nchains]
+        init_params = [(b=randn(), a=rand()) for _ in 1:100]
         chains = sample(
             MyModel(),
             MySampler(),
             MCMCThreads(),
             3,
-            nchains;
+            100;
             progress=false,
             init_params=init_params,
         )
-        @test length(chains) == nchains
+        @test length(chains) == 100
         @test all(
             chain[1].a == params.a && chain[1].b == params.b for
             (chain, params) in zip(chains, init_params)
@@ -185,35 +184,13 @@
             MySampler(),
             MCMCThreads(),
             3,
-            nchains;
+            100;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains),
+            init_params=Iterators.repeated(init_params),
         )
-        @test length(chains) == nchains
+        @test length(chains) == 100
         @test all(
             chain[1].a == init_params.a && chain[1].b == init_params.b for chain in chains
-        )
-
-        # Too many `init_params`
-        @test_throws ArgumentError sample(
-            MyModel(),
-            MySampler(),
-            MCMCThreads(),
-            3,
-            nchains;
-            progress=false,
-            init_params=FillArrays.Fill(init_params, nchains + 1),
-        )
-
-        # Too few `init_params`
-        @test_throws ArgumentError sample(
-            MyModel(),
-            MySampler(),
-            MCMCThreads(),
-            3,
-            nchains;
-            progress=false,
-            init_params=FillArrays.Fill(init_params, nchains - 1),
         )
     end
 
@@ -297,18 +274,17 @@
         @test all(l.level > Logging.LogLevel(-1) for l in logs)
 
         # initial parameters
-        nchains = 100
-        init_params = [(a=randn(), b=rand()) for _ in 1:nchains]
+        init_params = [(a=randn(), b=rand()) for _ in 1:100]
         chains = sample(
             MyModel(),
             MySampler(),
             MCMCDistributed(),
             3,
-            nchains;
+            100;
             progress=false,
             init_params=init_params,
         )
-        @test length(chains) == nchains
+        @test length(chains) == 100
         @test all(
             chain[1].a == params.a && chain[1].b == params.b for
             (chain, params) in zip(chains, init_params)
@@ -320,35 +296,13 @@
             MySampler(),
             MCMCDistributed(),
             3,
-            nchains;
+            100;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains),
+            init_params=Iterators.repeated(init_params),
         )
-        @test length(chains) == nchains
+        @test length(chains) == 100
         @test all(
             chain[1].a == init_params.a && chain[1].b == init_params.b for chain in chains
-        )
-
-        # Too many `init_params`
-        @test_throws ArgumentError sample(
-            MyModel(),
-            MySampler(),
-            MCMCDistributed(),
-            3,
-            nchains;
-            progress=false,
-            init_params=FillArrays.Fill(init_params, nchains + 1),
-        )
-
-        # Too few `init_params`
-        @test_throws ArgumentError sample(
-            MyModel(),
-            MySampler(),
-            MCMCDistributed(),
-            3,
-            nchains;
-            progress=false,
-            init_params=FillArrays.Fill(init_params, nchains - 1),
         )
 
         # Remove workers
@@ -406,18 +360,17 @@
         @test all(l.level > Logging.LogLevel(-1) for l in logs)
 
         # initial parameters
-        nchains = 100
-        init_params = [(a=rand(), b=randn()) for _ in 1:nchains]
+        init_params = [(a=rand(), b=randn()) for _ in 1:100]
         chains = sample(
             MyModel(),
             MySampler(),
             MCMCSerial(),
             3,
-            nchains;
+            100;
             progress=false,
             init_params=init_params,
         )
-        @test length(chains) == nchains
+        @test length(chains) == 100
         @test all(
             chain[1].a == params.a && chain[1].b == params.b for
             (chain, params) in zip(chains, init_params)
@@ -429,35 +382,13 @@
             MySampler(),
             MCMCSerial(),
             3,
-            nchains;
+            100;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains),
+            init_params=Iterators.repeated(init_params),
         )
-        @test length(chains) == nchains
+        @test length(chains) == 100
         @test all(
             chain[1].a == init_params.a && chain[1].b == init_params.b for chain in chains
-        )
-
-        # Too many `init_params`
-        @test_throws ArgumentError sample(
-            MyModel(),
-            MySampler(),
-            MCMCSerial(),
-            3,
-            nchains;
-            progress=false,
-            init_params=FillArrays.Fill(init_params, nchains + 1),
-        )
-
-        # Too few `init_params`
-        @test_throws ArgumentError sample(
-            MyModel(),
-            MySampler(),
-            MCMCSerial(),
-            3,
-            nchains;
-            progress=false,
-            init_params=FillArrays.Fill(init_params, nchains - 1),
         )
     end
 

@@ -312,8 +312,8 @@ function mcmcsample(
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
 
-    # Ensure that initial parameters are `nothing` or of the correct length
-    check_initial_params(init_params, nchains)
+    # Ensure that initial parameters are `nothing` or indexable
+    _init_params = _first_or_nothing(init_params, nchains)
 
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
@@ -364,10 +364,10 @@ function mcmcsample(
                                 _sampler,
                                 N;
                                 progress=false,
-                                init_params=if init_params === nothing
+                                init_params=if _init_params === nothing
                                     nothing
                                 else
-                                    init_params[chainidx]
+                                    _init_params[chainidx]
                                 end,
                                 kwargs...,
                             )
@@ -409,9 +409,6 @@ function mcmcsample(
     if nchains > N
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
     end
-
-    # Ensure that initial parameters are `nothing` or of the correct length
-    check_initial_params(init_params, nchains)
 
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
@@ -502,9 +499,6 @@ function mcmcsample(
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
     end
 
-    # Ensure that initial parameters are `nothing` or of the correct length
-    check_initial_params(init_params, nchains)
-
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
 
@@ -538,21 +532,31 @@ end
 tighten_eltype(x) = x
 tighten_eltype(x::Vector{Any}) = map(identity, x)
 
-@nospecialize check_initial_params(x, n) = throw(
-    ArgumentError(
-        "initial parameters must be specified as a vector of length equal to the number of chains or `nothing`",
-    ),
-)
+"""
+    _first_or_nothing(x, n::Int)
 
-check_initial_params(::Nothing, n) = nothing
-function check_initial_params(x::AbstractArray, n)
-    if length(x) != n
-        throw(
-            ArgumentError(
-                "incorrect number of initial parameters (expected $n, received $(length(x))"
-            ),
-        )
+Return the first `n` elements of collection `x`, or `nothing` if `x === nothing`.
+
+If `x !== nothing`, then `x` has to contain at least `n` elements.
+"""
+function _first_or_nothing(x, n::Int)
+    y = _first(x, n)
+    length(y) == n || throw(
+        ArgumentError("not enough initial parameters (expected $n, received $(length(y))"),
+    )
+    return y
+end
+_first_or_nothing(::Nothing, ::Int) = nothing
+
+# `first(x, n::Int)` requires Julia 1.6
+function _first(x, n::Int)
+    @static if VERSION >= v"1.6.0-DEV.431"
+        first(x, n)
+    else
+        if x isa AbstractVector
+            @inbounds x[firstindex(x):min(firstindex(x) + n - 1, lastindex(x))]
+        else
+            collect(Iterators.take(x, n))
+        end
     end
-
-    return nothing
 end
