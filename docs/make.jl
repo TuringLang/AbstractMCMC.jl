@@ -9,6 +9,7 @@ makedocs(;
     format=Documenter.HTML(),
     modules=[AbstractMCMC],
     pages=["Home" => "index.md", "api.md", "design.md"],
+    strict=true,
     checkdocs=:exports,
 )
 

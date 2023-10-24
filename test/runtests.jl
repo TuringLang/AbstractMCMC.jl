@@ -4,7 +4,6 @@ using IJulia
 using LogDensityProblems
 using LoggingExtras: TeeLogger, EarlyFilteredLogger
 using TerminalLoggers: TerminalLogger
-using FillArrays: FillArrays
 using Transducers
 
 using Distributed

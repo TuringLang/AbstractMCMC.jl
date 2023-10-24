@@ -103,7 +103,6 @@ function mcmcsample(
     discard_initial=0,
     thinning=1,
     chain_type::Type=Any,
-    initial_state=nothing,
     kwargs...,
 )
     # Check the number of requested samples.
@@ -123,11 +122,7 @@ function mcmcsample(
         end
 
         # Obtain the initial sample and state.
-        sample, state = if initial_state === nothing
-            step(rng, model, sampler; kwargs...)
-        else
-            step(rng, model, sampler, initial_state; kwargs...)
-        end
+        sample, state = step(rng, model, sampler; kwargs...)
 
         # Discard initial samples.
         for i in 1:discard_initial
@@ -216,7 +211,6 @@ function mcmcsample(
     callback=nothing,
     discard_initial=0,
     thinning=1,
-    initial_state=nothing,
     kwargs...,
 )
 
@@ -226,11 +220,7 @@ function mcmcsample(
 
     @ifwithprogresslogger progress name = progressname begin
         # Obtain the initial sample and state.
-        sample, state = if initial_state === nothing
-            step(rng, model, sampler; kwargs...)
-        else
-            step(rng, model, sampler, state; kwargs...)
-        end
+        sample, state = step(rng, model, sampler; kwargs...)
 
         # Discard initial samples.
         for _ in 1:discard_initial
@@ -298,8 +288,7 @@ function mcmcsample(
     nchains::Integer;
     progress=PROGRESS[],
     progressname="Sampling ($(min(nchains, Threads.nthreads())) threads)",
-    initial_params=nothing,
-    initial_state=nothing,
+    init_params=nothing,
     kwargs...,
 )
     # Check if actually multiple threads are used.
@@ -323,9 +312,8 @@ function mcmcsample(
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
 
-    # Ensure that initial parameters and states are `nothing` or of the correct length
-    check_initial_params(initial_params, nchains)
-    check_initial_state(initial_state, nchains)
+    # Ensure that initial parameters are `nothing` or indexable
+    _init_params = _first_or_nothing(init_params, nchains)
 
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
@@ -376,15 +364,10 @@ function mcmcsample(
                                 _sampler,
                                 N;
                                 progress=false,
-                                initial_params=if initial_params === nothing
+                                init_params=if _init_params === nothing
                                     nothing
                                 else
-                                    initial_params[chainidx]
-                                end,
-                                initial_state=if initial_state === nothing
-                                    nothing
-                                else
-                                    initial_state[chainidx]
+                                    _init_params[chainidx]
                                 end,
                                 kwargs...,
                             )
@@ -414,8 +397,7 @@ function mcmcsample(
     nchains::Integer;
     progress=PROGRESS[],
     progressname="Sampling ($(Distributed.nworkers()) processes)",
-    initial_params=nothing,
-    initial_state=nothing,
+    init_params=nothing,
     kwargs...,
 )
     # Check if actually multiple processes are used.
@@ -427,15 +409,6 @@ function mcmcsample(
     if nchains > N
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
     end
-
-    # Ensure that initial parameters and states are `nothing` or of the correct length
-    check_initial_params(initial_params, nchains)
-    check_initial_state(initial_state, nchains)
-
-    _initial_params =
-        initial_params === nothing ? FillArrays.Fill(nothing, nchains) : initial_params
-    _initial_state =
-        initial_state === nothing ? FillArrays.Fill(nothing, nchains) : initial_state
 
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
@@ -472,7 +445,7 @@ function mcmcsample(
 
             Distributed.@async begin
                 try
-                    function sample_chain(seed, initial_params, initial_state)
+                    function sample_chain(seed, init_params=nothing)
                         # Seed a new random number generator with the pre-made seed.
                         Random.seed!(rng, seed)
 
@@ -483,8 +456,7 @@ function mcmcsample(
                             sampler,
                             N;
                             progress=false,
-                            initial_params=initial_params,
-                            initial_state=initial_state,
+                            init_params=init_params,
                             kwargs...,
                         )
 
@@ -494,9 +466,11 @@ function mcmcsample(
                         # Return the new chain.
                         return chain
                     end
-                    chains = Distributed.pmap(
-                        sample_chain, pool, seeds, _initial_params, _initial_state
-                    )
+                    chains = if init_params === nothing
+                        Distributed.pmap(sample_chain, pool, seeds)
+                    else
+                        Distributed.pmap(sample_chain, pool, seeds, init_params)
+                    end
                 finally
                     # Stop updating the progress bar.
                     progress && put!(channel, false)
@@ -517,8 +491,7 @@ function mcmcsample(
     N::Integer,
     nchains::Integer;
     progressname="Sampling",
-    initial_params=nothing,
-    initial_state=nothing,
+    init_params=nothing,
     kwargs...,
 )
     # Check if the number of chains is larger than the number of samples
@@ -526,20 +499,11 @@ function mcmcsample(
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
     end
 
-    # Ensure that initial parameters and states are `nothing` or of the correct length
-    check_initial_params(initial_params, nchains)
-    check_initial_state(initial_state, nchains)
-
-    _initial_params =
-        initial_params === nothing ? FillArrays.Fill(nothing, nchains) : initial_params
-    _initial_state =
-        initial_state === nothing ? FillArrays.Fill(nothing, nchains) : initial_state
-
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
 
     # Sample the chains.
-    function sample_chain(i, seed, initial_params, initial_state)
+    function sample_chain(i, seed, init_params=nothing)
         # Seed a new random number generator with the pre-made seed.
         Random.seed!(rng, seed)
 
@@ -550,13 +514,16 @@ function mcmcsample(
             sampler,
             N;
             progressname=string(progressname, " (Chain ", i, " of ", nchains, ")"),
-            initial_params=initial_params,
-            initial_state=initial_state,
+            init_params=init_params,
             kwargs...,
         )
     end
 
-    chains = map(sample_chain, 1:nchains, seeds, _initial_params, _initial_state)
+    chains = if init_params === nothing
+        map(sample_chain, 1:nchains, seeds)
+    else
+        map(sample_chain, 1:nchains, seeds, init_params)
+    end
 
     # Concatenate the chains together.
     return chainsstack(tighten_eltype(chains))
@@ -565,38 +532,31 @@ end
 tighten_eltype(x) = x
 tighten_eltype(x::Vector{Any}) = map(identity, x)
 
-@nospecialize check_initial_params(x, n) = throw(
-    ArgumentError(
-        "initial parameters must be specified as a vector of length equal to the number of chains or `nothing`",
-    ),
-)
-check_initial_params(::Nothing, n) = nothing
-function check_initial_params(x::AbstractArray, n)
-    if length(x) != n
-        throw(
-            ArgumentError(
-                "incorrect number of initial parameters (expected $n, received $(length(x))"
-            ),
-        )
-    end
+"""
+    _first_or_nothing(x, n::Int)
 
-    return nothing
+Return the first `n` elements of collection `x`, or `nothing` if `x === nothing`.
+
+If `x !== nothing`, then `x` has to contain at least `n` elements.
+"""
+function _first_or_nothing(x, n::Int)
+    y = _first(x, n)
+    length(y) == n || throw(
+        ArgumentError("not enough initial parameters (expected $n, received $(length(y))"),
+    )
+    return y
 end
+_first_or_nothing(::Nothing, ::Int) = nothing
 
-@nospecialize check_initial_state(x, n) = throw(
-    ArgumentError(
-        "initial states must be specified as a vector of length equal to the number of chains or `nothing`",
-    ),
-)
-check_initial_state(::Nothing, n) = nothing
-function check_initial_state(x::AbstractArray, n)
-    if length(x) != n
-        throw(
-            ArgumentError(
-                "incorrect number of initial states (expected $n, received $(length(x))"
-            ),
-        )
+# `first(x, n::Int)` requires Julia 1.6
+function _first(x, n::Int)
+    @static if VERSION >= v"1.6.0-DEV.431"
+        first(x, n)
+    else
+        if x isa AbstractVector
+            @inbounds x[firstindex(x):min(firstindex(x) + n - 1, lastindex(x))]
+        else
+            collect(Iterators.take(x, n))
+        end
     end
-
-    return nothing
 end
