@@ -293,7 +293,7 @@ function mcmcsample(
         # Discard initial samples.
         for j in 1:discard_initial
             # Obtain the next sample and state.
-            sample, state = if j ≤ discard_num_warmup
+            sample, state = if j ≤ discard_from_warmup
                 step_warmup(rng, model, sampler, state; kwargs...)
             else
                 step(rng, model, sampler, state; kwargs...)
