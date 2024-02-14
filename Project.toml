@@ -20,7 +20,7 @@ TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 Transducers = "28d57a85-8fef-5791-bfe6-a80928e7c999"
 
 [compat]
-BangBang = "0.3.19,0.4"
+BangBang = "0.3.19, 0.4"
 ConsoleProgressMonitor = "0.1"
 FillArrays = "1"
 LogDensityProblems = "2"
