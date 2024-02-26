@@ -2,9 +2,10 @@
 const PROGRESS = Ref(true)
 
 """
-    setprogress!(progress::Bool)
+    setprogress!(progress::Bool; silent::Bool=false)
 
-Enable progress logging globally if `progress` is `true`, and disable it otherwise.
+Enable progress logging globally if `progress` is `true`, and disable it otherwise. 
+Optionally disable informational message if `silent` is `true`.
 """
 function setprogress!(progress::Bool; silent::Bool=false)
     if !silent
