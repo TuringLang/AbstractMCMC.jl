@@ -6,8 +6,10 @@ const PROGRESS = Ref(true)
 
 Enable progress logging globally if `progress` is `true`, and disable it otherwise.
 """
-function setprogress!(progress::Bool)
-    @info "progress logging is $(progress ? "enabled" : "disabled") globally"
+function setprogress!(progress::Bool; verbose::Bool=true)
+    if verbose
+        @info "progress logging is $(progress ? "enabled" : "disabled") globally"
+    end
     PROGRESS[] = progress
     return progress
 end
