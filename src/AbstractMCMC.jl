@@ -80,6 +80,36 @@ The `MCMCSerial` algorithm allows users to sample serially, with no thread or pr
 """
 struct MCMCSerial <: AbstractMCMCEnsemble end
 
+"""
+    updatestate!!(model, state, transition_prev[, state_prev])
+
+Return new instance of `state` using information from `model`, `transition_prev` and, optionally, `state_prev`.
+
+Defaults to `realize!!(state, realize(transition_prev))`.
+"""
+function updatestate!!(model, state, transition_prev, state_prev)
+    return updatestate!!(state, transition_prev)
+end
+updatestate!!(model, state, transition) = realize!!(state, realize(transition))
+
+"""
+    realize!!(state, realization)
+
+Update the realization of the `state` with `realization` and return it.
+
+If `state` can be updated in-place, it is expected that this function returns `state` with updated
+realize. Otherwise a new `state` object with the new `realization` is returned.
+"""
+function realize!! end
+
+"""
+    realize(transition)
+
+Return the realization of the random variables present in `transition`.
+"""
+function realize end
+
+
 include("samplingstats.jl")
 include("logging.jl")
 include("interface.jl")
