@@ -43,6 +43,11 @@ isdone(rng, model, sampler, samples, state, iteration; kwargs...)
 ```
 where `state` and `iteration` are the current state and iteration of the sampler, respectively.
 It should return `true` when sampling should end, and `false` otherwise.
+
+# Keyword arguments
+
+See https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments for common keyword
+arguments.
 """
 function StatsBase.sample(
     rng::Random.AbstractRNG,
@@ -80,6 +85,11 @@ end
 
 Sample `nchains` Monte Carlo Markov chains from the `model` with the `sampler` in parallel
 using the `parallel` algorithm, and combine them into a single chain.
+
+# Keyword arguments
+
+See https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments for common keyword
+arguments.
 """
 function StatsBase.sample(
     rng::Random.AbstractRNG,
@@ -94,7 +104,6 @@ function StatsBase.sample(
 end
 
 # Default implementations of regular and parallel sampling.
-
 function mcmcsample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
@@ -103,7 +112,8 @@ function mcmcsample(
     progress=PROGRESS[],
     progressname="Sampling",
     callback=nothing,
-    discard_initial=0,
+    num_warmup::Int=0,
+    discard_initial::Int=num_warmup,
     thinning=1,
     chain_type::Type=Any,
     initial_state=nothing,
@@ -111,7 +121,19 @@ function mcmcsample(
 )
     # Check the number of requested samples.
     N > 0 || error("the number of samples must be ≥ 1")
+    discard_initial >= 0 ||
+        throw(ArgumentError("number of discarded samples must be non-negative"))
+    num_warmup >= 0 ||
+        throw(ArgumentError("number of warm-up samples must be non-negative"))
     Ntotal = thinning * (N - 1) + discard_initial + 1
+    Ntotal >= num_warmup || throw(
+        ArgumentError("number of warm-up samples exceeds the total number of samples")
+    )
+
+    # Determine how many samples to drop from `num_warmup` and the
+    # main sampling process before we start saving samples.
+    discard_from_warmup = min(num_warmup, discard_initial)
+    keep_from_warmup = num_warmup - discard_from_warmup
 
     # Start the timer
     start = time()
@@ -126,22 +148,41 @@ function mcmcsample(
         end
 
         # Obtain the initial sample and state.
-        sample, state = if initial_state === nothing
-            step(rng, model, sampler; kwargs...)
+        sample, state = if num_warmup > 0
+            if initial_state === nothing
+                step_warmup(rng, model, sampler; kwargs...)
+            else
+                step_warmup(rng, model, sampler, initial_state; kwargs...)
+            end
         else
-            step(rng, model, sampler, initial_state; kwargs...)
+            if initial_state === nothing
+                step(rng, model, sampler; kwargs...)
+            else
+                step(rng, model, sampler, initial_state; kwargs...)
+            end
+        end
+
+        # Update the progress bar.
+        itotal = 1
+        if progress && itotal >= next_update
+            ProgressLogging.@logprogress itotal / Ntotal
+            next_update = itotal + threshold
         end
 
         # Discard initial samples.
-        for i in 1:discard_initial
-            # Update the progress bar.
-            if progress && i >= next_update
-                ProgressLogging.@logprogress i / Ntotal
-                next_update = i + threshold
+        for j in 1:discard_initial
+            # Obtain the next sample and state.
+            sample, state = if j ≤ num_warmup
+                step_warmup(rng, model, sampler, state; kwargs...)
+            else
+                step(rng, model, sampler, state; kwargs...)
             end
 
-            # Obtain the next sample and state.
-            sample, state = step(rng, model, sampler, state; kwargs...)
+            # Update the progress bar.
+            if progress && (itotal += 1) >= next_update
+                ProgressLogging.@logprogress itotal / Ntotal
+                next_update = itotal + threshold
+            end
         end
 
         # Run callback.
@@ -151,19 +192,16 @@ function mcmcsample(
         samples = AbstractMCMC.samples(sample, model, sampler, N; kwargs...)
         samples = save!!(samples, sample, 1, model, sampler, N; kwargs...)
 
-        # Update the progress bar.
-        itotal = 1 + discard_initial
-        if progress && itotal >= next_update
-            ProgressLogging.@logprogress itotal / Ntotal
-            next_update = itotal + threshold
-        end
-
         # Step through the sampler.
         for i in 2:N
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
-                sample, state = step(rng, model, sampler, state; kwargs...)
+                sample, state = if i ≤ keep_from_warmup
+                    step_warmup(rng, model, sampler, state; kwargs...)
+                else
+                    step(rng, model, sampler, state; kwargs...)
+                end
 
                 # Update progress bar.
                 if progress && (itotal += 1) >= next_update
@@ -173,7 +211,11 @@ function mcmcsample(
             end
 
             # Obtain the next sample and state.
-            sample, state = step(rng, model, sampler, state; kwargs...)
+            sample, state = if i ≤ keep_from_warmup
+                step_warmup(rng, model, sampler, state; kwargs...)
+            else
+                step(rng, model, sampler, state; kwargs...)
+            end
 
             # Run callback.
             callback === nothing ||
@@ -181,6 +223,9 @@ function mcmcsample(
 
             # Save the sample.
             samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
+
+            # Increment iteration counter.
+            i += 1
 
             # Update the progress bar.
             if progress && (itotal += 1) >= next_update
@@ -217,11 +262,16 @@ function mcmcsample(
     progress=PROGRESS[],
     progressname="Convergence sampling",
     callback=nothing,
-    discard_initial=0,
+    num_warmup=0,
+    discard_initial=num_warmup,
     thinning=1,
     initial_state=nothing,
     kwargs...,
 )
+    # Determine how many samples to drop from `num_warmup` and the
+    # main sampling process before we start saving samples.
+    discard_from_warmup = min(num_warmup, discard_initial)
+    keep_from_warmup = num_warmup - discard_from_warmup
 
     # Start the timer
     start = time()
@@ -229,16 +279,28 @@ function mcmcsample(
 
     @ifwithprogresslogger progress name = progressname begin
         # Obtain the initial sample and state.
-        sample, state = if initial_state === nothing
-            step(rng, model, sampler; kwargs...)
+        sample, state = if num_warmup > 0
+            if initial_state === nothing
+                step_warmup(rng, model, sampler; kwargs...)
+            else
+                step_warmup(rng, model, sampler, initial_state; kwargs...)
+            end
         else
-            step(rng, model, sampler, state; kwargs...)
+            if initial_state === nothing
+                step(rng, model, sampler; kwargs...)
+            else
+                step(rng, model, sampler, initial_state; kwargs...)
+            end
         end
 
         # Discard initial samples.
-        for _ in 1:discard_initial
+        for j in 1:discard_initial
             # Obtain the next sample and state.
-            sample, state = step(rng, model, sampler, state; kwargs...)
+            sample, state = if j ≤ discard_from_warmup
+                step_warmup(rng, model, sampler, state; kwargs...)
+            else
+                step(rng, model, sampler, state; kwargs...)
+            end
         end
 
         # Run callback.
@@ -250,16 +312,23 @@ function mcmcsample(
 
         # Step through the sampler until stopping.
         i = 2
-
         while !isdone(rng, model, sampler, samples, state, i; progress=progress, kwargs...)
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
-                sample, state = step(rng, model, sampler, state; kwargs...)
+                sample, state = if i ≤ keep_from_warmup
+                    step_warmup(rng, model, sampler, state; kwargs...)
+                else
+                    step(rng, model, sampler, state; kwargs...)
+                end
             end
 
             # Obtain the next sample and state.
-            sample, state = step(rng, model, sampler, state; kwargs...)
+            sample, state = if i ≤ keep_from_warmup
+                step_warmup(rng, model, sampler, state; kwargs...)
+            else
+                step(rng, model, sampler, state; kwargs...)
+            end
 
             # Run callback.
             callback === nothing ||
