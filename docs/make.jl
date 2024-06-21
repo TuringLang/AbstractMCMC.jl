@@ -12,9 +12,4 @@ makedocs(;
     checkdocs=:exports,
 )
 
-# Insert navbar in each html file
-run(
-    `sh -c "curl -s https://raw.githubusercontent.com/TuringLang/turinglang.github.io/main/assets/scripts/insert_navbar.sh | bash -s docs/build"`,
-)
-
 deploydocs(; repo="github.com/TuringLang/AbstractMCMC.jl.git", push_preview=true)
