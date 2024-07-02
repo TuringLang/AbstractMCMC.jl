@@ -1,16 +1,14 @@
 name: Add Navbar
 
 on:
-  workflow_run:
-    workflows: ["Documentation"]  # add workflow names that generates docs in this list like `workflows: ["Docs Workflow", "Previews Workflow]`
-    types:
-      - completed
+  push:
+    branches:
+      - gh-pages  # Triggers the workflow on push events to gh-pages branch
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
   add-navbar:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: write
     steps:
