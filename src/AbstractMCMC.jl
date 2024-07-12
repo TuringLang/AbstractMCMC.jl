@@ -88,11 +88,11 @@ Recompute the log-probability of the `model` based on the given `state` and retu
 function recompute_logprob!!(rng, model, sampler, state) end
 
 """
-    getparams
+    getparams(state)
 
-TODO
+Returns the values of the parameters in the state.
 """
-function getparams end
+function getparams(state) end
 
 include("samplingstats.jl")
 include("logging.jl")
