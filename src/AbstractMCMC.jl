@@ -81,6 +81,40 @@ The `MCMCSerial` algorithm allows users to sample serially, with no thread or pr
 struct MCMCSerial <: AbstractMCMCEnsemble end
 
 """
+    decondition(conditioned_model)
+
+Remove the conditioning (i.e., observation data) from `conditioned_model`, turning it into a
+generative model over prior and observed variables.
+
+The invariant 
+
+```
+m == condition(decondition(m), obs)
+```
+
+should hold for models `m` with conditioned variables `obs`.
+"""
+function decondition end
+
+"""
+    condition(model, observations)
+
+Condition the generative model `model` on some observed data, creating a new model of the (possibly
+unnormalized) posterior distribution over them.
+
+`observations` can be of any supported internal trace type, or a fixed probability expression.
+
+The invariant 
+
+```
+m = decondition(condition(m, obs))
+```
+
+should hold for generative models `m` and arbitrary `obs`.
+"""
+function condition end
+
+"""
     recompute_logprob!!(rng, model, sampler, state)
 
 Recompute the log-probability of the `model` based on the given `state` and return the resulting state.
