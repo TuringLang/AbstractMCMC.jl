@@ -1,6 +1,7 @@
 module AbstractMCMC
 
 using BangBang: BangBang
+using Compat
 using ConsoleProgressMonitor: ConsoleProgressMonitor
 using LogDensityProblems: LogDensityProblems
 using LoggingExtras: LoggingExtras
@@ -20,6 +21,8 @@ export sample
 
 # Parallel sampling types
 export MCMCThreads, MCMCDistributed, MCMCSerial
+
+@compat public recompute_logprob!!, getparams
 
 """
     AbstractChains
