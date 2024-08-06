@@ -1,6 +1,7 @@
 module AbstractMCMC
 
 using BangBang: BangBang
+using Compat
 using ConsoleProgressMonitor: ConsoleProgressMonitor
 using LogDensityProblems: LogDensityProblems
 using LoggingExtras: LoggingExtras
@@ -20,6 +21,8 @@ export sample
 
 # Parallel sampling types
 export MCMCThreads, MCMCDistributed, MCMCSerial
+
+@compat public recompute_logprob!!, getparams
 
 """
     AbstractChains
@@ -79,6 +82,20 @@ struct MCMCDistributed <: AbstractMCMCEnsemble end
 The `MCMCSerial` algorithm allows users to sample serially, with no thread or process parallelism.
 """
 struct MCMCSerial <: AbstractMCMCEnsemble end
+
+"""
+    recompute_logprob!!(rng, model, sampler, state)
+
+Recompute the log-probability of the `model` based on the given `state` and return the resulting state.
+"""
+function recompute_logprob!!(rng, model, sampler, state) end
+
+"""
+    getparams(state)
+
+Returns the values of the parameters in the state.
+"""
+function getparams(state) end
 
 include("samplingstats.jl")
 include("logging.jl")
