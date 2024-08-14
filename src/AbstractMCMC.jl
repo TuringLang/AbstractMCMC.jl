@@ -84,11 +84,18 @@ The `MCMCSerial` algorithm allows users to sample serially, with no thread or pr
 struct MCMCSerial <: AbstractMCMCEnsemble end
 
 """
-    recompute_logprob!!(rng, model, sampler, state)
+    get_logprob(state)
 
-Recompute the log-probability of the `model` based on the given `state` and return the resulting state.
+Returns the log-probability of the last sampling step, stored in `state`.
 """
-function recompute_logprob!!(rng, model, sampler, state) end
+function get_logprob(state) end
+
+"""
+    set_logprob!(state, logprob)
+
+Set the log-probability of the last sampling step, stored in `state`.
+"""
+function set_logprob!!(state, logprob) end
 
 """
     getparams(state)
@@ -96,6 +103,13 @@ function recompute_logprob!!(rng, model, sampler, state) end
 Returns the values of the parameters in the state.
 """
 function getparams(state) end
+
+"""
+    setparams!(state, params)
+
+Set the values of the parameters in the state.
+"""
+function setparams!!(state, params) end
 
 include("samplingstats.jl")
 include("logging.jl")
