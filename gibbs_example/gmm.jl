@@ -44,13 +44,21 @@ function condition(gmm::GMM, conditioned_values::NamedTuple)
     return ConditionedGMM(gmm.data, conditioned_values)
 end
 
-function LogDensityProblems.logdensity(gmm::ConditionedGMM{names}, params::AbstractVector) where {names}
+function LogDensityProblems.logdensity(
+    gmm::ConditionedGMM{names}, params::AbstractVector
+) where {names}
     if Set(names) == Set([:μ, :w]) # conditioned on μ, w, so params are z
-        return log_joint(; μ=gmm.conditioned_values.μ, w=gmm.conditioned_values.w, z=params, x=gmm.data.x)
+        return log_joint(;
+            μ=gmm.conditioned_values.μ, w=gmm.conditioned_values.w, z=params, x=gmm.data.x
+        )
     elseif Set(names) == Set([:z, :w]) # conditioned on z, w, so params are μ
-        return log_joint(; μ=params, w=gmm.conditioned_values.w, z=gmm.conditioned_values.z, x=gmm.data.x)
+        return log_joint(;
+            μ=params, w=gmm.conditioned_values.w, z=gmm.conditioned_values.z, x=gmm.data.x
+        )
     elseif Set(names) == Set([:z, :μ]) # conditioned on z, μ, so params are w
-        return log_joint(; μ=gmm.conditioned_values.μ, w=params, z=gmm.conditioned_values.z, x=gmm.data.x)
+        return log_joint(;
+            μ=gmm.conditioned_values.μ, w=params, z=gmm.conditioned_values.z, x=gmm.data.x
+        )
     else
         error("Unsupported conditioning configuration.")
     end
