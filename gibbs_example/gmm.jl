@@ -29,6 +29,7 @@ function log_joint(; μ, w, z, x)
     logp += logpdf(w_prior, w)
 
     z_prior = Categorical(w)
+
     logp += sum([logpdf(z_prior, z[i]) for i in 1:N])
 
     obs_priors = [MvNormal(fill(μₖ, D), I) for μₖ in μ]
@@ -43,31 +44,78 @@ function condition(gmm::GMM, conditioned_values::NamedTuple)
     return ConditionedGMM(gmm.data, conditioned_values)
 end
 
-function _logdensity(gmm::ConditionedGMM{(:μ, :w)}, params)
+function _logdensity(gmm::Union{ConditionedGMM{(:μ, :w)},ConditionedGMM{(:w, :μ)}}, params)
     return log_joint(;
         μ=gmm.conditioned_values.μ, w=gmm.conditioned_values.w, z=params.z, x=gmm.data.x
     )
 end
+
 function _logdensity(gmm::ConditionedGMM{(:z,)}, params)
     return log_joint(; μ=params.μ, w=params.w, z=gmm.conditioned_values.z, x=gmm.data.x)
 end
 
 function LogDensityProblems.logdensity(
-    gmm::ConditionedGMM{(:μ, :w)}, params_vec::AbstractVector
+    gmm::Union{ConditionedGMM{(:μ, :w)},ConditionedGMM{(:w, :μ)}},
+    params_vec::AbstractVector,
 )
+    @assert length(params_vec) == 60
     return _logdensity(gmm, (; z=params_vec))
 end
 function LogDensityProblems.logdensity(
     gmm::ConditionedGMM{(:z,)}, params_vec::AbstractVector
 )
+    @assert length(params_vec) == 4 "length(params_vec) = $(length(params_vec))"
     return _logdensity(gmm, (; μ=params_vec[1:2], w=params_vec[3:4]))
 end
 
-function LogDensityProblems.dimension(gmm::ConditionedGMM{(:μ, :w)})
-    return size(gmm.data.x, 1)
+function LogDensityProblems.dimension(gmm::GMM)
+    return 4 + size(gmm.data.x, 1)
 end
+
+function LogDensityProblems.dimension(
+    gmm::Union{ConditionedGMM{(:μ, :w)},ConditionedGMM{(:w, :μ)}}
+)
+    return 4
+end
+
 function LogDensityProblems.dimension(gmm::ConditionedGMM{(:z,)})
     return size(gmm.data.x, 1)
+end
+
+function LogDensityProblems.capabilities(::GMM)
+    return LogDensityProblems.LogDensityOrder{0}()
+end
+
+function LogDensityProblems.capabilities(::ConditionedGMM)
+    return LogDensityProblems.LogDensityOrder{0}()
+end
+
+function flatten(nt::NamedTuple)
+    if Set(keys(nt)) == Set([:μ, :w])
+        return vcat(nt.μ, nt.w)
+    elseif Set(keys(nt)) == Set([:z])
+        return nt.z
+    else
+        error()
+    end
+end
+
+function unflatten(vec::AbstractVector, group::Tuple)
+    if Set(group) == Set([:μ, :w])
+        return (; μ=vec[1:2], w=vec[3:4])
+    elseif Set(group) == Set([:z])
+        return (; z=vec)
+    else
+        error()
+    end
+end
+
+# sampler's states to internal representation
+# ? who gets to define the output of `getparams`? (maybe have a `getparams(T, state)`?)
+
+# the point here is that the parameter values are not changed, but because the context was changed, the logprob need to be recomputed
+function recompute_logprob!!(gmm::ConditionedGMM, vals, state)
+    return setlogp!(state, _logdensity(gmm, vals))
 end
 
 ## test using Turing
