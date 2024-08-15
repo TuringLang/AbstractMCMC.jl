@@ -4,9 +4,6 @@ using OrderedCollections
 
 ##
 
-# TODO: introduce some kind of parameter format, for instance, a flattened vector
-# then define some kind of function to transform the flattened vector into model's representation
-
 struct Gibbs <: AbstractMCMC.AbstractSampler
     sampler_map::OrderedDict
 end
@@ -73,12 +70,12 @@ function AbstractMCMC.step(
         cond_val = NamedTuple{Tuple(group_complement)}(
             Tuple([vi[g] for g in group_complement])
         )
+        cond_logdensity = condition(logdensity_model.logdensity, cond_val)
+        sub_state = recompute_logprob!!(cond_logdensity, getparams(sub_state), sub_state)
         sub_state = last(
             AbstractMCMC.step(
                 rng,
-                AbstractMCMC.LogDensityModel(
-                    condition(logdensity_model.logdensity, cond_val)
-                ),
+                AbstractMCMC.LogDensityModel(cond_logdensity),
                 sub_spl,
                 sub_state,
                 args...;
@@ -87,8 +84,8 @@ function AbstractMCMC.step(
         )
         state.states[group] = sub_state
     end
-    for sub_state in values(state.states)
-        vi = merge(vi, getparams(sub_state))
+    for (group, sub_state) in state.states
+        vi = merge(vi, unflatten(getparams(sub_state), group))
     end
     return GibbsTransition(vi), GibbsState(vi, state.states)
 end
@@ -103,9 +100,16 @@ samples = sample(
         OrderedDict(
             (:z,) => PriorMH(product_distribution([Categorical([0.3, 0.7]) for _ in 1:60])),
             (:w,) => PriorMH(Dirichlet(2, 1.0)),
-            (:μ, :w) => RWMH(1),
+            (:μ,) => RWMH(1),
         ),
     ),
-    10000;
+    100000;
     initial_params=(z=rand(Categorical([0.3, 0.7]), 60), μ=[0.0, 1.0], w=[0.3, 0.7]),
-)
+);
+
+z_samples = [sample.values.z for sample in samples][20001:end]
+μ_samples = [sample.values.μ for sample in samples][20001:end]
+w_samples = [sample.values.w for sample in samples][20001:end]
+
+mean(μ_samples)
+mean(w_samples)

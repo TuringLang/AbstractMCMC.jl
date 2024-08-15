@@ -44,42 +44,16 @@ function condition(gmm::GMM, conditioned_values::NamedTuple)
     return ConditionedGMM(gmm.data, conditioned_values)
 end
 
-function _logdensity(gmm::Union{ConditionedGMM{(:μ, :w)},ConditionedGMM{(:w, :μ)}}, params)
-    return log_joint(;
-        μ=gmm.conditioned_values.μ, w=gmm.conditioned_values.w, z=params.z, x=gmm.data.x
-    )
-end
-
-function _logdensity(gmm::ConditionedGMM{(:z,)}, params)
-    return log_joint(; μ=params.μ, w=params.w, z=gmm.conditioned_values.z, x=gmm.data.x)
-end
-
-function LogDensityProblems.logdensity(
-    gmm::Union{ConditionedGMM{(:μ, :w)},ConditionedGMM{(:w, :μ)}},
-    params_vec::AbstractVector,
-)
-    @assert length(params_vec) == 60
-    return _logdensity(gmm, (; z=params_vec))
-end
-function LogDensityProblems.logdensity(
-    gmm::ConditionedGMM{(:z,)}, params_vec::AbstractVector
-)
-    @assert length(params_vec) == 4 "length(params_vec) = $(length(params_vec))"
-    return _logdensity(gmm, (; μ=params_vec[1:2], w=params_vec[3:4]))
-end
-
-function LogDensityProblems.dimension(gmm::GMM)
-    return 4 + size(gmm.data.x, 1)
-end
-
-function LogDensityProblems.dimension(
-    gmm::Union{ConditionedGMM{(:μ, :w)},ConditionedGMM{(:w, :μ)}}
-)
-    return 4
-end
-
-function LogDensityProblems.dimension(gmm::ConditionedGMM{(:z,)})
-    return size(gmm.data.x, 1)
+function LogDensityProblems.logdensity(gmm::ConditionedGMM{names}, params::AbstractVector) where {names}
+    if Set(names) == Set([:μ, :w]) # conditioned on μ, w, so params are z
+        return log_joint(; μ=gmm.conditioned_values.μ, w=gmm.conditioned_values.w, z=params, x=gmm.data.x)
+    elseif Set(names) == Set([:z, :w]) # conditioned on z, w, so params are μ
+        return log_joint(; μ=params, w=gmm.conditioned_values.w, z=gmm.conditioned_values.z, x=gmm.data.x)
+    elseif Set(names) == Set([:z, :μ]) # conditioned on z, μ, so params are w
+        return log_joint(; μ=gmm.conditioned_values.μ, w=params, z=gmm.conditioned_values.z, x=gmm.data.x)
+    else
+        error("Unsupported conditioning configuration.")
+    end
 end
 
 function LogDensityProblems.capabilities(::GMM)
@@ -91,41 +65,22 @@ function LogDensityProblems.capabilities(::ConditionedGMM)
 end
 
 function flatten(nt::NamedTuple)
-    if Set(keys(nt)) == Set([:μ, :w])
-        return vcat(nt.μ, nt.w)
-    elseif Set(keys(nt)) == Set([:z])
-        return nt.z
-    else
-        error()
-    end
+    return only(values(nt))
 end
 
 function unflatten(vec::AbstractVector, group::Tuple)
-    if Set(group) == Set([:μ, :w])
-        return (; μ=vec[1:2], w=vec[3:4])
-    elseif Set(group) == Set([:z])
-        return (; z=vec)
-    else
-        error()
-    end
+    return NamedTuple((only(group) => vec,))
 end
 
-# sampler's states to internal representation
-# ? who gets to define the output of `getparams`? (maybe have a `getparams(T, state)`?)
-
-# the point here is that the parameter values are not changed, but because the context was changed, the logprob need to be recomputed
 function recompute_logprob!!(gmm::ConditionedGMM, vals, state)
-    return setlogp!(state, _logdensity(gmm, vals))
+    return setlogp!!(state, LogDensityProblems.logdensity(gmm, vals))
 end
 
 ## test using Turing
 
 # data generation
 
-using Distributions
 using FillArrays
-using LinearAlgebra
-using Random
 
 w = [0.5, 0.5]
 μ = [-3.5, 0.5]
