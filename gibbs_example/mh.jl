@@ -133,12 +133,7 @@ samples = AbstractMCMC.sample(
 )
 _samples = map(t -> only(t.params), samples)
 
-histogram(
-    _samples;
-    normalize=:pdf,
-    label="Samples",
-    title="RWMH Sampling of Normal(10, 1)",
-)
+histogram(_samples; normalize=:pdf, label="Samples", title="RWMH Sampling of Normal(10, 1)")
 plot!(Normal(10, 1); linewidth=2, label="Ground Truth")
 
 samples = AbstractMCMC.sample(
