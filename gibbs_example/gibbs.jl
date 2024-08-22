@@ -92,6 +92,41 @@ end
 
 ## tests
 
+# generate data
+N = 100  # Number of data points
+mu_true = 0.5  # True mean
+tau2_true = 2.0  # True variance
+
+# Generate data based on true parameters
+x_data = rand(Normal(mu_true, sqrt(tau2_true)), N)
+
+# Store the generated data in the HierNormal structure
+hn = HierNormal((x=x_data,))
+
+##
+
+samples = sample(
+    hn,
+    Gibbs(
+        OrderedDict(
+            (:mu,) => RWMH(1),
+            (:tau2,) => PriorMH(product_distribution([InverseGamma(1, 1)])),
+        ),
+    ),
+    100000;
+    initial_params=(mu=[0.0], tau2=[1.0]),
+)
+
+mu_samples = [sample.values.mu for sample in samples][20001:end]
+tau2_samples = [sample.values.tau2 for sample in samples][20001:end]
+
+mean(mu_samples)
+mean(tau2_samples)
+
+##
+
+# this is too difficult of a problem
+
 gmm = GMM((; x=x))
 
 samples = sample(
@@ -104,12 +139,17 @@ samples = sample(
         ),
     ),
     100000;
-    initial_params=(z=rand(Categorical([0.3, 0.7]), 60), μ=[0.0, 1.0], w=[0.3, 0.7]),
+    initial_params=(z=rand(Categorical([0.3, 0.7]), 60), μ=[-3.5, 0.5], w=[0.3, 0.7]),
 );
 
 z_samples = [sample.values.z for sample in samples][20001:end]
 μ_samples = [sample.values.μ for sample in samples][20001:end]
-w_samples = [sample.values.w for sample in samples][20001:end]
+w_samples = [sample.values.w for sample in samples][20001:end];
+
+# thin these samples
+z_samples = z_samples[1:100:end]
+μ_samples = μ_samples[1:100:end]
+w_samples = w_samples[1:100:end];
 
 mean(μ_samples)
 mean(w_samples)
