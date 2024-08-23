@@ -7,7 +7,6 @@ version = "5.3.0"
 
 [deps]
 BangBang = "198e06fe-97b7-11e9-32a5-e1d131e6ad66"
-Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
 ConsoleProgressMonitor = "88cd18e8-d9cc-4ea6-8889-5259c0d15c8b"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
@@ -24,7 +23,6 @@ Transducers = "28d57a85-8fef-5791-bfe6-a80928e7c999"
 
 [compat]
 BangBang = "0.3.19, 0.4"
-Compat = "4.15.0"
 ConsoleProgressMonitor = "0.1"
 FillArrays = "1"
 LogDensityProblems = "2"
