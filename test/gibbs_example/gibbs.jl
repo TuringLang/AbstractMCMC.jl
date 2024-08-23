@@ -76,7 +76,9 @@ function AbstractMCMC.step(
             Tuple([vi[g] for g in group_complement])
         )
         cond_logdensity = condition(logdensity_model.logdensity, cond_val)
-        sub_state = recompute_logprob!!(cond_logdensity, AbstractMCMC.get_params(sub_state), sub_state)
+        sub_state = recompute_logprob!!(
+            cond_logdensity, AbstractMCMC.get_params(sub_state), sub_state
+        )
         sub_state = last(
             AbstractMCMC.step(
                 rng,
