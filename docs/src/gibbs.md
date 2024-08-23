@@ -116,6 +116,19 @@ end
 
 where the model doesn't need to know the details of the `state` type, as long as it can access the `log_joint` function.
 
+Additionally, we define a couple of helper functions to transform between the sampler representation and the model representation of the parameters values.
+In this simple example, the model representation is a vector, and the sampler representation is a named tuple.
+
+```julia
+function flatten(nt::NamedTuple)
+    return only(values(nt))
+end
+
+function unflatten(vec::AbstractVector, group::Tuple)
+    return NamedTuple((only(group) => vec,))
+end
+```
+
 ## Sampler Packages
 
 To illustrate the `AbstractMCMC` interface, we will first implement two very simple Metropolis-Hastings samplers: random walk and static proposal.
@@ -358,15 +371,13 @@ tau2_true = 2.0  # True variance
 x_data = rand(Normal(mu_true, sqrt(tau2_true)), N)
 ```
 
-```
-
-Then we can create a `HierNormal` model with the data.
+Then we can create a `HierNormal` model, with the data we just generated.
 
 ```julia
 hn = HierNormal((x=x_data,))
 ```
 
-sampling is easy: we use random walk MH for `mu` and prior MH for `tau2`, because `tau2` has support on positive real numbers.
+Using Gibbs sampling allows us to use random walk MH for `mu` and prior MH for `tau2`, because `tau2` has support only on positive real numbers.
 
 ```julia
 samples = sample(
