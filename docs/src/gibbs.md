@@ -345,3 +345,49 @@ Some points worth noting:
     - update the `vi` with the new values from the sampler state
 
 Again, the `state` interface in AbstractMCMC allows the Gibbs sampler to be agnostic of the details of the sampler state, and acquire the values of the parameters from individual sampler states.
+
+Now we can use the Gibbs sampler to sample from the hierarchical normal model.
+
+First we generate some data,
+
+```julia
+N = 100  # Number of data points
+mu_true = 0.5  # True mean
+tau2_true = 2.0  # True variance
+
+x_data = rand(Normal(mu_true, sqrt(tau2_true)), N)
+```
+
+```
+
+Then we can create a `HierNormal` model with the data.
+
+```julia
+hn = HierNormal((x=x_data,))
+```
+
+sampling is easy: we use random walk MH for `mu` and prior MH for `tau2`, because `tau2` has support on positive real numbers.
+
+```julia
+samples = sample(
+    hn,
+    Gibbs(
+        OrderedDict(
+            (:mu,) => RWMH(1),
+            (:tau2,) => PriorMH(product_distribution([InverseGamma(1, 1)])),
+        ),
+    ),
+    100000;
+    initial_params=(mu=[0.0], tau2=[1.0]),
+)
+```
+
+Then we can extract the samples and compute the mean of the samples.
+
+```julia
+mu_samples = [sample.values.mu for sample in samples][20001:end]
+tau2_samples = [sample.values.tau2 for sample in samples][20001:end]
+
+mean(mu_samples)
+mean(tau2_samples)
+```
