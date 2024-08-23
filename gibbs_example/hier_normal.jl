@@ -69,5 +69,5 @@ function unflatten(vec::AbstractVector, group::Tuple)
 end
 
 function recompute_logprob!!(hn::ConditionedHierNormal, vals, state)
-    return setlogp!!(state, LogDensityProblems.logdensity(hn, vals))
+    return AbstractMCMC.set_logprob!!(state, LogDensityProblems.logdensity(hn, vals))
 end

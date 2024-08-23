@@ -1,6 +1,8 @@
 using AbstractMCMC
-using LogDensityProblems, Distributions, LinearAlgebra, Random
+using Distributions
+using LogDensityProblems
 using OrderedCollections
+using Random
 
 ##
 
@@ -62,7 +64,7 @@ function AbstractMCMC.step(
     vi = state.vi
     for group in keys(spl.sampler_map)
         for (group, sub_state) in state.states
-            vi = merge(vi, unflatten(getparams(sub_state), group))
+            vi = merge(vi, unflatten(get_params(sub_state), group))
         end
         sub_spl = spl.sampler_map[group]
         sub_state = state.states[group]
@@ -71,7 +73,7 @@ function AbstractMCMC.step(
             Tuple([vi[g] for g in group_complement])
         )
         cond_logdensity = condition(logdensity_model.logdensity, cond_val)
-        sub_state = recompute_logprob!!(cond_logdensity, getparams(sub_state), sub_state)
+        sub_state = recompute_logprob!!(cond_logdensity, get_params(sub_state), sub_state)
         sub_state = last(
             AbstractMCMC.step(
                 rng,
@@ -85,7 +87,7 @@ function AbstractMCMC.step(
         state.states[group] = sub_state
     end
     for (group, sub_state) in state.states
-        vi = merge(vi, unflatten(getparams(sub_state), group))
+        vi = merge(vi, unflatten(get_params(sub_state), group))
     end
     return GibbsTransition(vi), GibbsState(vi, state.states)
 end

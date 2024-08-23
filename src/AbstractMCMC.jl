@@ -22,8 +22,6 @@ export sample
 # Parallel sampling types
 export MCMCThreads, MCMCDistributed, MCMCSerial
 
-@compat public recompute_logprob!!, getparams
-
 """
     AbstractChains
 
@@ -98,18 +96,18 @@ Set the log-probability of the last sampling step, stored in `state`.
 function set_logprob!!(state, logprob) end
 
 """
-    getparams(state)
+    get_params(state)
 
 Returns the values of the parameters in the state.
 """
-function getparams(state) end
+function get_params(state) end
 
 """
     setparams!(state, params)
 
 Set the values of the parameters in the state.
 """
-function setparams!!(state, params) end
+function set_params!!(state, params) end
 
 include("samplingstats.jl")
 include("logging.jl")

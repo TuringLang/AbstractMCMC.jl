@@ -7,10 +7,10 @@ struct MHState{T}
     logp::Float64
 end
 
-getparams(state::MHState) = state.params
-setparams!!(state::MHState, params) = MHState(params, state.logp)
-getlogp(state::MHState) = state.logp
-setlogp!!(state::MHState, logp) = MHState(state.params, logp)
+AbstractMCMC.get_params(state::MHState) = state.params
+AbstractMCMC.set_params!!(state::MHState, params) = MHState(params, state.logp)
+AbstractMCMC.get_logprob(state::MHState) = state.logp
+AbstractMCMC.set_logprob!!(state::MHState, logp) = MHState(state.params, logp)
 
 struct RWMH <: AbstractMCMC.AbstractSampler
     σ::Float64
@@ -82,7 +82,7 @@ function AbstractMCMC.step(
     args...;
     kwargs...,
 )
-    params = getparams(state)
+    params = get_params(state)
     proposal_dist = sampler.prior_dist
     proposal = rand(rng, proposal_dist)
     logp_proposal = only(
