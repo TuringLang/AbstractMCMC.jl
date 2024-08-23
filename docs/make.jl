@@ -8,7 +8,7 @@ makedocs(;
     sitename="AbstractMCMC",
     format=Documenter.HTML(),
     modules=[AbstractMCMC],
-    pages=["Home" => "index.md", "api.md", "design.md"],
+    pages=["Home" => "index.md", "api.md", "design.md", "gibbs.md"],
     checkdocs=:exports,
 )
 

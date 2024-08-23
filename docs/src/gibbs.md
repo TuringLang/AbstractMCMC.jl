@@ -1,4 +1,4 @@
-# `state` Interface
+# `state` Interface Functions
 
 We encourage sampler packages to implement the following interface functions for the `state` type(s) they maintain:
 
