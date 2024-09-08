@@ -1,7 +1,6 @@
 module AbstractMCMC
 
 using BangBang: BangBang
-using Compat
 using ConsoleProgressMonitor: ConsoleProgressMonitor
 using LogDensityProblems: LogDensityProblems
 using LoggingExtras: LoggingExtras
@@ -81,6 +80,10 @@ The `MCMCSerial` algorithm allows users to sample serially, with no thread or pr
 """
 struct MCMCSerial <: AbstractMCMCEnsemble end
 
+function condition end
+
+function recompute_logprob!! end
+
 """
     get_logprob(state)
 
@@ -116,5 +119,6 @@ include("sample.jl")
 include("stepper.jl")
 include("transducer.jl")
 include("logdensityproblems.jl")
+include("gibbs.jl")
 
 end # module AbstractMCMC

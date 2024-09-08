@@ -1,3 +1,5 @@
+using Distributions
+
 struct MHTransition{T}
     params::Vector{T}
 end
@@ -56,7 +58,7 @@ function AbstractMCMC.step(
 end
 
 struct PriorMH <: AbstractMCMC.AbstractSampler
-    prior_dist::Distribution
+    prior_dist::Distributions.Distribution
 end
 
 function AbstractMCMC.step(

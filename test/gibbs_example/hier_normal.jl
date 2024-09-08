@@ -1,5 +1,3 @@
-using LogDensityProblems
-
 abstract type AbstractHierNormal end
 
 struct HierNormal <: AbstractHierNormal
@@ -36,7 +34,7 @@ function log_joint(; mu, tau2, x)
     return logp
 end
 
-function condition(hn::HierNormal, conditioned_values::NamedTuple)
+function AbstractMCMC.condition(hn::HierNormal, conditioned_values::NamedTuple)
     return ConditionedHierNormal(hn.data, conditioned_values)
 end
 
@@ -60,14 +58,6 @@ function LogDensityProblems.capabilities(::ConditionedHierNormal)
     return LogDensityProblems.LogDensityOrder{0}()
 end
 
-function flatten(nt::NamedTuple)
-    return only(values(nt))
-end
-
-function unflatten(vec::AbstractVector, group::Tuple)
-    return NamedTuple((only(group) => vec,))
-end
-
-function recompute_logprob!!(hn::ConditionedHierNormal, vals, state)
+function AbstractMCMC.recompute_logprob!!(hn::ConditionedHierNormal, vals, state)
     return AbstractMCMC.set_logprob!!(state, LogDensityProblems.logdensity(hn, vals))
 end
