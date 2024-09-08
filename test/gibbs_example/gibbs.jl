@@ -15,7 +15,7 @@ include("hier_normal.jl")
     samples = sample(
         hn,
         AbstractMCMC.Gibbs((
-            mu=RWMH(1), tau2=PriorMH(product_distribution([InverseGamma(1, 1)]))
+            mu=RandomWalkMH(1), tau2=IndependentMH(product_distribution([InverseGamma(1, 1)]))
         )),
         200000;
         initial_params=(mu=[0.0], tau2=[1.0]),
@@ -49,9 +49,9 @@ end
 #         gmm,
 #         Gibbs(
 #             (
-#                 z = PriorMH(product_distribution([Categorical([0.3, 0.7]) for _ in 1:60])),
-#                 w = PriorMH(Dirichlet(2, 1.0)),
-#                 μ = RWMH(1),
+#                 z = IndependentMH(product_distribution([Categorical([0.3, 0.7]) for _ in 1:60])),
+#                 w = IndependentMH(Dirichlet(2, 1.0)),
+#                 μ = RandomWalkMH(1),
 #             ),
 #         ),
 #         100000;

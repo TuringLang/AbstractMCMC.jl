@@ -162,14 +162,14 @@ These are the functions that was used in the `recompute_logprob!!` function abov
 It is very simple to implement the samplers according to the `AbstractMCMC` interface, where we can use `get_logprob` to easily read the log probability of the current state.
 
 ```julia
-struct RWMH <: AbstractMCMC.AbstractSampler
+struct RandomWalkMH <: AbstractMCMC.AbstractSampler
     σ::Float64
 end
 
 function AbstractMCMC.step(
     rng::AbstractRNG,
     logdensity_model::AbstractMCMC.LogDensityModel,
-    sampler::RWMH,
+    sampler::RandomWalkMH,
     args...;
     initial_params,
     kwargs...,
@@ -184,7 +184,7 @@ end
 function AbstractMCMC.step(
     rng::AbstractRNG,
     logdensity_model::AbstractMCMC.LogDensityModel,
-    sampler::RWMH,
+    sampler::RandomWalkMH,
     state::MHState,
     args...;
     kwargs...,
@@ -207,14 +207,14 @@ end
 ```
 
 ```julia
-struct PriorMH <: AbstractMCMC.AbstractSampler
+struct IndependentMH <: AbstractMCMC.AbstractSampler
     prior_dist::Distribution
 end
 
 function AbstractMCMC.step(
     rng::AbstractRNG,
     logdensity_model::AbstractMCMC.LogDensityModel,
-    sampler::PriorMH,
+    sampler::IndependentMH,
     args...;
     initial_params,
     kwargs...,
@@ -229,7 +229,7 @@ end
 function AbstractMCMC.step(
     rng::AbstractRNG,
     logdensity_model::AbstractMCMC.LogDensityModel,
-    sampler::PriorMH,
+    sampler::IndependentMH,
     state::MHState,
     args...;
     kwargs...,
@@ -384,8 +384,8 @@ samples = sample(
     hn,
     Gibbs(
         OrderedDict(
-            (:mu,) => RWMH(1),
-            (:tau2,) => PriorMH(product_distribution([InverseGamma(1, 1)])),
+            (:mu,) => RandomWalkMH(1),
+            (:tau2,) => IndependentMH(product_distribution([InverseGamma(1, 1)])),
         ),
     ),
     100000;
