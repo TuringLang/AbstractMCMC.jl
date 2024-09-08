@@ -77,7 +77,3 @@ end
 function unflatten(vec::AbstractVector, group::Tuple)
     return NamedTuple((only(group) => vec,))
 end
-
-function recompute_logprob!!(gmm::ConditionedGMM, vals, state)
-    return set_logp!!(state, LogDensityProblems.logdensity(gmm, vals))
-end

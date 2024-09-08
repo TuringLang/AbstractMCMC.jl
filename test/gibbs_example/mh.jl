@@ -9,10 +9,14 @@ struct MHTransition{T}
     params::Vector{T}
 end
 
-AbstractMCMC.get_params(state::MHState) = state.params
-AbstractMCMC.set_params!!(state::MHState, params) = MHState(params, state.logp)
-AbstractMCMC.get_logprob(state::MHState) = state.logp
-AbstractMCMC.set_logprob!!(state::MHState, logp) = MHState(state.params, logp)
+function AbstractMCMC.LogDensityProblems.logdensity(logdensity_function, state::MHState)
+    # recompute the logdensity, instead of using the one stored in the state
+    return AbstractMCMC.LogDensityProblems.logdensity(logdensity_function, state.params)
+end
+
+function Base.vec(state::MHState)
+    return state.params
+end
 
 struct RandomWalkMH <: AbstractMCMC.AbstractSampler
     σ::Float64
@@ -64,7 +68,7 @@ end
 function compute_log_acceptance_ratio(
     ::RandomWalkMH, state::MHState, ::Vector{Float64}, logp_proposal::Float64
 )
-    return min(0, logp_proposal - AbstractMCMC.get_logprob(state))
+    return min(0, logp_proposal - state.logp)
 end
 
 function compute_log_acceptance_ratio(

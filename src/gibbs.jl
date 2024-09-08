@@ -77,7 +77,8 @@ julia> unflatten([1.0,2.0,3.0,4.0,5.0,6.0], (x=(2,2), y=(2,)))
 function unflatten(vec::AbstractVector, variable_sizes::NamedTuple)
     result = Dict{Symbol,Array}()
     start_idx = 1
-    for (name, size) in pairs(variable_sizes)
+    for name in keys(variable_sizes)
+        size = variable_sizes[name]
         end_idx = start_idx + prod(size) - 1
         result[name] = reshape(vec[start_idx:end_idx], size...)
         start_idx = end_idx + 1
@@ -100,7 +101,7 @@ function update_trace(trace::NamedTuple, gibbs_state::GibbsState)
         trace = merge(
             trace,
             unflatten(
-                AbstractMCMC.get_params(sub_state),
+                vec(sub_state),
                 NamedTuple{(parameter_variable,)}((
                     gibbs_state.variable_sizes[parameter_variable],
                 )),
@@ -197,9 +198,14 @@ function AbstractMCMC.step(
         )
 
         # recompute the logdensity stored in the mcmc state, because the values might have been updated in other sub-problems
-        sub_state = AbstractMCMC.recompute_logprob!!(
-            cond_logdensity, AbstractMCMC.get_params(sub_state), sub_state
-        )
+        updated_log_prob = LogDensityProblems.logdensity(cond_logdensity, sub_state)
+
+        if !hasproperty(sub_state, :logp)
+            error(
+                "$(typeof(sub_state)) does not have a `:logp` field, which is required by Gibbs sampling",
+            )
+        end
+        sub_state = BangBang.setproperty!!(sub_state, :logp, updated_log_prob)
 
         sub_state = last(
             AbstractMCMC.step(

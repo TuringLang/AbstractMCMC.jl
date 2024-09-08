@@ -5,7 +5,7 @@ include("hier_normal.jl")
 @testset "hierarchical normal with gibbs" begin
     # generate data
     N = 1000  # Number of data points
-    mu_true = 0.5  # True mean
+    mu_true = 5  # True mean
     tau2_true = 2.0  # True variance
     x_data = rand(Distributions.Normal(mu_true, sqrt(tau2_true)), N)
 
@@ -15,7 +15,8 @@ include("hier_normal.jl")
     samples = sample(
         hn,
         AbstractMCMC.Gibbs((
-            mu=RandomWalkMH(1), tau2=IndependentMH(product_distribution([InverseGamma(1, 1)]))
+            mu=RandomWalkMH(0.3),
+            tau2=IndependentMH(product_distribution([InverseGamma(1, 1)])),
         )),
         200000;
         initial_params=(mu=[0.0], tau2=[1.0]),

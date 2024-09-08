@@ -82,36 +82,6 @@ struct MCMCSerial <: AbstractMCMCEnsemble end
 
 function condition end
 
-function recompute_logprob!! end
-
-"""
-    get_logprob(state)
-
-Returns the log-probability of the last sampling step, stored in `state`.
-"""
-function get_logprob(state) end
-
-"""
-    set_logprob!(state, logprob)
-
-Set the log-probability of the last sampling step, stored in `state`.
-"""
-function set_logprob!!(state, logprob) end
-
-"""
-    get_params(state)
-
-Returns the values of the parameters in the state.
-"""
-function get_params(state) end
-
-"""
-    setparams!(state, params)
-
-Set the values of the parameters in the state.
-"""
-function set_params!!(state, params) end
-
 include("samplingstats.jl")
 include("logging.jl")
 include("interface.jl")
