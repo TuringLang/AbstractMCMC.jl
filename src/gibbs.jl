@@ -183,7 +183,7 @@ function AbstractMCMC.step(
     trace = gibbs_state.trace
     mcmc_states = gibbs_state.mcmc_states
     variable_sizes = gibbs_state.variable_sizes
-    
+
     mcmc_states_dict = Dict(
         keys(mcmc_states) .=> [mcmc_states[k] for k in keys(mcmc_states)]
     )
