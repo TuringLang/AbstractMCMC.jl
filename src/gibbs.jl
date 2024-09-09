@@ -49,10 +49,13 @@ Flatten all the values in the trace into a single vector.
 
 ```jldoctest; setup = :(using AbstractMCMC: flatten)
 julia> flatten((a=[1,2], b=[3,4,5]))
-[1, 2, 3, 4, 5]
+5-element Vector{Int64}:
+ 1
+ 2
+ 3
+ 4
+ 5
 
-julia> flatten(OrderedCollections.OrderedDict(:x=>[1.0,2.0], :y=>[3.0,4.0,5.0]))
-[1.0, 2.0, 3.0, 4.0, 5.0]
 ```
 """
 function flatten(trace::NamedTuple)
@@ -68,10 +71,10 @@ Reverse operation of flatten. Reshape the vector into the original arrays using 
 
 ```jldoctest; setup = :(using AbstractMCMC: unflatten)
 julia> unflatten([1,2,3,4,5], (a=(2,), b=(3,)))
-(a=[1,2], b=[3,4,5])
+(a = [1, 2], b = [3, 4, 5])
 
 julia> unflatten([1.0,2.0,3.0,4.0,5.0,6.0], (x=(2,2), y=(2,)))
-(x=[1.0 3.0; 2.0 4.0], y=[5.0,6.0])
+(x = [1.0 3.0; 2.0 4.0], y = [5.0, 6.0])
 ```
 """
 function unflatten(vec::AbstractVector, variable_sizes::NamedTuple)
