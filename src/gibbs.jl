@@ -47,7 +47,7 @@ Flatten all the values in the trace into a single vector.
 
 # Examples
 
-```jldoctest
+```jldoctest; setup = :(using AbstractMCMC: flatten)
 julia> flatten((a=[1,2], b=[3,4,5]))
 [1, 2, 3, 4, 5]
 
@@ -66,7 +66,7 @@ Reverse operation of flatten. Reshape the vector into the original arrays using 
 
 # Examples
 
-```jldoctest
+```jldoctest; setup = :(using AbstractMCMC: unflatten)
 julia> unflatten([1,2,3,4,5], (a=(2,), b=(3,)))
 (a=[1,2], b=[3,4,5])
 
@@ -180,7 +180,10 @@ function AbstractMCMC.step(
     args...;
     kwargs...,
 )
-    (; trace, mcmc_states, variable_sizes) = gibbs_state
+    trace = gibbs_state.trace
+    mcmc_states = gibbs_state.mcmc_states
+    variable_sizes = gibbs_state.variable_sizes
+    
     mcmc_states_dict = Dict(
         keys(mcmc_states) .=> [mcmc_states[k] for k in keys(mcmc_states)]
     )
