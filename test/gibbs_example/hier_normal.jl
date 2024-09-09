@@ -57,7 +57,3 @@ end
 function LogDensityProblems.capabilities(::ConditionedHierNormal)
     return LogDensityProblems.LogDensityOrder{0}()
 end
-
-function AbstractMCMC.recompute_logprob!!(hn::ConditionedHierNormal, vals, state)
-    return AbstractMCMC.set_logprob!!(state, LogDensityProblems.logdensity(hn, vals))
-end

@@ -38,7 +38,7 @@ function log_joint(; μ, w, z, x)
     return logp
 end
 
-function condition(gmm::GMM, conditioned_values::NamedTuple)
+function AbstractMCMC.condition(gmm::GMM, conditioned_values::NamedTuple)
     return ConditionedGMM(gmm.data, conditioned_values)
 end
 
@@ -68,12 +68,4 @@ end
 
 function LogDensityProblems.capabilities(::ConditionedGMM)
     return LogDensityProblems.LogDensityOrder{0}()
-end
-
-function flatten(nt::NamedTuple)
-    return only(values(nt))
-end
-
-function unflatten(vec::AbstractVector, group::Tuple)
-    return NamedTuple((only(group) => vec,))
 end
