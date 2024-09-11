@@ -88,15 +88,14 @@ include("stepper.jl")
 include("transducer.jl")
 include("logdensityproblems.jl")
 
-function __init__()
-    if isdefined(Base.Experimental, :register_error_hint)
+if isdefined(Base.Experimental, :register_error_hint)
+    function __init__()
         Base.Experimental.register_error_hint(MethodError) do io, exc, argtypes, _
             if Base.parentmodule(exc.f) == LogDensityProblems &&
                 any(a -> a <: LogDensityModel, argtypes)
-                printstyled(
+                print(
                     io,
-                    "\nAbstractMCMC.LogDensityModel is a wrapper and does not itself implement the LogDensityProblems.jl interface. To use LogDensityProblems.jl methods, access the inner type with (e.g.) `logdensity(model.logdensity, params)` instead of `logdensity(model, params)`.";
-                    color=:cyan,
+                    "\n`AbstractMCMC.LogDensityModel` is a wrapper and does not itself implement the LogDensityProblems.jl interface. To use LogDensityProblems.jl methods, access the inner type with (e.g.) `logdensity(model.logdensity, params)` instead of `logdensity(model, params)`.",
                 )
             end
         end
