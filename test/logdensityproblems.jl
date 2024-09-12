@@ -27,7 +27,9 @@
             LogDensityProblems.logdensity(model, ones(10))
         catch exc
             @test exc isa MethodError
-            @test occursin("is a wrapper", sprint(showerror, exc))
+            if isdefined(Base.Experimental, :register_error_hint)
+                @test occursin("is a wrapper", sprint(showerror, exc))
+            end
         end
     end
 
