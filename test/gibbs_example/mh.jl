@@ -14,7 +14,7 @@ function AbstractMCMC.logdensity_and_state(
 )
     if recompute_logp
         logp = AbstractMCMC.LogDensityProblems.logdensity(logdensity_function, state.params)
-        return logp, MHState(substate.params, logp)
+        return logp, MHState(state.params, logp)
     else
         return state.logp, state
     end
