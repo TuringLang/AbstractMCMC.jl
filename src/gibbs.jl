@@ -203,16 +203,7 @@ function AbstractMCMC.step(
             logdensity_model.logdensity, conditioning_variables_values
         )
 
-        # recompute the logdensity stored in the mcmc state, because the values might have been updated in other sub-problems
-        updated_log_prob = LogDensityProblems.logdensity(cond_logdensity, sub_state)
-
-        if !hasproperty(sub_state, :logp)
-            error(
-                "$(typeof(sub_state)) does not have a `:logp` field, which is required by Gibbs sampling",
-            )
-        end
-        sub_state = BangBang.setproperty!!(sub_state, :logp, updated_log_prob)
-
+        _, sub_state = AbstractMCMC.logdensity_and_state(cond_logdensity, sub_state)
         sub_state = last(
             AbstractMCMC.step(
                 rng,

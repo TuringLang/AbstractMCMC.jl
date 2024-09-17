@@ -82,6 +82,8 @@ struct MCMCSerial <: AbstractMCMCEnsemble end
 
 function condition end
 
+function logdensity_and_state end
+
 include("samplingstats.jl")
 include("logging.jl")
 include("interface.jl")

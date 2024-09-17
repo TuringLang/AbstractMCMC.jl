@@ -9,9 +9,15 @@ struct MHTransition{T}
     params::Vector{T}
 end
 
-function AbstractMCMC.LogDensityProblems.logdensity(logdensity_function, state::MHState)
-    # recompute the logdensity, instead of using the one stored in the state
-    return AbstractMCMC.LogDensityProblems.logdensity(logdensity_function, state.params)
+function AbstractMCMC.logdensity_and_state(
+    logdensity_function, state::MHState; recompute_logp::Bool=true
+)
+    if recompute_logp
+        logp, substate = AbstractMCMC.LogDensityProblems.logdensity(logdensity_function, state.params)
+        return logp, MHState(substate.params, logp)
+    else
+        return state.logp, state
+    end
 end
 
 function Base.vec(state::MHState)
