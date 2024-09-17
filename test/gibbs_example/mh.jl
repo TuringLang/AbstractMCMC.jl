@@ -13,9 +13,7 @@ function AbstractMCMC.logdensity_and_state(
     logdensity_function, state::MHState; recompute_logp::Bool=true
 )
     if recompute_logp
-        logp, substate = AbstractMCMC.LogDensityProblems.logdensity(
-            logdensity_function, state.params
-        )
+        logp = AbstractMCMC.LogDensityProblems.logdensity(logdensity_function, state.params)
         return logp, MHState(substate.params, logp)
     else
         return state.logp, state
