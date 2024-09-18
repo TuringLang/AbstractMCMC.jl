@@ -6,14 +6,8 @@ An interface for block sampling in Markov Chain Monte Carlo (MCMC).
 Gibbs sampling is a technique for dividing complex multivariate problems into simpler subproblems.
 It allows different sampling methods to be applied to different parameters.
 """
-struct Gibbs <: AbstractMCMC.AbstractSampler
-    sampler_map::NamedTuple
-    parameter_names::Tuple{Vararg{Symbol}}
-
-    function Gibbs(sampler_map::NamedTuple)
-        parameter_names = Tuple(keys(sampler_map))
-        return new(sampler_map, parameter_names)
-    end
+struct Gibbs{NT} <: AbstractMCMC.AbstractSampler
+    sampler_map::NT
 end
 
 struct GibbsState
