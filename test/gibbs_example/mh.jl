@@ -24,12 +24,12 @@ function Base.vec(state::MHState)
     return state.params
 end
 
-struct RandomWalkMH <: AbstractMCMC.AbstractSampler
-    σ::Float64
+struct RandomWalkMH{T} <: AbstractMCMC.AbstractSampler
+    σ::T
 end
 
-struct IndependentMH <: AbstractMCMC.AbstractSampler
-    proposal_dist::Distributions.Distribution
+struct IndependentMH{T} <: AbstractMCMC.AbstractSampler
+    proposal_dist::T
 end
 
 function AbstractMCMC.step(
