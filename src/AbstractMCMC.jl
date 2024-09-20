@@ -80,10 +80,6 @@ The `MCMCSerial` algorithm allows users to sample serially, with no thread or pr
 """
 struct MCMCSerial <: AbstractMCMCEnsemble end
 
-function condition end
-
-function logdensity_and_state end
-
 include("samplingstats.jl")
 include("logging.jl")
 include("interface.jl")
