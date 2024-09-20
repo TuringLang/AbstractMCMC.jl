@@ -6,49 +6,50 @@ An interface for block sampling in Markov Chain Monte Carlo (MCMC).
 Gibbs sampling is a technique for dividing complex multivariate problems into simpler subproblems.
 It allows different sampling methods to be applied to different parameters.
 """
-struct Gibbs{NT} <: AbstractMCMC.AbstractSampler
+struct Gibbs{NT<:NamedTuple} <: AbstractMCMC.AbstractSampler
     sampler_map::NT
 end
 
-struct GibbsState
+struct GibbsState{TraceNT<:NamedTuple,StateNT<:NamedTuple,SizeNT<:NamedTuple}
     """
-    `trace` contains the values of the values of _all_ parameters up to the last iteration.
+    Contains the values of all parameters up to the last iteration.
     """
-    trace::NamedTuple
+    trace::TraceNT
 
     """
-    `mcmc_states` maps parameters to their sampler-specific MCMC states.
+    Maps parameters to their sampler-specific MCMC states.
     """
-    mcmc_states::NamedTuple
+    mcmc_states::StateNT
 
     """
-    `variable_sizes` maps parameters to their sizes.
+    Maps parameters to their sizes.
     """
-    variable_sizes::NamedTuple
+    variable_sizes::SizeNT
 end
 
-struct GibbsTransition
+struct GibbsTransition{ValuesNT<:NamedTuple}
     """
     Realizations of the parameters, this is considered a "sample" in the MCMC chain.
     """
-    values::NamedTuple
+    values::ValuesNT
 end
 
 """
-    flatten(trace::Union{NamedTuple,OrderedCollections.OrderedDict})
+    flatten(trace::NamedTuple)
 
-Flatten all the values in the trace into a single vector.
+Flatten all the values in the trace into a single vector. Variable names information is discarded.
 
 # Examples
 
 ```jldoctest; setup = :(using AbstractMCMC: flatten)
-julia> flatten((a=[1,2], b=[3,4,5]))
-5-element Vector{Int64}:
- 1
- 2
- 3
- 4
- 5
+julia> flatten((a=ones(2), b=ones(2, 2)))
+6-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
 
 ```
 """
@@ -57,7 +58,7 @@ function flatten(trace::NamedTuple)
 end
 
 """
-    unflatten(vec::AbstractVector, group_names_and_sizes::NamedTuple)
+    unflatten(vec::AbstractVector, variable_names::Vector{Symbol}, variable_sizes::Vector{Tuple})
 
 Reverse operation of flatten. Reshape the vector into the original arrays using size information.
 
@@ -71,20 +72,19 @@ julia> unflatten([1.0,2.0,3.0,4.0,5.0,6.0], (x=(2,2), y=(2,)))
 (x = [1.0 3.0; 2.0 4.0], y = [5.0, 6.0])
 ```
 """
-function unflatten(vec::AbstractVector, variable_sizes::NamedTuple)
+function unflatten(
+    vec::AbstractVector, variable_names_and_sizes::NamedTuple{variable_names}
+) where {variable_names}
     result = Dict{Symbol,Array}()
     start_idx = 1
-    for name in keys(variable_sizes)
-        size = variable_sizes[name]
+    for name in variable_names
+        size = variable_names_and_sizes[name]
         end_idx = start_idx + prod(size) - 1
         result[name] = reshape(vec[start_idx:end_idx], size...)
         start_idx = end_idx + 1
     end
 
-    # ensure the order of the keys is the same as the one in variable_sizes
-    return NamedTuple{Tuple(keys(variable_sizes))}([
-        result[name] for name in keys(variable_sizes)
-    ])
+    return NamedTuple{variable_names}(Tuple([result[name] for name in variable_names]))
 end
 
 """
@@ -95,15 +95,14 @@ Update the trace with the values from the MCMC states of the sub-problems.
 function update_trace(trace::NamedTuple, gibbs_state::GibbsState)
     for parameter_variable in keys(gibbs_state.mcmc_states)
         sub_state = gibbs_state.mcmc_states[parameter_variable]
-        trace = merge(
-            trace,
-            unflatten(
-                vec(sub_state),
-                NamedTuple{(parameter_variable,)}((
-                    gibbs_state.variable_sizes[parameter_variable],
-                )),
-            ),
+        sub_state_params = vec(sub_state)
+        unflattened_sub_state_params = unflatten(
+            sub_state_params,
+            NamedTuple{(parameter_variable,)}((
+                gibbs_state.variable_sizes[parameter_variable],
+            )),
         )
+        trace = merge(trace, unflattened_sub_state_params)
     end
     return trace
 end
