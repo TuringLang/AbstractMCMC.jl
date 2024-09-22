@@ -181,7 +181,9 @@ function AbstractMCMC.step(
     args...;
     kwargs...,
 ) where {Tsamplingmap}
-    (; trace, mcmc_states, variable_sizes) = gibbs_state
+    trace = gibbs_state.trace
+    mcmc_states = gibbs_state.mcmc_states
+    variable_sizes = gibbs_state.variable_sizes
 
     model_parameter_names = fieldnames(Tsamplingmap)
     mcmc_states = map(model_parameter_names) do parameter_variable
