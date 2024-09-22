@@ -1,5 +1,5 @@
 using AbstractMCMC: AbstractMCMC
-using AbstractPPL: AbstractPPL 
+using AbstractPPL: AbstractPPL
 using MCMCChains: Chains
 using Random
 
@@ -196,17 +196,13 @@ function AbstractMCMC.step(
         cond_logdensity = AbstractPPL.condition(
             logdensity_model.logdensity, conditioning_variables_values
         )
+        cond_logdensity_model = AbstractMCMC.LogDensityModel(cond_logdensity)
 
-        logp = LogDensityProblems.logdensity(cond_logdensity, sub_state)
+        logp = LogDensityProblems.logdensity(cond_logdensity_model, sub_state)
         sub_state = (sub_state)(logp)
         sub_state = last(
             AbstractMCMC.step(
-                rng,
-                AbstractMCMC.LogDensityModel(cond_logdensity),
-                sub_sampler,
-                sub_state,
-                args...;
-                kwargs...,
+                rng, cond_logdensity_model, sub_sampler, sub_state, args...; kwargs...
             ),
         )
         trace = update_trace(trace, gibbs_state)

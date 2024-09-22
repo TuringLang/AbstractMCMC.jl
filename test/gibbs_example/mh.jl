@@ -1,6 +1,7 @@
 using AbstractMCMC: AbstractMCMC, LogDensityProblems
 using Distributions
 using Random
+
 abstract type AbstractMHSampler <: AbstractMCMC.AbstractSampler end
 
 struct MHState{T}
@@ -22,8 +23,9 @@ end
 # and returns the logdensity. It allows for optional recomputation of the log probability.
 # If recomputation is not needed, it returns the stored log probability from the state.
 function LogDensityProblems.logdensity(
-    logdensity_function, state::MHState; recompute_logp=true
+    logdensity_model::AbstractMCMC.LogDensityModel, state::MHState; recompute_logp=true
 )
+    logdensity_function = logdensity_model.logdensity
     return if recompute_logp
         AbstractMCMC.LogDensityProblems.logdensity(logdensity_function, state.params)
     else

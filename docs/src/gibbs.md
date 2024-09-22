@@ -2,12 +2,25 @@
 
 We encourage sampler packages to implement the following interface functions for the `state` type(s) they maintain:
 
-```@doc
-get_logprob
-set_logprob!!
-get_params
-set_params!!
+```julia
+LogDensityProblems.logdensity(logdensity_model::AbstractMCMC.LogDensityModel, state::MHState; recompute_logp=true)
 ```
+
+This function takes the logdensity model and the state, and returns the log probability of the state.
+If `recompute_logp` is `true`, it should recompute the log probability of the state.
+Otherwise, it should use the log probability stored in the state.
+
+```julia
+Base.vec(state)
+```
+
+This function takes the state and returns a vector of the parameter values stored in the state.
+
+```julia
+(state::StateType)(logp::Float64)
+```
+
+This function takes the state and a log probability value, and updates the state with the new log probability.
 
 These function will provide a minimum interface to interact with the `state` datatype, which a sampler package doesn't have to expose.
 
@@ -59,17 +72,20 @@ To make using `LogDensityProblems` interface, we create a simple type for this m
 ```julia
 abstract type AbstractHierNormal end
 
-struct HierNormal <: AbstractHierNormal
-    data::NamedTuple
+struct HierNormal{Tdata<:NamedTuple} <: AbstractHierNormal
+    data::Tdata
 end
 
-struct ConditionedHierNormal{conditioned_vars} <: AbstractHierNormal
-    data::NamedTuple
-    conditioned_values::NamedTuple{conditioned_vars}
+struct ConditionedHierNormal{Tdata<:NamedTuple,Tconditioned_vars<:NamedTuple} <:
+       AbstractHierNormal
+    data::Tdata
+
+    " The variable to be conditioned on and its value"
+    conditioned_values::Tconditioned_vars
 end
 ```
 
-where `ConditionedHierNormal` is a type that represents the model conditioned on some variables, and 
+where `ConditionedHierNormal` is a type that represents the model conditioned on some variables, and
 
 ```julia
 function AbstractPPL.condition(hn::HierNormal, conditioned_values::NamedTuple)
@@ -81,14 +97,19 @@ then we can simply write down the `LogDensityProblems` interface for this model.
 
 ```julia
 function LogDensityProblems.logdensity(
-    hn::ConditionedHierNormal{names}, params::AbstractVector
-) where {names}
-    if Set(names) == Set([:mu]) # conditioned on mu, so params are tau2
-        return log_joint(; mu=hn.conditioned_values.mu, tau2=params, x=hn.data.x)
-    elseif Set(names) == Set([:tau2]) # conditioned on tau2, so params are mu
-        return log_joint(; mu=params, tau2=hn.conditioned_values.tau2, x=hn.data.x)
+    hier_normal_model::ConditionedHierNormal{Tdata,Tconditioned_vars},
+    params::AbstractVector,
+) where {Tdata,Tconditioned_vars}
+    variable_to_condition = only(fieldnames(Tconditioned_vars))
+    data = hier_normal_model.data
+    conditioned_values = hier_normal_model.conditioned_values
+
+    if variable_to_condition == :mu
+        return log_joint(; mu=conditioned_values.mu, tau2=params, x=data.x)
+    elseif variable_to_condition == :tau2
+        return log_joint(; mu=params, tau2=conditioned_values.tau2, x=data.x)
     else
-        error("Unsupported conditioning configuration.")
+        error("Unsupported conditioning variable: $variable_to_condition")
     end
 end
 
@@ -98,34 +119,6 @@ end
 
 function LogDensityProblems.capabilities(::ConditionedHierNormal)
     return LogDensityProblems.LogDensityOrder{0}()
-end
-```
-
-the model should also define a function that allows the recomputation of the log probability given a sampler state.
-The reason for this is that, when we break down the joint probability into conditional probabilities, individual conditional probability problems are conditional on the values of the other variables.
-Between the Gibbs sampler sweeps, the values of the variables may change, and we need to recompute the log probability of the current state.
-
-A recomputation function could use the `state` interface to return a new state with the updated log probability.
-E.g.
-
-```julia
-function recompute_logprob!!(hn::ConditionedHierNormal, vals, state)
-    return AbstractMCMC.set_logprob!!(state, LogDensityProblems.logdensity(hn, vals))
-end
-```
-
-where the model doesn't need to know the details of the `state` type, as long as it can access the `log_joint` function.
-
-Additionally, we define a couple of helper functions to transform between the sampler representation and the model representation of the parameters values.
-In this simple example, the model representation is a vector, and the sampler representation is a named tuple.
-
-```julia
-function flatten(nt::NamedTuple)
-    return only(values(nt))
-end
-
-function unflatten(vec::AbstractVector, group::Tuple)
-    return NamedTuple((only(group) => vec,))
 end
 ```
 
@@ -148,216 +141,329 @@ struct MHState{T}
 end
 ```
 
-Next we define the four `state` interface functions.
+Next we define the  `state` interface functions mentioned at the beginning of this section.
 
 ```julia
-AbstractMCMC.get_params(state::MHState) = state.params
-AbstractMCMC.set_params!!(state::MHState, params) = MHState(params, state.logp)
-AbstractMCMC.get_logprob(state::MHState) = state.logp
-AbstractMCMC.set_logprob!!(state::MHState, logp) = MHState(state.params, logp)
-```
-
-These are the functions that was used in the `recompute_logprob!!` function above.
-
-It is very simple to implement the samplers according to the `AbstractMCMC` interface, where we can use `get_logprob` to easily read the log probability of the current state.
-
-```julia
-struct RandomWalkMH <: AbstractMCMC.AbstractSampler
-    σ::Float64
-end
-
-function AbstractMCMC.step(
-    rng::AbstractRNG,
-    logdensity_model::AbstractMCMC.LogDensityModel,
-    sampler::RandomWalkMH,
-    args...;
-    initial_params,
-    kwargs...,
+# Interface 1: LogDensityProblems.logdensity
+# This function takes the logdensity function and the state (state is defined by the sampler package)
+# and returns the logdensity. It allows for optional recomputation of the log probability.
+# If recomputation is not needed, it returns the stored log probability from the state.
+function LogDensityProblems.logdensity(
+    logdensity_model::AbstractMCMC.LogDensityModel, state::MHState; recompute_logp=true
 )
-    return MHTransition(initial_params),
-    MHState(
-        initial_params,
-        only(LogDensityProblems.logdensity(logdensity_model.logdensity, initial_params)),
-    )
-end
-
-function AbstractMCMC.step(
-    rng::AbstractRNG,
-    logdensity_model::AbstractMCMC.LogDensityModel,
-    sampler::RandomWalkMH,
-    state::MHState,
-    args...;
-    kwargs...,
-)
-    params = state.params
-    proposal_dist = MvNormal(zeros(length(params)), sampler.σ)
-    proposal = params .+ rand(rng, proposal_dist)
-    logp_proposal = only(
-        LogDensityProblems.logdensity(logdensity_model.logdensity, proposal)
-    )
-
-    log_acceptance_ratio = min(0, logp_proposal - get_logprob(state))
-
-    if log(rand(rng)) < log_acceptance_ratio
-        return MHTransition(proposal), MHState(proposal, logp_proposal)
+    logdensity_function = logdensity_model.logdensity
+    return if recompute_logp
+        AbstractMCMC.LogDensityProblems.logdensity(logdensity_function, state.params)
     else
-        return MHTransition(params), MHState(params, get_logprob(state))
+        state.logp
     end
 end
+
+# Interface 2: Base.vec
+# This function takes a state and returns a vector of the parameter values stored in the state.
+# It is part of the interface for interacting with the state object.
+Base.vec(state::MHState) = state.params
+
+# Interface 3: (state::MHState)(logp::Float64)
+# This function allows the state to be updated with a new log probability.
+# ! this makes state into a Julia functor
+(state::MHState)(logp::Float64) = MHState(state.params, logp)
 ```
 
+It is very simple to implement the samplers according to the `AbstractMCMC` interface, where we can use `LogDensityProblems.logdensity` to easily read the log probability of the current state.
+
 ```julia
-struct IndependentMH <: AbstractMCMC.AbstractSampler
-    prior_dist::Distribution
+"""
+    RandomWalkMH{T} <: AbstractMCMC.AbstractSampler
+
+A random walk Metropolis-Hastings sampler with a normal proposal distribution. The field σ
+is the standard deviation of the proposal distribution.
+"""
+struct RandomWalkMH{T} <: AbstractMHSampler
+    σ::T
 end
 
+"""
+    IndependentMH{T} <: AbstractMCMC.AbstractSampler
+
+A Metropolis-Hastings sampler with an independent proposal distribution.
+"""
+struct IndependentMH{T} <: AbstractMHSampler
+    proposal_dist::T
+end
+
+# the first step of the sampler
 function AbstractMCMC.step(
     rng::AbstractRNG,
     logdensity_model::AbstractMCMC.LogDensityModel,
-    sampler::IndependentMH,
+    sampler::AbstractMHSampler,
     args...;
     initial_params,
     kwargs...,
 )
-    return MHTransition(initial_params),
-    MHState(
+    logdensity_function = logdensity_model.logdensity
+    transition = MHTransition(initial_params)
+    state = MHState(
         initial_params,
-        only(LogDensityProblems.logdensity(logdensity_model.logdensity, initial_params)),
+        only(LogDensityProblems.logdensity(logdensity_function, initial_params)),
     )
+
+    return transition, state
 end
 
+@inline get_proposal_dist(sampler::RandomWalkMH, current_params::Vector{Float64}) =
+    MvNormal(current_params, sampler.σ)
+@inline get_proposal_dist(sampler::IndependentMH, current_params::Vector{T}) where {T} =
+    sampler.proposal_dist
+
+# the subsequent steps of the sampler
 function AbstractMCMC.step(
     rng::AbstractRNG,
     logdensity_model::AbstractMCMC.LogDensityModel,
-    sampler::IndependentMH,
+    sampler::AbstractMHSampler,
     state::MHState,
     args...;
     kwargs...,
 )
-    params = get_params(state)
-    proposal_dist = sampler.prior_dist
-    proposal = rand(rng, proposal_dist)
+    logdensity_function = logdensity_model.logdensity
+    current_params = state.params
+    proposal_dist = get_proposal_dist(sampler, current_params)
+    proposed_params = rand(rng, proposal_dist)
     logp_proposal = only(
-        LogDensityProblems.logdensity(logdensity_model.logdensity, proposal)
+        LogDensityProblems.logdensity(logdensity_function, proposed_params)
     )
 
-    log_acceptance_ratio = min(
+    if log(rand(rng)) <
+        compute_log_acceptance_ratio(sampler, state, proposed_params, logp_proposal)
+        return MHTransition(proposed_params), MHState(proposed_params, logp_proposal)
+    else
+        return MHTransition(current_params), MHState(current_params, state.logp)
+    end
+end
+
+function compute_log_acceptance_ratio(
+    ::RandomWalkMH, state::MHState, ::Vector{Float64}, logp_proposal::Float64
+)
+    return min(0, logp_proposal - state.logp)
+end
+
+function compute_log_acceptance_ratio(
+    sampler::IndependentMH, state::MHState, proposal::Vector{T}, logp_proposal::Float64
+) where {T}
+    return min(
         0,
-        logp_proposal - get_logprob(state) + logpdf(proposal_dist, params) -
-        logpdf(proposal_dist, proposal),
+        logp_proposal - state.logp + logpdf(sampler.proposal_dist, state.params) -
+        logpdf(sampler.proposal_dist, proposal),
     )
-
-    if log(rand(rng)) < log_acceptance_ratio
-        return MHTransition(proposal), MHState(proposal, logp_proposal)
-    else
-        return MHTransition(params), MHState(params, get_logprob(state))
-    end
 end
 ```
 
 At last, we can proceed to implement the Gibbs sampler.
 
 ```julia
-struct Gibbs <: AbstractMCMC.AbstractSampler
-    sampler_map::OrderedDict
+"""
+    Gibbs(sampler_map::NamedTuple)
+
+A Gibbs sampler that allows for block sampling using different inference algorithms for each parameter.
+"""
+struct Gibbs{T<:NamedTuple} <: AbstractMCMC.AbstractSampler
+    sampler_map::T
 end
 
-struct GibbsState
-    vi::NamedTuple
-    states::OrderedDict
+struct GibbsState{TraceNT<:NamedTuple,StateNT<:NamedTuple,SizeNT<:NamedTuple}
+    "Contains the values of all parameters up to the last iteration."
+    trace::TraceNT
+
+    "Maps parameters to their sampler-specific MCMC states."
+    mcmc_states::StateNT
+
+    "Maps parameters to their sizes."
+    variable_sizes::SizeNT
 end
 
-struct GibbsTransition
-    values::NamedTuple
+struct GibbsTransition{ValuesNT<:NamedTuple}
+    "Realizations of the parameters, this is considered a \"sample\" in the MCMC chain."
+    values::ValuesNT
+end
+
+"""
+    update_trace(trace::NamedTuple, gibbs_state::GibbsState)
+
+Update the trace with the values from the MCMC states of the sub-problems.
+"""
+function update_trace(trace::NamedTuple, gibbs_state::GibbsState)
+    for parameter_variable in keys(gibbs_state.mcmc_states)
+        sub_state = gibbs_state.mcmc_states[parameter_variable]
+        sub_state_params = Base.vec(sub_state)
+        unflattened_sub_state_params = unflatten(
+            sub_state_params,
+            NamedTuple{(parameter_variable,)}((
+                gibbs_state.variable_sizes[parameter_variable],
+            )),
+        )
+        trace = merge(trace, unflattened_sub_state_params)
+    end
+    return trace
+end
+
+function error_if_not_fully_initialized(
+    initial_params::NamedTuple{ParamNames}, sampler::Gibbs{<:NamedTuple{SamplerNames}}
+) where {ParamNames,SamplerNames}
+    if Set(ParamNames) != Set(SamplerNames)
+        throw(
+            ArgumentError(
+                "initial_params must contain all parameters in the model, expected $(SamplerNames), got $(ParamNames)",
+            ),
+        )
+    end
 end
 
 function AbstractMCMC.step(
-    rng::AbstractRNG,
+    rng::Random.AbstractRNG,
     logdensity_model::AbstractMCMC.LogDensityModel,
-    spl::Gibbs,
+    sampler::Gibbs{Tsamplingmap},
     args...;
     initial_params::NamedTuple,
     kwargs...,
-)
-    states = OrderedDict()
-    for group in keys(spl.sampler_map)
-        sub_spl = spl.sampler_map[group]
+) where {Tsamplingmap}
+    error_if_not_fully_initialized(initial_params, sampler)
 
-        vars_to_be_conditioned_on = setdiff(keys(initial_params), group)
-        cond_val = NamedTuple{Tuple(vars_to_be_conditioned_on)}(
-            Tuple([initial_params[g] for g in vars_to_be_conditioned_on])
+    model_parameter_names = fieldnames(Tsamplingmap)
+    results = map(model_parameter_names) do parameter_variable
+        sub_sampler = sampler.sampler_map[parameter_variable]
+
+        variables_to_be_conditioned_on = setdiff(
+            model_parameter_names, (parameter_variable,)
         )
-        params_val = NamedTuple{Tuple(group)}(Tuple([initial_params[g] for g in group]))
+        conditioning_variables_values = NamedTuple{Tuple(variables_to_be_conditioned_on)}(
+            Tuple([initial_params[g] for g in variables_to_be_conditioned_on])
+        )
+        sub_problem_parameters_values = NamedTuple{(parameter_variable,)}((
+            initial_params[parameter_variable],
+        ))
+
+        # LogDensityProblems' `logdensity` function expects a single vector of real numbers
+        # `Gibbs` stores the parameters as a named tuple, thus we need to flatten the sub_problem_parameters_values
+        # and unflatten after the sampling step
+        flattened_sub_problem_parameters_values = flatten(sub_problem_parameters_values)
+
         sub_state = last(
             AbstractMCMC.step(
                 rng,
                 AbstractMCMC.LogDensityModel(
-                    condition(logdensity_model.logdensity, cond_val)
+                    AbstractPPL.condition(
+                        logdensity_model.logdensity, conditioning_variables_values
+                    ),
                 ),
-                sub_spl,
+                sub_sampler,
                 args...;
-                initial_params=flatten(params_val),
+                initial_params=flattened_sub_problem_parameters_values,
                 kwargs...,
             ),
         )
-        states[group] = sub_state
+        (sub_state, Tuple(size(initial_params[parameter_variable])))
     end
-    return GibbsTransition(initial_params), GibbsState(initial_params, states)
+
+    mcmc_states_tuple = first.(results)
+    variable_sizes_tuple = last.(results)
+
+    gibbs_state = GibbsState(
+        initial_params,
+        NamedTuple{Tuple(model_parameter_names)}(mcmc_states_tuple),
+        NamedTuple{Tuple(model_parameter_names)}(variable_sizes_tuple),
+    )
+
+    trace = update_trace(NamedTuple(), gibbs_state)
+    return GibbsTransition(trace), gibbs_state
 end
 
+# subsequent steps
 function AbstractMCMC.step(
-    rng::AbstractRNG,
+    rng::Random.AbstractRNG,
     logdensity_model::AbstractMCMC.LogDensityModel,
-    spl::Gibbs,
-    state::GibbsState,
+    sampler::Gibbs{Tsamplingmap},
+    gibbs_state::GibbsState,
     args...;
     kwargs...,
-)
-    vi = state.vi
-    for group in keys(spl.sampler_map)
-        for (group, sub_state) in state.states
-            vi = merge(vi, unflatten(get_params(sub_state), group))
-        end
-        sub_spl = spl.sampler_map[group]
-        sub_state = state.states[group]
-        group_complement = setdiff(keys(vi), group)
-        cond_val = NamedTuple{Tuple(group_complement)}(
-            Tuple([vi[g] for g in group_complement])
+) where {Tsamplingmap}
+    (; trace, mcmc_states, variable_sizes) = gibbs_state
+
+    model_parameter_names = fieldnames(Tsamplingmap)
+    mcmc_states = map(model_parameter_names) do parameter_variable
+        sub_sampler = sampler.sampler_map[parameter_variable]
+        sub_state = mcmc_states[parameter_variable]
+        variables_to_be_conditioned_on = setdiff(
+            model_parameter_names, (parameter_variable,)
         )
-        cond_logdensity = condition(logdensity_model.logdensity, cond_val)
-        sub_state = recompute_logprob!!(cond_logdensity, get_params(sub_state), sub_state)
+        conditioning_variables_values = NamedTuple{Tuple(variables_to_be_conditioned_on)}(
+            Tuple([trace[g] for g in variables_to_be_conditioned_on])
+        )
+        cond_logdensity = AbstractPPL.condition(
+            logdensity_model.logdensity, conditioning_variables_values
+        )
+        cond_logdensity_model = AbstractMCMC.LogDensityModel(cond_logdensity)
+
+        logp = LogDensityProblems.logdensity(cond_logdensity_model, sub_state)
+        sub_state = (sub_state)(logp)
         sub_state = last(
             AbstractMCMC.step(
-                rng,
-                AbstractMCMC.LogDensityModel(cond_logdensity),
-                sub_spl,
-                sub_state,
-                args...;
-                kwargs...,
+                rng, cond_logdensity_model, sub_sampler, sub_state, args...; kwargs...
             ),
         )
-        state.states[group] = sub_state
+        trace = update_trace(trace, gibbs_state)
+        sub_state
     end
-    for (group, sub_state) in state.states
-        vi = merge(vi, unflatten(get_params(sub_state), group))
+    mcmc_states = NamedTuple{Tuple(model_parameter_names)}(mcmc_states)
+
+    return GibbsTransition(trace), GibbsState(trace, mcmc_states, variable_sizes)
+end
+```
+
+where we use two utility functions `flatten` and `unflatten` to convert between the single vector of real numbers and the named tuple of parameters.
+
+```julia
+"""
+    flatten(trace::NamedTuple)
+
+Flatten all the values in the trace into a single vector. Variable names information is discarded.
+"""
+function flatten(trace::NamedTuple)
+    return reduce(vcat, vec.(values(trace)))
+end
+
+"""
+    unflatten(vec::AbstractVector, variable_names::Vector{Symbol}, variable_sizes::Vector{Tuple})
+
+Reverse operation of flatten. Reshape the vector into the original arrays using size information.
+"""
+function unflatten(
+    vec::AbstractVector, variable_names_and_sizes::NamedTuple{variable_names}
+) where {variable_names}
+    result = Dict{Symbol,Array}()
+    start_idx = 1
+    for name in variable_names
+        size = variable_names_and_sizes[name]
+        end_idx = start_idx + prod(size) - 1
+        result[name] = reshape(vec[start_idx:end_idx], size...)
+        start_idx = end_idx + 1
     end
-    return GibbsTransition(vi), GibbsState(vi, state.states)
+
+    return NamedTuple{variable_names}(Tuple([result[name] for name in variable_names]))
 end
 ```
 
 Some points worth noting:
 
-1. We are using `OrderedDict` to store the mapping between variables and samplers. The order will determine the order of the Gibbs sweeps.
+1. We are using `NamedTuple` to store the mapping between variables and samplers. The order will determine the order of the Gibbs sweeps. A limitation is that exactly one sampler for each variable is required, which means it is less flexible than Gibbs in `Turing.jl`.
 2. For each conditional probability problem, we need to store the sampler states for each variable group and also the values of all the variables from last iteration.
 3. The first step of the Gibbs sampler is to setup the states for each conditional probability problem.
 4. In the following steps of the Gibbs sampler, it will do a sweep over all the conditional probability problems, and update the sampler states for each problem. In each step of the sweep, it will do the following:
-    - first update the values from the last step of the sweep into the `vi`, which stores the values of all variables at the moment of the Gibbs sweep.
     - condition on the values of all variables that are not in the current group
     - recompute the log probability of the current state, because the values of the variables that are not in the current group may have changed
     - perform a step of the sampler for the conditional probability problem, and update the sampler state
     - update the `vi` with the new values from the sampler state
 
-Again, the `state` interface in AbstractMCMC allows the Gibbs sampler to be agnostic of the details of the sampler state, and acquire the values of the parameters from individual sampler states.
+The `state` interface in AbstractMCMC allows the Gibbs sampler to be agnostic of the details of the sampler state, and acquire the values of the parameters from individual sampler states.
 
 Now we can use the Gibbs sampler to sample from the hierarchical normal model.
 
@@ -382,13 +488,11 @@ Using Gibbs sampling allows us to use random walk MH for `mu` and prior MH for `
 ```julia
 samples = sample(
     hn,
-    Gibbs(
-        OrderedDict(
-            (:mu,) => RandomWalkMH(1),
-            (:tau2,) => IndependentMH(product_distribution([InverseGamma(1, 1)])),
-        ),
-    ),
-    100000;
+    Gibbs((
+        mu=RandomWalkMH(0.3),
+        tau2=IndependentMH(product_distribution([InverseGamma(1, 1)])),
+    )),
+    10000;
     initial_params=(mu=[0.0], tau2=[1.0]),
 )
 ```
@@ -401,4 +505,13 @@ tau2_samples = [sample.values.tau2 for sample in samples][20001:end]
 
 mean(mu_samples)
 mean(tau2_samples)
+(mu_mean, tau2_mean)
 ```
+
+the result should looks like:
+
+```julia
+(4.995812149309413, 1.9372372289677886)
+```
+
+which is close to the true values `(5, 2)`.

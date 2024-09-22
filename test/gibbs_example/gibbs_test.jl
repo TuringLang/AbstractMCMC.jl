@@ -19,11 +19,11 @@ include("hier_normal.jl")
             mu=RandomWalkMH(0.3),
             tau2=IndependentMH(product_distribution([InverseGamma(1, 1)])),
         )),
-        200000;
+        10000;
         initial_params=(mu=[0.0], tau2=[1.0]),
     )
 
-    warmup = 40000
+    warmup = 5000
     thin = 10
     thinned_samples = samples[(warmup + 1):thin:end]
     mu_samples = [sample.values.mu for sample in thinned_samples]
