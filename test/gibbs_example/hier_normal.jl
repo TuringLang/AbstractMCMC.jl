@@ -1,14 +1,16 @@
 abstract type AbstractHierNormal end
 
-struct HierNormal <: AbstractHierNormal
-    data::NamedTuple
+struct HierNormal{Tdata<:NamedTuple} <: AbstractHierNormal
+    data::Tdata
 end
 
-struct ConditionedHierNormal{conditioned_vars} <: AbstractHierNormal
-    data::NamedTuple
-    conditioned_values::NamedTuple{conditioned_vars}
+struct ConditionedHierNormal{Tdata<:NamedTuple,Tconditioned_vars<:NamedTuple} <:
+       AbstractHierNormal
+    data::Tdata
+    conditioned_values::Tconditioned_vars
 end
 
+# `mu` and `tau2` are length-1 vectors to make 
 function log_joint(; mu, tau2, x)
     # mu is the mean
     # tau2 is the variance
@@ -39,14 +41,18 @@ function AbstractMCMC.condition(hn::HierNormal, conditioned_values::NamedTuple)
 end
 
 function LogDensityProblems.logdensity(
-    hn::ConditionedHierNormal{names}, params::AbstractVector
+    hier_normal_model::ConditionedHierNormal{names}, params::AbstractVector
 ) where {names}
-    if Set(names) == Set([:mu]) # conditioned on mu, so params are tau2
-        return log_joint(; mu=hn.conditioned_values.mu, tau2=params, x=hn.data.x)
-    elseif Set(names) == Set([:tau2]) # conditioned on tau2, so params are mu
-        return log_joint(; mu=params, tau2=hn.conditioned_values.tau2, x=hn.data.x)
+    variable_to_condition = only(names)
+    data = hier_normal_model.data
+    conditioned_values = hier_normal_model.conditioned_values
+
+    if variable_to_condition == :mu
+        return log_joint(; mu=conditioned_values.mu, tau2=params, x=data.x)
+    elseif variable_to_condition == :tau2
+        return log_joint(; mu=params, tau2=conditioned_values.tau2, x=data.x)
     else
-        error("Unsupported conditioning configuration.")
+        error("Unsupported conditioning variable: $variable_to_condition")
     end
 end
 
