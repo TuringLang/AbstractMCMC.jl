@@ -1,3 +1,4 @@
+include("gibbs.jl")
 include("mh.jl")
 # include("gmm.jl")
 include("hier_normal.jl")
@@ -14,7 +15,7 @@ include("hier_normal.jl")
 
     samples = sample(
         hn,
-        AbstractMCMC.Gibbs((
+        Gibbs((
             mu=RandomWalkMH(0.3),
             tau2=IndependentMH(product_distribution([InverseGamma(1, 1)])),
         )),

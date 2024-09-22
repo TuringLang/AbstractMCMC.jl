@@ -159,13 +159,13 @@ function AbstractMCMC.step(
         (sub_state, Tuple(size(initial_params[parameter_variable])))
     end
 
-    mcmc_states = first.(results)
-    variable_sizes = last.(results)
+    mcmc_states_tuple = first.(results)
+    variable_sizes_tuple = last.(results)
 
     gibbs_state = GibbsState(
         initial_params,
-        NamedTuple{Tuple(model_parameter_names)}(mcmc_states),
-        NamedTuple{Tuple(model_parameter_names)}(variable_sizes),
+        NamedTuple{Tuple(model_parameter_names)}(mcmc_states_tuple),
+        NamedTuple{Tuple(model_parameter_names)}(variable_sizes_tuple),
     )
 
     trace = update_trace(NamedTuple(), gibbs_state)
