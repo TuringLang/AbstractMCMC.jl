@@ -1,11 +1,17 @@
+using AbstractMCMC: AbstractMCMC, LogDensityProblems
 using Distributions
-
+using Random
 abstract type AbstractMHSampler <: AbstractMCMC.AbstractSampler end
 
 struct MHState{T}
     params::Vector{T}
     logp::Float64
 end
+
+# Interface 3: (state::MHState)(logp::Float64)
+# This function allows the state to be updated with a new log probability.
+# ! this makes state into a Julia functor
+(state::MHState)(logp::Float64) = MHState(state.params, logp)
 
 struct MHTransition{T}
     params::Vector{T}
@@ -15,7 +21,7 @@ end
 # This function takes the logdensity function and the state (state is defined by the sampler package)
 # and returns the logdensity. It allows for optional recomputation of the log probability.
 # If recomputation is not needed, it returns the stored log probability from the state.
-function AbstractMCMC.logdensity_and_state(
+function LogDensityProblems.logdensity(
     logdensity_function, state::MHState; recompute_logp=true
 )
     return if recompute_logp
@@ -28,9 +34,7 @@ end
 # Interface 2: Base.vec
 # This function takes a state and returns a vector of the parameter values stored in the state.
 # It is part of the interface for interacting with the state object.
-function Base.vec(state::MHState)
-    return state.params
-end
+Base.vec(state::MHState) = state.params
 
 """
     RandomWalkMH{T} <: AbstractMCMC.AbstractSampler
@@ -62,14 +66,17 @@ function AbstractMCMC.step(
 )
     logdensity_function = logdensity_model.logdensity
     transition = MHTransition(initial_params)
-    state = MHState(initial_params, only(logdensity_function(initial_params)))
+    state = MHState(
+        initial_params,
+        only(LogDensityProblems.logdensity(logdensity_function, initial_params)),
+    )
 
     return transition, state
 end
 
-@inline proposal_dist(sampler::RandomWalkMH, current_params::Vector{Float64}) =
+@inline get_proposal_dist(sampler::RandomWalkMH, current_params::Vector{Float64}) =
     MvNormal(current_params, sampler.σ)
-@inline proposal_dist(sampler::IndependentMH, current_params::Vector{T}) where {T} =
+@inline get_proposal_dist(sampler::IndependentMH, current_params::Vector{T}) where {T} =
     sampler.proposal_dist
 
 # the subsequent steps of the sampler
@@ -83,7 +90,7 @@ function AbstractMCMC.step(
 )
     logdensity_function = logdensity_model.logdensity
     current_params = state.params
-    proposal_dist = proposal_dist(sampler, current_params)
+    proposal_dist = get_proposal_dist(sampler, current_params)
     proposed_params = rand(rng, proposal_dist)
     logp_proposal = only(
         LogDensityProblems.logdensity(logdensity_function, proposed_params)

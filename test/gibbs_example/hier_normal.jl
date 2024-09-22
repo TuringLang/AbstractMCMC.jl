@@ -1,3 +1,5 @@
+using AbstractPPL: AbstractPPL
+
 abstract type AbstractHierNormal end
 
 struct HierNormal{Tdata<:NamedTuple} <: AbstractHierNormal
@@ -7,6 +9,8 @@ end
 struct ConditionedHierNormal{Tdata<:NamedTuple,Tconditioned_vars<:NamedTuple} <:
        AbstractHierNormal
     data::Tdata
+
+    " The variable to be conditioned on and its value"
     conditioned_values::Tconditioned_vars
 end
 
@@ -36,14 +40,15 @@ function log_joint(; mu, tau2, x)
     return logp
 end
 
-function AbstractMCMC.condition(hn::HierNormal, conditioned_values::NamedTuple)
+function AbstractPPL.condition(hn::HierNormal, conditioned_values::NamedTuple)
     return ConditionedHierNormal(hn.data, conditioned_values)
 end
 
 function LogDensityProblems.logdensity(
-    hier_normal_model::ConditionedHierNormal{names}, params::AbstractVector
-) where {names}
-    variable_to_condition = only(names)
+    hier_normal_model::ConditionedHierNormal{Tdata,Tconditioned_vars},
+    params::AbstractVector,
+) where {Tdata,Tconditioned_vars}
+    variable_to_condition = only(fieldnames(Tconditioned_vars))
     data = hier_normal_model.data
     conditioned_values = hier_normal_model.conditioned_values
 

@@ -24,5 +24,5 @@ include("utils.jl")
     include("stepper.jl")
     include("transducer.jl")
     include("logdensityproblems.jl")
-    include("gibbs_example/gibbs.jl")
+    include("gibbs_example/gibbs_test.jl")
 end

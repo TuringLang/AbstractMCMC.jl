@@ -6,7 +6,6 @@ desc = "A lightweight interface for common MCMC methods."
 version = "5.3.0"
 
 [deps]
-AbstractPPL = "7a57a42e-76ec-4ea3-a279-07e840d6d9cf"
 BangBang = "198e06fe-97b7-11e9-32a5-e1d131e6ad66"
 ConsoleProgressMonitor = "88cd18e8-d9cc-4ea6-8889-5259c0d15c8b"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
@@ -28,6 +27,7 @@ ConsoleProgressMonitor = "0.1"
 FillArrays = "1"
 LogDensityProblems = "2"
 LoggingExtras = "0.4, 0.5, 1"
+MCMCChains = "6"
 ProgressLogging = "0.1"
 StatsBase = "0.32, 0.33, 0.34"
 TerminalLoggers = "0.1"
@@ -35,11 +35,13 @@ Transducers = "0.4.30"
 julia = "1.6"
 
 [extras]
+AbstractPPL = "7a57a42e-76ec-4ea3-a279-07e840d6d9cf"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 FillArrays = "1a297f60-69ca-5386-bcde-b61e274b549b"
 IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
+MCMCChains = "c7f686f2-ff18-58e9-bc7b-31028e88f75d"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["AbstractPPL","FillArrays", "Distributions", "IJulia", "Statistics", "Test"]
+test = ["AbstractPPL","FillArrays", "Distributions", "IJulia", "MCMCChains", "Statistics", "Test"]

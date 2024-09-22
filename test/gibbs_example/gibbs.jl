@@ -1,5 +1,7 @@
-using AbstractMCMC, AbstractPPL
-using BangBang.ConstructorBase: ConstructorBase
+using AbstractMCMC: AbstractMCMC
+using AbstractPPL: AbstractPPL 
+using MCMCChains: Chains
+using Random
 
 """
     Gibbs(sampler_map::NamedTuple)
@@ -99,27 +101,34 @@ function update_trace(trace::NamedTuple, gibbs_state::GibbsState)
     return trace
 end
 
-function AbstractMCMC.step(
-    rng::Random.AbstractRNG,
-    logdensity_model::AbstractMCMC.LogDensityModel,
-    sampler::Gibbs,
-    args...;
-    initial_params::NamedTuple,
-    kwargs...,
-)
-    if Set(keys(initial_params)) != Set(keys(sampler.sampler_map))
+function error_if_not_fully_initialized(
+    initial_params::NamedTuple{ParamNames}, sampler::Gibbs{<:NamedTuple{SamplerNames}}
+) where {ParamNames,SamplerNames}
+    if Set(ParamNames) != Set(SamplerNames)
         throw(
             ArgumentError(
-                "initial_params must contain all parameters in the model, expected $(keys(sampler.sampler_map)), got $(keys(initial_params))",
+                "initial_params must contain all parameters in the model, expected $(SamplerNames), got $(ParamNames)",
             ),
         )
     end
+end
 
-    mcmc_states, variable_sizes = map(keys(sampler.sampler_map)) do parameter_variable
+function AbstractMCMC.step(
+    rng::Random.AbstractRNG,
+    logdensity_model::AbstractMCMC.LogDensityModel,
+    sampler::Gibbs{Tsamplingmap},
+    args...;
+    initial_params::NamedTuple,
+    kwargs...,
+) where {Tsamplingmap}
+    error_if_not_fully_initialized(initial_params, sampler)
+
+    model_parameter_names = fieldnames(Tsamplingmap)
+    results = map(model_parameter_names) do parameter_variable
         sub_sampler = sampler.sampler_map[parameter_variable]
 
         variables_to_be_conditioned_on = setdiff(
-            keys(sampler.sampler_map), (parameter_variable,)
+            model_parameter_names, (parameter_variable,)
         )
         conditioning_variables_values = NamedTuple{Tuple(variables_to_be_conditioned_on)}(
             Tuple([initial_params[g] for g in variables_to_be_conditioned_on])
@@ -137,7 +146,7 @@ function AbstractMCMC.step(
             AbstractMCMC.step(
                 rng,
                 AbstractMCMC.LogDensityModel(
-                    AbstractMCMC.condition(
+                    AbstractPPL.condition(
                         logdensity_model.logdensity, conditioning_variables_values
                     ),
                 ),
@@ -150,40 +159,46 @@ function AbstractMCMC.step(
         (sub_state, Tuple(size(initial_params[parameter_variable])))
     end
 
+    mcmc_states = first.(results)
+    variable_sizes = last.(results)
+
     gibbs_state = GibbsState(
         initial_params,
-        NamedTuple{Tuple(keys(sampler.sampler_map))}(mcmc_states),
-        NamedTuple{Tuple(keys(sampler.sampler_map))}(variable_sizes),
+        NamedTuple{Tuple(model_parameter_names)}(mcmc_states),
+        NamedTuple{Tuple(model_parameter_names)}(variable_sizes),
     )
+
     trace = update_trace(NamedTuple(), gibbs_state)
     return GibbsTransition(trace), gibbs_state
 end
 
+# subsequent steps
 function AbstractMCMC.step(
     rng::Random.AbstractRNG,
     logdensity_model::AbstractMCMC.LogDensityModel,
-    sampler::Gibbs,
+    sampler::Gibbs{Tsamplingmap},
     gibbs_state::GibbsState,
     args...;
     kwargs...,
-)
+) where {Tsamplingmap}
     (; trace, mcmc_states, variable_sizes) = gibbs_state
 
-    mcmc_states = map(keys(sampler.sampler_map)) do parameter_variable
+    model_parameter_names = fieldnames(Tsamplingmap)
+    mcmc_states = map(model_parameter_names) do parameter_variable
         sub_sampler = sampler.sampler_map[parameter_variable]
         sub_state = mcmc_states[parameter_variable]
         variables_to_be_conditioned_on = setdiff(
-            sampler.parameter_names, (parameter_variable,)
+            model_parameter_names, (parameter_variable,)
         )
         conditioning_variables_values = NamedTuple{Tuple(variables_to_be_conditioned_on)}(
             Tuple([trace[g] for g in variables_to_be_conditioned_on])
         )
-        cond_logdensity = AbstractMCMC.condition(
+        cond_logdensity = AbstractPPL.condition(
             logdensity_model.logdensity, conditioning_variables_values
         )
 
-        logp = LogDensityProblems.logdensity_and_state(cond_logdensity, sub_state)
-        sub_state = constructorof(typeof(sub_state))(; logp=logp)
+        logp = LogDensityProblems.logdensity(cond_logdensity, sub_state)
+        sub_state = (sub_state)(logp)
         sub_state = last(
             AbstractMCMC.step(
                 rng,
@@ -197,7 +212,7 @@ function AbstractMCMC.step(
         trace = update_trace(trace, gibbs_state)
         sub_state
     end
-    mcmc_states = NamedTuple{Tuple(keys(sampler.sampler_map))}(mcmc_states)
+    mcmc_states = NamedTuple{Tuple(model_parameter_names)}(mcmc_states)
 
     return GibbsTransition(trace), GibbsState(trace, mcmc_states, variable_sizes)
 end
