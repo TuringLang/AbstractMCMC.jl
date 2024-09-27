@@ -15,7 +15,7 @@ struct ConditionedHierNormal{Tdata<:NamedTuple,Tconditioned_vars<:NamedTuple} <:
 end
 
 # `mu` and `tau2` are length-1 vectors to make 
-function log_joint(; mu, tau2, x)
+function log_joint(; mu::Vector{Float64}, tau2::Vector{Float64}, x::Vector{Float64})
     # mu is the mean
     # tau2 is the variance
     # x is data

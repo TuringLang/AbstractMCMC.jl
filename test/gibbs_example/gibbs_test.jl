@@ -33,7 +33,7 @@ include("hier_normal.jl")
     tau2_mean = only(mean(tau2_samples))
 
     @test mu_mean ≈ mu_true atol = 0.1
-    @test tau2_mean ≈ tau2_true atol = 0.3
+    @test tau2_mean ≈ tau2_true atol = 0.1
 end
 
 # This is too difficult to sample, disable for now

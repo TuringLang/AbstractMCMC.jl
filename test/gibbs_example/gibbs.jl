@@ -1,14 +1,9 @@
 using AbstractMCMC: AbstractMCMC
 using AbstractPPL: AbstractPPL
-using MCMCChains: Chains
 using Random
 
-"""
-    Gibbs(sampler_map::NamedTuple)
-
-A Gibbs sampler that allows for block sampling using different inference algorithms for each parameter.
-"""
 struct Gibbs{T<:NamedTuple} <: AbstractMCMC.AbstractSampler
+    "Maps variables to their samplers."
     sampler_map::T
 end
 
@@ -29,73 +24,22 @@ struct GibbsTransition{ValuesNT<:NamedTuple}
 end
 
 """
-    flatten(trace::NamedTuple)
-
-Flatten all the values in the trace into a single vector. Variable names information is discarded.
-
-# Examples
-
-```jldoctest; setup = :(using AbstractMCMC: flatten)
-julia> flatten((a=ones(2), b=ones(2, 2)))
-6-element Vector{Float64}:
- 1.0
- 1.0
- 1.0
- 1.0
- 1.0
- 1.0
-
-```
-"""
-function flatten(trace::NamedTuple)
-    return reduce(vcat, vec.(values(trace)))
-end
-
-"""
-    unflatten(vec::AbstractVector, variable_names::Vector{Symbol}, variable_sizes::Vector{Tuple})
-
-Reverse operation of flatten. Reshape the vector into the original arrays using size information.
-
-# Examples
-
-```jldoctest; setup = :(using AbstractMCMC: unflatten)
-julia> unflatten([1,2,3,4,5], (a=(2,), b=(3,)))
-(a = [1, 2], b = [3, 4, 5])
-
-julia> unflatten([1.0,2.0,3.0,4.0,5.0,6.0], (x=(2,2), y=(2,)))
-(x = [1.0 3.0; 2.0 4.0], y = [5.0, 6.0])
-```
-"""
-function unflatten(
-    vec::AbstractVector, variable_names_and_sizes::NamedTuple{variable_names}
-) where {variable_names}
-    result = Dict{Symbol,Array}()
-    start_idx = 1
-    for name in variable_names
-        size = variable_names_and_sizes[name]
-        end_idx = start_idx + prod(size) - 1
-        result[name] = reshape(vec[start_idx:end_idx], size...)
-        start_idx = end_idx + 1
-    end
-
-    return NamedTuple{variable_names}(Tuple([result[name] for name in variable_names]))
-end
-
-"""
     update_trace(trace::NamedTuple, gibbs_state::GibbsState)
 
 Update the trace with the values from the MCMC states of the sub-problems.
 """
-function update_trace(trace::NamedTuple, gibbs_state::GibbsState)
-    for parameter_variable in keys(gibbs_state.mcmc_states)
+function update_trace(
+    trace::NamedTuple{trace_names}, gibbs_state::GibbsState{TraceNT,StateNT,SizeNT}
+) where {trace_names,TraceNT,StateNT,SizeNT}
+    for parameter_variable in fieldnames(StateNT)
         sub_state = gibbs_state.mcmc_states[parameter_variable]
-        sub_state_params = Base.vec(sub_state)
-        unflattened_sub_state_params = unflatten(
-            sub_state_params,
-            NamedTuple{(parameter_variable,)}((
-                gibbs_state.variable_sizes[parameter_variable],
-            )),
+        sub_state_params_values = Base.vec(sub_state)
+        reshaped_sub_state_params_values = reshape(
+            sub_state_params_values, gibbs_state.variable_sizes[parameter_variable]
         )
+        unflattened_sub_state_params = NamedTuple{(parameter_variable,)}((
+            reshaped_sub_state_params_values,
+        ))
         trace = merge(trace, unflattened_sub_state_params)
     end
     return trace
@@ -116,8 +60,7 @@ end
 function AbstractMCMC.step(
     rng::Random.AbstractRNG,
     logdensity_model::AbstractMCMC.LogDensityModel,
-    sampler::Gibbs{Tsamplingmap},
-    args...;
+    sampler::Gibbs{Tsamplingmap};
     initial_params::NamedTuple,
     kwargs...,
 ) where {Tsamplingmap}
@@ -133,30 +76,27 @@ function AbstractMCMC.step(
         conditioning_variables_values = NamedTuple{Tuple(variables_to_be_conditioned_on)}(
             Tuple([initial_params[g] for g in variables_to_be_conditioned_on])
         )
-        sub_problem_parameters_values = NamedTuple{(parameter_variable,)}((
-            initial_params[parameter_variable],
-        ))
 
         # LogDensityProblems' `logdensity` function expects a single vector of real numbers
         # `Gibbs` stores the parameters as a named tuple, thus we need to flatten the sub_problem_parameters_values
         # and unflatten after the sampling step
-        flattened_sub_problem_parameters_values = flatten(sub_problem_parameters_values)
+        flattened_sub_problem_parameters_values = vec(initial_params[parameter_variable])
 
+        sub_logdensity_model = AbstractMCMC.LogDensityModel(
+            AbstractPPL.condition(
+                logdensity_model.logdensity, conditioning_variables_values
+            ),
+        )
         sub_state = last(
             AbstractMCMC.step(
                 rng,
-                AbstractMCMC.LogDensityModel(
-                    AbstractPPL.condition(
-                        logdensity_model.logdensity, conditioning_variables_values
-                    ),
-                ),
-                sub_sampler,
-                args...;
+                sub_logdensity_model,
+                sub_sampler;
                 initial_params=flattened_sub_problem_parameters_values,
                 kwargs...,
             ),
         )
-        (sub_state, Tuple(size(initial_params[parameter_variable])))
+        (sub_state, size(initial_params[parameter_variable]))
     end
 
     mcmc_states_tuple = first.(results)
@@ -177,8 +117,7 @@ function AbstractMCMC.step(
     rng::Random.AbstractRNG,
     logdensity_model::AbstractMCMC.LogDensityModel,
     sampler::Gibbs{Tsamplingmap},
-    gibbs_state::GibbsState,
-    args...;
+    gibbs_state::GibbsState;
     kwargs...,
 ) where {Tsamplingmap}
     trace = gibbs_state.trace
@@ -204,7 +143,7 @@ function AbstractMCMC.step(
         sub_state = (sub_state)(logp)
         sub_state = last(
             AbstractMCMC.step(
-                rng, cond_logdensity_model, sub_sampler, sub_state, args...; kwargs...
+                rng, cond_logdensity_model, sub_sampler, sub_state; kwargs...
             ),
         )
         trace = update_trace(trace, gibbs_state)
