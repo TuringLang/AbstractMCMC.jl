@@ -1,4 +1,4 @@
-# `state` Interface Functions
+# Interface For Sampler `state` and Gibbs Sampling
 
 We encourage sampler packages to implement the following interface functions for the `state` type(s) they maintain:
 
