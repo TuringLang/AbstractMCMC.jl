@@ -185,6 +185,8 @@ end
 It is very simple to implement the samplers according to the `AbstractMCMC` interface, where we can use `LogDensityProblems.logdensity` to easily read the log probability of the current state.
 
 ```@example gibbs_example
+abstract type AbstractMHSampler <: AbstractMCMC.AbstractSampler end
+
 """
     RandomWalkMH{T} <: AbstractMCMC.AbstractSampler
 
