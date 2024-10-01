@@ -49,7 +49,6 @@ using Random # hide
 using AbstractMCMC: AbstractMCMC # hide 
 using AbstractPPL: AbstractPPL # hide
 using BangBang: constructorof # hide
-using AbstractPPL: AbstractPPL
 ```
 
 ```@example gibbs_example
@@ -493,11 +492,14 @@ samples = sample(
 Then we can extract the samples and compute the mean of the samples.
 
 ```@example gibbs_example
-mu_samples = [sample.values.mu for sample in samples][20001:end]
-tau2_samples = [sample.values.tau2 for sample in samples][20001:end]
+warmup = 5000
+thin = 10
+thinned_samples = samples[(warmup + 1):thin:end]
+mu_samples = [sample.values.mu for sample in thinned_samples]
+tau2_samples = [sample.values.tau2 for sample in thinned_samples]
 
-mean(mu_samples)
-mean(tau2_samples)
+mu_mean = only(mean(mu_samples))
+tau2_mean = only(mean(tau2_samples))
 (mu_mean, tau2_mean)
 ```
 
