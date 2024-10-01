@@ -43,15 +43,13 @@ x_i &\sim \text{Normal}(\mu, \sqrt{\tau^2})
 We can write the log joint probability function as follows, where for the sake of simplicity for the following steps, we will assume that the `mu` and `tau2` parameters are one-element vectors. And `x` is the data.
 
 ```@example gibbs_example
-using AbstractMCMC: AbstractMCMC, LogDensityProblems # hide
+using AbstractMCMC: AbstractMCMC # hide 
+using LogDensityProblems # hide
 using Distributions # hide
 using Random # hide
 using AbstractMCMC: AbstractMCMC # hide 
 using AbstractPPL: AbstractPPL # hide
 using BangBang: constructorof # hide
-```
-
-```@example gibbs_example
 function log_joint(; mu::Vector{Float64}, tau2::Vector{Float64}, x::Vector{Float64})
     # mu is the mean
     # tau2 is the variance
