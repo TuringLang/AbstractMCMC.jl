@@ -17,10 +17,10 @@ Base.vec(state)
 This function takes the state and returns a vector of the parameter values stored in the state.
 
 ```julia
-(state::StateType)(logp::Float64)
+state = StateType(state, logp)
 ```
 
-This function takes the state and a log probability value, and returns a new state with the updated log probability.
+This function takes an existing `state` and a log probability value `logp`, and returns a new state of the same type with the updated log probability.
 
 These functions provide a minimal interface to interact with the `state` datatype, which a sampler package can optionally implement.
 The interface facilitates the implementation of "meta-algorithms" that combine different samplers.
@@ -166,10 +166,12 @@ end
 # It is part of the interface for interacting with the state object.
 Base.vec(state::MHState) = state.params
 
-# Interface 3: (state::MHState)(logp::Float64)
+# Interface 3: constructorof and MHState(state::MHState, logp::Float64)
 # This function allows the state to be updated with a new log probability.
-# ! this makes state into a Julia functor
-(state::MHState)(logp::Float64) = MHState(state.params, logp)
+BangBang.constructorof(state::MHState{T}) where {T} = MHState
+function MHState(state::MHState, logp::Float64)
+    return MHState(state.params, logp)
+end
 ```
 
 It is very simple to implement the samplers according to the `AbstractMCMC` interface, where we can use `LogDensityProblems.logdensity` to easily read the log probability of the current state.
@@ -400,8 +402,10 @@ function AbstractMCMC.step(
         )
         cond_logdensity_model = AbstractMCMC.LogDensityModel(cond_logdensity)
 
-        logp = LogDensityProblems.logdensity(cond_logdensity_model, sub_state)
-        sub_state = (sub_state)(logp)
+        logp = LogDensityProblems.logdensity(
+            cond_logdensity_model, sub_state; recompute_logp=true
+        )
+        sub_state = constructorof(typeof(sub_state))(sub_state, logp)
         sub_state = last(
             AbstractMCMC.step(
                 rng, cond_logdensity_model, sub_sampler, sub_state; kwargs...
@@ -449,7 +453,7 @@ Now we can use the Gibbs sampler to sample from the hierarchical Normal model.
 
 First we generate some data,
 
-```julia
+```@example gibbs_example
 N = 100  # Number of data points
 mu_true = 0.5  # True mean
 tau2_true = 2.0  # True variance
@@ -459,13 +463,13 @@ x_data = rand(Normal(mu_true, sqrt(tau2_true)), N)
 
 Then we can create a `HierNormal` model, with the data we just generated.
 
-```julia
+```@example gibbs_example
 hn = HierNormal((x=x_data,))
 ```
 
 Using Gibbs sampling allows us to use random walk MH for `mu` and prior MH for `tau2`, because `tau2` has support only on positive real numbers.
 
-```julia
+```@example gibbs_example
 samples = sample(
     hn,
     Gibbs((
@@ -479,19 +483,13 @@ samples = sample(
 
 Then we can extract the samples and compute the mean of the samples.
 
-```julia
+```@example gibbs_example
 mu_samples = [sample.values.mu for sample in samples][20001:end]
 tau2_samples = [sample.values.tau2 for sample in samples][20001:end]
 
 mean(mu_samples)
 mean(tau2_samples)
 (mu_mean, tau2_mean)
-```
-
-the result should looks like:
-
-```julia
-(4.995812149309413, 1.9372372289677886)
 ```
 
 which is close to the true values `(5, 2)`.

@@ -9,10 +9,11 @@ struct MHState{T}
     logp::Float64
 end
 
-# Interface 3: (state::MHState)(logp::Float64)
+# Interface 3: outer constructor that takes a state and a logp
 # This function allows the state to be updated with a new log probability.
-# ! this makes state into a Julia functor
-(state::MHState)(logp::Float64) = MHState(state.params, logp)
+function MHState(state::MHState, logp::Float64)
+    return MHState(state.params, logp)
+end
 
 struct MHTransition{T}
     params::Vector{T}

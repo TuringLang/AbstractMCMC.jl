@@ -1,5 +1,6 @@
 using AbstractMCMC: AbstractMCMC
 using AbstractPPL: AbstractPPL
+using BangBang: constructorof
 using Random
 
 struct Gibbs{T<:NamedTuple} <: AbstractMCMC.AbstractSampler
@@ -139,8 +140,10 @@ function AbstractMCMC.step(
         )
         cond_logdensity_model = AbstractMCMC.LogDensityModel(cond_logdensity)
 
-        logp = LogDensityProblems.logdensity(cond_logdensity_model, sub_state)
-        sub_state = (sub_state)(logp)
+        logp = LogDensityProblems.logdensity(
+            cond_logdensity_model, sub_state; recompute_logp=true
+        )
+        sub_state = constructorof(typeof(sub_state))(sub_state, logp)
         sub_state = last(
             AbstractMCMC.step(
                 rng, cond_logdensity_model, sub_sampler, sub_state; kwargs...
