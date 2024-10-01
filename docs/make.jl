@@ -1,7 +1,4 @@
 using AbstractMCMC
-using AbstractPPL
-using BangBang
-using Distributions
 using Documenter
 using Random
 
