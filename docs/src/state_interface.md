@@ -8,7 +8,7 @@ LogDensityProblems.logdensity(logdensity_model::AbstractMCMC.LogDensityModel, st
 
 This function takes the logdensity model and the state, and returns the log probability of the state.
 If `recompute_logp` is `true`, it should recompute the log probability of the state.
-Otherwise, it could use the log probability stored in the state.
+Otherwise, if available, it will use the log probability stored in the state. 
 
 ```julia
 Base.vec(state)
