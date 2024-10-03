@@ -24,7 +24,7 @@ This function takes an existing `state` and a log probability value `logp`, and 
 
 These functions provide a minimal interface to interact with the `state` datatype, which a sampler package can optionally implement.
 The interface facilitates the implementation of "meta-algorithms" that combine different samplers.
-We will demonstrate how it can be used to implement Gibbs sampling in the following sections.
+We will demonstrate this in the following sections.
 
 ## Using the `state` Interface for block sampling within Gibbs
 
