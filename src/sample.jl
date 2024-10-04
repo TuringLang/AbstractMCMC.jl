@@ -265,6 +265,13 @@ function mcmcsample(
     initial_state=nothing,
     kwargs...,
 )
+    # Check the number of requested samples.
+    N > 0 || error("the number of samples must be ≥ 1")
+    discard_initial >= 0 ||
+        throw(ArgumentError("number of discarded samples must be non-negative"))
+    num_warmup >= 0 ||
+        throw(ArgumentError("number of warm-up samples must be non-negative"))
+
     # Determine how many samples to drop from `num_warmup` and the
     # main sampling process before we start saving samples.
     discard_from_warmup = min(num_warmup, discard_initial)
