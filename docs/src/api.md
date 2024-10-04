@@ -71,9 +71,13 @@ Common keyword arguments for regular and parallel sampling are:
 - `progress` (default: `AbstractMCMC.PROGRESS[]` which is `true` initially):  toggles progress logging
 - `chain_type` (default: `Any`): determines the type of the returned chain
 - `callback` (default: `nothing`): if `callback !== nothing`, then
-  `callback(rng, model, sampler, sample, state, iteration)` is called after every sampling step,
-  where `sample` is the most recent sample of the Markov chain and `state` and `iteration` are the current state and iteration of the sampler
-- `discard_initial` (default: `0`): number of initial samples that are discarded
+  `callback(rng, model, sampler, sample, iteration)` is called after every sampling step,
+  where `sample` is the most recent sample of the Markov chain and `iteration` is the current iteration
+- `num_warmup` (default: `0`): number of "warm-up" steps to take before the first "regular" step, 
+   i.e. number of times to call [`AbstractMCMC.step_warmup`](@ref) before the first call to 
+   [`AbstractMCMC.step`](@ref).
+- `discard_initial` (default: `num_warmup`): number of initial samples that are discarded. Note that
+  if `discard_initial < num_warmup`, warm-up samples will also be included in the resulting samples.
 - `thinning` (default: `1`): factor by which to thin samples.
 - `initial_state` (default: `nothing`): if `initial_state !== nothing`, the first call to [`AbstractMCMC.step`](@ref)
   is passed `initial_state` as the `state` argument.
