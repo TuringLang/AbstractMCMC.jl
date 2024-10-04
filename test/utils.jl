@@ -3,7 +3,10 @@ struct MyModel <: AbstractMCMC.AbstractModel end
 struct MySample{A,B}
     a::A
     b::B
+    is_warmup::Bool
 end
+
+MySample(a, b) = MySample(a, b, false)
 
 struct MySampler <: AbstractMCMC.AbstractSampler end
 struct AnotherSampler <: AbstractMCMC.AbstractSampler end
@@ -15,6 +18,21 @@ struct MyChain{A,B,S} <: AbstractMCMC.AbstractChains
 end
 
 MyChain(a, b) = MyChain(a, b, NamedTuple())
+
+function AbstractMCMC.step_warmup(
+    rng::AbstractRNG,
+    model::MyModel,
+    sampler::MySampler,
+    state::Union{Nothing,Integer}=nothing;
+    loggers=false,
+    initial_params=nothing,
+    kwargs...,
+)
+    transition, state = AbstractMCMC.step(
+        rng, model, sampler, state; loggers, initial_params, kwargs...
+    )
+    return MySample(transition.a, transition.b, true), state
+end
 
 function AbstractMCMC.step(
     rng::AbstractRNG,
