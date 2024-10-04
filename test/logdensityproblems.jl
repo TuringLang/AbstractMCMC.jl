@@ -22,6 +22,15 @@
         @test model.logdensity === ℓ
 
         @test_throws ArgumentError AbstractMCMC.LogDensityModel(mylogdensity)
+
+        try
+            LogDensityProblems.logdensity(model, ones(10))
+        catch exc
+            @test exc isa MethodError
+            if isdefined(Base.Experimental, :register_error_hint)
+                @test occursin("is a wrapper", sprint(showerror, exc))
+            end
+        end
     end
 
     @testset "fallback for log densities" begin
