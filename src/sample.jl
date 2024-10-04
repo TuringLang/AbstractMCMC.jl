@@ -224,9 +224,6 @@ function mcmcsample(
             # Save the sample.
             samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
 
-            # Increment iteration counter.
-            i += 1
-
             # Update the progress bar.
             if progress && (itotal += 1) >= next_update
                 ProgressLogging.@logprogress itotal / Ntotal
@@ -296,7 +293,7 @@ function mcmcsample(
         # Discard initial samples.
         for j in 1:discard_initial
             # Obtain the next sample and state.
-            sample, state = if j ≤ discard_from_warmup
+            sample, state = if j ≤ num_warmup
                 step_warmup(rng, model, sampler, state; kwargs...)
             else
                 step(rng, model, sampler, state; kwargs...)
