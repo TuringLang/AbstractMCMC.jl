@@ -391,7 +391,8 @@ function mcmcsample(
     nchunks = min(nchains, Threads.nthreads())
     chunksize = cld(nchains, nchunks)
     interval = 1:nchunks
-    rngs = [deepcopy(rng) for _ in interval]
+    # `copy` instead of `deepcopy` for RNGs: https://github.com/JuliaLang/julia/issues/42899
+    rngs = [copy(rng) for _ in interval]
     models = [deepcopy(model) for _ in interval]
     samplers = [deepcopy(sampler) for _ in interval]
 
