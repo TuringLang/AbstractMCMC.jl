@@ -266,7 +266,6 @@ function mcmcsample(
     kwargs...,
 )
     # Check the number of requested samples.
-    N > 0 || error("the number of samples must be ≥ 1")
     discard_initial >= 0 ||
         throw(ArgumentError("number of discarded samples must be non-negative"))
     num_warmup >= 0 ||
