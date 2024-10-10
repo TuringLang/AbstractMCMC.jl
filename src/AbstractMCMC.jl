@@ -80,35 +80,25 @@ The `MCMCSerial` algorithm allows users to sample serially, with no thread or pr
 struct MCMCSerial <: AbstractMCMCEnsemble end
 
 """
-    updatestate!!(model, state, transition_prev[, state_prev])
+    getparams(state[; kwargs...])
 
-Return new instance of `state` using information from `model`, `transition_prev` and, optionally, `state_prev`.
-
-Defaults to `realize!!(state, realize(transition_prev))`.
+Retrieve the values of parameters from the sampler's `state` as a `Vector{<:Real}`.
 """
-function updatestate!!(model, state, transition_prev, state_prev)
-    return updatestate!!(state, transition_prev)
-end
-updatestate!!(model, state, transition) = realize!!(state, realize(transition))
+function getparams end
 
 """
-    realize!!(state, realization)
+    setparams!!(state, params)
 
-Update the realization of the `state` with `realization` and return it.
+Set the values of parameters in the sampler's `state` from a `Vector{<:Real}`. 
 
-If `state` can be updated in-place, it is expected that this function returns `state` with updated
-realize. Otherwise a new `state` object with the new `realization` is returned.
+This function should follow the `BangBang` interface: mutate `state` in-place if possible and 
+return the mutated `state`. Otherwise, it should return a new `state` containing the updated parameters.
+
+Although not enforced, it should hold that `setparams!!(state, getparams(state)) == state`. In another
+word, the sampler should implement a consistent transformation between its internal representation
+and the vector representation of the parameter values.
 """
-function realize!! end
-
-"""
-    realize(transition)
-
-Return the realization of the random variables present in `transition`.
-"""
-function realize end
-
-
+function setparams!! end
 include("samplingstats.jl")
 include("logging.jl")
 include("interface.jl")
