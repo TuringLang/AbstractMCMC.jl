@@ -142,7 +142,6 @@ To implement the state, we need to keep track of a couple of things:
 We need to keep track of the states of _all_ components rather than just the state for the sampler we used previously.
 The reason is that lots of samplers keep track of more than just the previous realizations of the variables, e.g. in `AdvancedHMC.jl` we keep track of the momentum used, the metric used, etc.
 
-For (2) the reason is similar: some samplers might keep track of the variables _in the state_ differently, e.g. you might have a sampler which is _independent_ of the current realizations and the state is simply `nothing`. 
 
 ```julia
 struct MixtureState{S}
