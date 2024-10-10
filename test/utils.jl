@@ -3,7 +3,10 @@ struct MyModel <: AbstractMCMC.AbstractModel end
 struct MySample{A,B}
     a::A
     b::B
+    is_warmup::Bool
 end
+
+MySample(a, b) = MySample(a, b, false)
 
 struct MySampler <: AbstractMCMC.AbstractSampler end
 struct AnotherSampler <: AbstractMCMC.AbstractSampler end
@@ -16,18 +19,33 @@ end
 
 MyChain(a, b) = MyChain(a, b, NamedTuple())
 
+function AbstractMCMC.step_warmup(
+    rng::AbstractRNG,
+    model::MyModel,
+    sampler::MySampler,
+    state::Union{Nothing,Integer}=nothing;
+    loggers=false,
+    initial_params=nothing,
+    kwargs...,
+)
+    transition, state = AbstractMCMC.step(
+        rng, model, sampler, state; loggers, initial_params, kwargs...
+    )
+    return MySample(transition.a, transition.b, true), state
+end
+
 function AbstractMCMC.step(
     rng::AbstractRNG,
     model::MyModel,
     sampler::MySampler,
     state::Union{Nothing,Integer}=nothing;
     loggers=false,
-    init_params=nothing,
+    initial_params=nothing,
     kwargs...,
 )
     # sample `a` is missing in the first step if not provided
-    a, b = if state === nothing && init_params !== nothing
-        init_params.a, init_params.b
+    a, b = if state === nothing && initial_params !== nothing
+        initial_params.a, initial_params.b
     else
         (state === nothing ? missing : rand(rng)), randn(rng)
     end

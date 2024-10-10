@@ -28,7 +28,7 @@
 
             # initial parameters
             chain = sample(
-                MyModel(), MySampler(), 3; progress=false, init_params=(b=3.2, a=-1.8)
+                MyModel(), MySampler(), 3; progress=false, initial_params=(b=3.2, a=-1.8)
             )
             @test chain[1].a == -1.8
             @test chain[1].b == 3.2
@@ -163,7 +163,7 @@
 
         # initial parameters
         nchains = 100
-        init_params = [(b=randn(), a=rand()) for _ in 1:nchains]
+        initial_params = [(b=randn(), a=rand()) for _ in 1:nchains]
         chains = sample(
             MyModel(),
             MySampler(),
@@ -171,15 +171,15 @@
             3,
             nchains;
             progress=false,
-            init_params=init_params,
+            initial_params=initial_params,
         )
         @test length(chains) == nchains
         @test all(
             chain[1].a == params.a && chain[1].b == params.b for
-            (chain, params) in zip(chains, init_params)
+            (chain, params) in zip(chains, initial_params)
         )
 
-        init_params = (a=randn(), b=rand())
+        initial_params = (a=randn(), b=rand())
         chains = sample(
             MyModel(),
             MySampler(),
@@ -187,14 +187,15 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains),
+            initial_params=FillArrays.Fill(initial_params, nchains),
         )
         @test length(chains) == nchains
         @test all(
-            chain[1].a == init_params.a && chain[1].b == init_params.b for chain in chains
+            chain[1].a == initial_params.a && chain[1].b == initial_params.b for
+            chain in chains
         )
 
-        # Too many `init_params`
+        # Too many `initial_params`
         @test_throws ArgumentError sample(
             MyModel(),
             MySampler(),
@@ -202,10 +203,10 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains + 1),
+            initial_params=FillArrays.Fill(initial_params, nchains + 1),
         )
 
-        # Too few `init_params`
+        # Too few `initial_params`
         @test_throws ArgumentError sample(
             MyModel(),
             MySampler(),
@@ -213,7 +214,7 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains - 1),
+            initial_params=FillArrays.Fill(initial_params, nchains - 1),
         )
     end
 
@@ -298,7 +299,7 @@
 
         # initial parameters
         nchains = 100
-        init_params = [(a=randn(), b=rand()) for _ in 1:nchains]
+        initial_params = [(a=randn(), b=rand()) for _ in 1:nchains]
         chains = sample(
             MyModel(),
             MySampler(),
@@ -306,15 +307,15 @@
             3,
             nchains;
             progress=false,
-            init_params=init_params,
+            initial_params=initial_params,
         )
         @test length(chains) == nchains
         @test all(
             chain[1].a == params.a && chain[1].b == params.b for
-            (chain, params) in zip(chains, init_params)
+            (chain, params) in zip(chains, initial_params)
         )
 
-        init_params = (b=randn(), a=rand())
+        initial_params = (b=randn(), a=rand())
         chains = sample(
             MyModel(),
             MySampler(),
@@ -322,14 +323,15 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains),
+            initial_params=FillArrays.Fill(initial_params, nchains),
         )
         @test length(chains) == nchains
         @test all(
-            chain[1].a == init_params.a && chain[1].b == init_params.b for chain in chains
+            chain[1].a == initial_params.a && chain[1].b == initial_params.b for
+            chain in chains
         )
 
-        # Too many `init_params`
+        # Too many `initial_params`
         @test_throws ArgumentError sample(
             MyModel(),
             MySampler(),
@@ -337,10 +339,10 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains + 1),
+            initial_params=FillArrays.Fill(initial_params, nchains + 1),
         )
 
-        # Too few `init_params`
+        # Too few `initial_params`
         @test_throws ArgumentError sample(
             MyModel(),
             MySampler(),
@@ -348,7 +350,7 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains - 1),
+            initial_params=FillArrays.Fill(initial_params, nchains - 1),
         )
 
         # Remove workers
@@ -358,13 +360,21 @@
     @testset "Serial sampling" begin
         # No dedicated chains type
         N = 10_000
-        chains = sample(MyModel(), MySampler(), MCMCSerial(), N, 1000)
+        chains = sample(MyModel(), MySampler(), MCMCSerial(), N, 1000; progress=false)
         @test chains isa Vector{<:Vector{<:MySample}}
         @test length(chains) == 1000
         @test all(length(x) == N for x in chains)
 
         Random.seed!(1234)
-        chains = sample(MyModel(), MySampler(), MCMCSerial(), N, 1000; chain_type=MyChain)
+        chains = sample(
+            MyModel(),
+            MySampler(),
+            MCMCSerial(),
+            N,
+            1000;
+            chain_type=MyChain,
+            progress=false,
+        )
 
         # Test output type and size.
         @test chains isa Vector{<:MyChain}
@@ -380,7 +390,15 @@
 
         # Test reproducibility.
         Random.seed!(1234)
-        chains2 = sample(MyModel(), MySampler(), MCMCSerial(), N, 1000; chain_type=MyChain)
+        chains2 = sample(
+            MyModel(),
+            MySampler(),
+            MCMCSerial(),
+            N,
+            1000;
+            chain_type=MyChain,
+            progress=false,
+        )
         @test all(ismissing(c.as[1]) for c in chains2)
         @test all(c1.as[i] == c2.as[i] for (c1, c2) in zip(chains, chains2), i in 2:N)
         @test all(c1.bs[i] == c2.bs[i] for (c1, c2) in zip(chains, chains2), i in 1:N)
@@ -407,7 +425,7 @@
 
         # initial parameters
         nchains = 100
-        init_params = [(a=rand(), b=randn()) for _ in 1:nchains]
+        initial_params = [(a=rand(), b=randn()) for _ in 1:nchains]
         chains = sample(
             MyModel(),
             MySampler(),
@@ -415,15 +433,15 @@
             3,
             nchains;
             progress=false,
-            init_params=init_params,
+            initial_params=initial_params,
         )
         @test length(chains) == nchains
         @test all(
             chain[1].a == params.a && chain[1].b == params.b for
-            (chain, params) in zip(chains, init_params)
+            (chain, params) in zip(chains, initial_params)
         )
 
-        init_params = (b=rand(), a=randn())
+        initial_params = (b=rand(), a=randn())
         chains = sample(
             MyModel(),
             MySampler(),
@@ -431,14 +449,15 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains),
+            initial_params=FillArrays.Fill(initial_params, nchains),
         )
         @test length(chains) == nchains
         @test all(
-            chain[1].a == init_params.a && chain[1].b == init_params.b for chain in chains
+            chain[1].a == initial_params.a && chain[1].b == initial_params.b for
+            chain in chains
         )
 
-        # Too many `init_params`
+        # Too many `initial_params`
         @test_throws ArgumentError sample(
             MyModel(),
             MySampler(),
@@ -446,10 +465,10 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains + 1),
+            initial_params=FillArrays.Fill(initial_params, nchains + 1),
         )
 
-        # Too few `init_params`
+        # Too few `initial_params`
         @test_throws ArgumentError sample(
             MyModel(),
             MySampler(),
@@ -457,7 +476,7 @@
             3,
             nchains;
             progress=false,
-            init_params=FillArrays.Fill(init_params, nchains - 1),
+            initial_params=FillArrays.Fill(initial_params, nchains - 1),
         )
     end
 
@@ -554,6 +573,45 @@
         )
         @test all(chain[i].a == ref_chain[i + discard_initial].a for i in 1:N)
         @test all(chain[i].b == ref_chain[i + discard_initial].b for i in 1:N)
+    end
+
+    @testset "Warm-up steps" begin
+        # Create a chain and discard initial samples.
+        Random.seed!(1234)
+        N = 100
+        num_warmup = 50
+
+        # Everything should be discarded here.
+        chain = sample(MyModel(), MySampler(), N; num_warmup=num_warmup)
+        @test length(chain) == N
+        @test !ismissing(chain[1].a)
+
+        # Repeat sampling without discarding initial samples.
+        # On Julia < 1.6 progress logging changes the global RNG and hence is enabled here.
+        # https://github.com/TuringLang/AbstractMCMC.jl/pull/102#issuecomment-1142253258
+        Random.seed!(1234)
+        ref_chain = sample(
+            MyModel(), MySampler(), N + num_warmup; progress=VERSION < v"1.6"
+        )
+        @test all(chain[i].a == ref_chain[i + num_warmup].a for i in 1:N)
+        @test all(chain[i].b == ref_chain[i + num_warmup].b for i in 1:N)
+
+        # Some other stuff.
+        Random.seed!(1234)
+        discard_initial = 10
+        chain_warmup = sample(
+            MyModel(),
+            MySampler(),
+            N;
+            num_warmup=num_warmup,
+            discard_initial=discard_initial,
+        )
+        @test length(chain_warmup) == N
+        @test all(chain_warmup[i].a == ref_chain[i + discard_initial].a for i in 1:N)
+        # Check that the first `num_warmup - discard_initial` samples are warmup samples.
+        @test all(
+            chain_warmup[i].is_warmup == (i <= num_warmup - discard_initial) for i in 1:N
+        )
     end
 
     @testset "Thin chain by a factor of `thinning`" begin
@@ -654,5 +712,64 @@
             MyModel(), MySampler(); callback=count_iterations, iter_array=it_array
         )
         @test it_array == collect(1:size(chain, 1))
+    end
+
+    @testset "Providing initial state" begin
+        function record_state(
+            rng, model, sampler, sample, state, i; states_channel, kwargs...
+        )
+            return put!(states_channel, state)
+        end
+
+        initial_state = 10
+
+        @testset "sample" begin
+            n = 10
+            states_channel = Channel{Int}(n)
+            chain = sample(
+                MyModel(),
+                MySampler(),
+                n;
+                initial_state=initial_state,
+                callback=record_state,
+                states_channel=states_channel,
+            )
+
+            # Extract the states.
+            states = [take!(states_channel) for _ in 1:n]
+            @test length(states) == n
+            for i in 1:n
+                @test states[i] == initial_state + i
+            end
+        end
+
+        @testset "sample with $mode" for mode in
+                                         [MCMCSerial(), MCMCThreads(), MCMCDistributed()]
+            nchains = 4
+            initial_state = 10
+            states_channel = if mode === MCMCDistributed()
+                # Need to use `RemoteChannel` for this.
+                RemoteChannel(() -> Channel{Int}(nchains))
+            else
+                Channel{Int}(nchains)
+            end
+            chain = sample(
+                MyModel(),
+                MySampler(),
+                mode,
+                1,
+                nchains;
+                initial_state=FillArrays.Fill(initial_state, nchains),
+                callback=record_state,
+                states_channel=states_channel,
+            )
+
+            # Extract the states.
+            states = [take!(states_channel) for _ in 1:nchains]
+            @test length(states) == nchains
+            for i in 1:nchains
+                @test states[i] == initial_state + 1
+            end
+        end
     end
 end

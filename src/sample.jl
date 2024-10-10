@@ -2,12 +2,15 @@
 const PROGRESS = Ref(true)
 
 """
-    setprogress!(progress::Bool)
+    setprogress!(progress::Bool; silent::Bool=false)
 
-Enable progress logging globally if `progress` is `true`, and disable it otherwise.
+Enable progress logging globally if `progress` is `true`, and disable it otherwise. 
+Optionally disable informational message if `silent` is `true`.
 """
-function setprogress!(progress::Bool)
-    @info "progress logging is $(progress ? "enabled" : "disabled") globally"
+function setprogress!(progress::Bool; silent::Bool=false)
+    if !silent
+        @info "progress logging is $(progress ? "enabled" : "disabled") globally"
+    end
     PROGRESS[] = progress
     return progress
 end
@@ -40,6 +43,11 @@ isdone(rng, model, sampler, samples, state, iteration; kwargs...)
 ```
 where `state` and `iteration` are the current state and iteration of the sampler, respectively.
 It should return `true` when sampling should end, and `false` otherwise.
+
+# Keyword arguments
+
+See https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments for common keyword
+arguments.
 """
 function StatsBase.sample(
     rng::Random.AbstractRNG,
@@ -77,6 +85,11 @@ end
 
 Sample `nchains` Monte Carlo Markov chains from the `model` with the `sampler` in parallel
 using the `parallel` algorithm, and combine them into a single chain.
+
+# Keyword arguments
+
+See https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments for common keyword
+arguments.
 """
 function StatsBase.sample(
     rng::Random.AbstractRNG,
@@ -91,7 +104,6 @@ function StatsBase.sample(
 end
 
 # Default implementations of regular and parallel sampling.
-
 function mcmcsample(
     rng::Random.AbstractRNG,
     model::AbstractModel,
@@ -100,14 +112,28 @@ function mcmcsample(
     progress=PROGRESS[],
     progressname="Sampling",
     callback=nothing,
-    discard_initial=0,
+    num_warmup::Int=0,
+    discard_initial::Int=num_warmup,
     thinning=1,
     chain_type::Type=Any,
+    initial_state=nothing,
     kwargs...,
 )
     # Check the number of requested samples.
     N > 0 || error("the number of samples must be ≥ 1")
+    discard_initial >= 0 ||
+        throw(ArgumentError("number of discarded samples must be non-negative"))
+    num_warmup >= 0 ||
+        throw(ArgumentError("number of warm-up samples must be non-negative"))
     Ntotal = thinning * (N - 1) + discard_initial + 1
+    Ntotal >= num_warmup || throw(
+        ArgumentError("number of warm-up samples exceeds the total number of samples")
+    )
+
+    # Determine how many samples to drop from `num_warmup` and the
+    # main sampling process before we start saving samples.
+    discard_from_warmup = min(num_warmup, discard_initial)
+    keep_from_warmup = num_warmup - discard_from_warmup
 
     # Start the timer
     start = time()
@@ -122,18 +148,41 @@ function mcmcsample(
         end
 
         # Obtain the initial sample and state.
-        sample, state = step(rng, model, sampler; kwargs...)
+        sample, state = if num_warmup > 0
+            if initial_state === nothing
+                step_warmup(rng, model, sampler; kwargs...)
+            else
+                step_warmup(rng, model, sampler, initial_state; kwargs...)
+            end
+        else
+            if initial_state === nothing
+                step(rng, model, sampler; kwargs...)
+            else
+                step(rng, model, sampler, initial_state; kwargs...)
+            end
+        end
+
+        # Update the progress bar.
+        itotal = 1
+        if progress && itotal >= next_update
+            ProgressLogging.@logprogress itotal / Ntotal
+            next_update = itotal + threshold
+        end
 
         # Discard initial samples.
-        for i in 1:discard_initial
-            # Update the progress bar.
-            if progress && i >= next_update
-                ProgressLogging.@logprogress i / Ntotal
-                next_update = i + threshold
+        for j in 1:discard_initial
+            # Obtain the next sample and state.
+            sample, state = if j ≤ num_warmup
+                step_warmup(rng, model, sampler, state; kwargs...)
+            else
+                step(rng, model, sampler, state; kwargs...)
             end
 
-            # Obtain the next sample and state.
-            sample, state = step(rng, model, sampler, state; kwargs...)
+            # Update the progress bar.
+            if progress && (itotal += 1) >= next_update
+                ProgressLogging.@logprogress itotal / Ntotal
+                next_update = itotal + threshold
+            end
         end
 
         # Run callback.
@@ -143,19 +192,16 @@ function mcmcsample(
         samples = AbstractMCMC.samples(sample, model, sampler, N; kwargs...)
         samples = save!!(samples, sample, 1, model, sampler, N; kwargs...)
 
-        # Update the progress bar.
-        itotal = 1 + discard_initial
-        if progress && itotal >= next_update
-            ProgressLogging.@logprogress itotal / Ntotal
-            next_update = itotal + threshold
-        end
-
         # Step through the sampler.
         for i in 2:N
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
-                sample, state = step(rng, model, sampler, state; kwargs...)
+                sample, state = if i ≤ keep_from_warmup
+                    step_warmup(rng, model, sampler, state; kwargs...)
+                else
+                    step(rng, model, sampler, state; kwargs...)
+                end
 
                 # Update progress bar.
                 if progress && (itotal += 1) >= next_update
@@ -165,7 +211,11 @@ function mcmcsample(
             end
 
             # Obtain the next sample and state.
-            sample, state = step(rng, model, sampler, state; kwargs...)
+            sample, state = if i ≤ keep_from_warmup
+                step_warmup(rng, model, sampler, state; kwargs...)
+            else
+                step(rng, model, sampler, state; kwargs...)
+            end
 
             # Run callback.
             callback === nothing ||
@@ -209,10 +259,22 @@ function mcmcsample(
     progress=PROGRESS[],
     progressname="Convergence sampling",
     callback=nothing,
-    discard_initial=0,
+    num_warmup=0,
+    discard_initial=num_warmup,
     thinning=1,
+    initial_state=nothing,
     kwargs...,
 )
+    # Check the number of requested samples.
+    discard_initial >= 0 ||
+        throw(ArgumentError("number of discarded samples must be non-negative"))
+    num_warmup >= 0 ||
+        throw(ArgumentError("number of warm-up samples must be non-negative"))
+
+    # Determine how many samples to drop from `num_warmup` and the
+    # main sampling process before we start saving samples.
+    discard_from_warmup = min(num_warmup, discard_initial)
+    keep_from_warmup = num_warmup - discard_from_warmup
 
     # Start the timer
     start = time()
@@ -220,12 +282,28 @@ function mcmcsample(
 
     @ifwithprogresslogger progress name = progressname begin
         # Obtain the initial sample and state.
-        sample, state = step(rng, model, sampler; kwargs...)
+        sample, state = if num_warmup > 0
+            if initial_state === nothing
+                step_warmup(rng, model, sampler; kwargs...)
+            else
+                step_warmup(rng, model, sampler, initial_state; kwargs...)
+            end
+        else
+            if initial_state === nothing
+                step(rng, model, sampler; kwargs...)
+            else
+                step(rng, model, sampler, initial_state; kwargs...)
+            end
+        end
 
         # Discard initial samples.
-        for _ in 1:discard_initial
+        for j in 1:discard_initial
             # Obtain the next sample and state.
-            sample, state = step(rng, model, sampler, state; kwargs...)
+            sample, state = if j ≤ num_warmup
+                step_warmup(rng, model, sampler, state; kwargs...)
+            else
+                step(rng, model, sampler, state; kwargs...)
+            end
         end
 
         # Run callback.
@@ -237,16 +315,23 @@ function mcmcsample(
 
         # Step through the sampler until stopping.
         i = 2
-
         while !isdone(rng, model, sampler, samples, state, i; progress=progress, kwargs...)
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
-                sample, state = step(rng, model, sampler, state; kwargs...)
+                sample, state = if i ≤ keep_from_warmup
+                    step_warmup(rng, model, sampler, state; kwargs...)
+                else
+                    step(rng, model, sampler, state; kwargs...)
+                end
             end
 
             # Obtain the next sample and state.
-            sample, state = step(rng, model, sampler, state; kwargs...)
+            sample, state = if i ≤ keep_from_warmup
+                step_warmup(rng, model, sampler, state; kwargs...)
+            else
+                step(rng, model, sampler, state; kwargs...)
+            end
 
             # Run callback.
             callback === nothing ||
@@ -288,7 +373,8 @@ function mcmcsample(
     nchains::Integer;
     progress=PROGRESS[],
     progressname="Sampling ($(min(nchains, Threads.nthreads())) threads)",
-    init_params=nothing,
+    initial_params=nothing,
+    initial_state=nothing,
     kwargs...,
 )
     # Check if actually multiple threads are used.
@@ -305,15 +391,17 @@ function mcmcsample(
     nchunks = min(nchains, Threads.nthreads())
     chunksize = cld(nchains, nchunks)
     interval = 1:nchunks
-    rngs = [deepcopy(rng) for _ in interval]
+    # `copy` instead of `deepcopy` for RNGs: https://github.com/JuliaLang/julia/issues/42899
+    rngs = [copy(rng) for _ in interval]
     models = [deepcopy(model) for _ in interval]
     samplers = [deepcopy(sampler) for _ in interval]
 
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
 
-    # Ensure that initial parameters are `nothing` or of the correct length
-    check_initial_params(init_params, nchains)
+    # Ensure that initial parameters and states are `nothing` or of the correct length
+    check_initial_params(initial_params, nchains)
+    check_initial_state(initial_state, nchains)
 
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
@@ -364,10 +452,15 @@ function mcmcsample(
                                 _sampler,
                                 N;
                                 progress=false,
-                                init_params=if init_params === nothing
+                                initial_params=if initial_params === nothing
                                     nothing
                                 else
-                                    init_params[chainidx]
+                                    initial_params[chainidx]
+                                end,
+                                initial_state=if initial_state === nothing
+                                    nothing
+                                else
+                                    initial_state[chainidx]
                                 end,
                                 kwargs...,
                             )
@@ -397,7 +490,8 @@ function mcmcsample(
     nchains::Integer;
     progress=PROGRESS[],
     progressname="Sampling ($(Distributed.nworkers()) processes)",
-    init_params=nothing,
+    initial_params=nothing,
+    initial_state=nothing,
     kwargs...,
 )
     # Check if actually multiple processes are used.
@@ -410,8 +504,14 @@ function mcmcsample(
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
     end
 
-    # Ensure that initial parameters are `nothing` or of the correct length
-    check_initial_params(init_params, nchains)
+    # Ensure that initial parameters and states are `nothing` or of the correct length
+    check_initial_params(initial_params, nchains)
+    check_initial_state(initial_state, nchains)
+
+    _initial_params =
+        initial_params === nothing ? FillArrays.Fill(nothing, nchains) : initial_params
+    _initial_state =
+        initial_state === nothing ? FillArrays.Fill(nothing, nchains) : initial_state
 
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
@@ -448,7 +548,7 @@ function mcmcsample(
 
             Distributed.@async begin
                 try
-                    function sample_chain(seed, init_params=nothing)
+                    function sample_chain(seed, initial_params, initial_state)
                         # Seed a new random number generator with the pre-made seed.
                         Random.seed!(rng, seed)
 
@@ -459,7 +559,8 @@ function mcmcsample(
                             sampler,
                             N;
                             progress=false,
-                            init_params=init_params,
+                            initial_params=initial_params,
+                            initial_state=initial_state,
                             kwargs...,
                         )
 
@@ -469,11 +570,9 @@ function mcmcsample(
                         # Return the new chain.
                         return chain
                     end
-                    chains = if init_params === nothing
-                        Distributed.pmap(sample_chain, pool, seeds)
-                    else
-                        Distributed.pmap(sample_chain, pool, seeds, init_params)
-                    end
+                    chains = Distributed.pmap(
+                        sample_chain, pool, seeds, _initial_params, _initial_state
+                    )
                 finally
                     # Stop updating the progress bar.
                     progress && put!(channel, false)
@@ -494,7 +593,8 @@ function mcmcsample(
     N::Integer,
     nchains::Integer;
     progressname="Sampling",
-    init_params=nothing,
+    initial_params=nothing,
+    initial_state=nothing,
     kwargs...,
 )
     # Check if the number of chains is larger than the number of samples
@@ -502,14 +602,20 @@ function mcmcsample(
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
     end
 
-    # Ensure that initial parameters are `nothing` or of the correct length
-    check_initial_params(init_params, nchains)
+    # Ensure that initial parameters and states are `nothing` or of the correct length
+    check_initial_params(initial_params, nchains)
+    check_initial_state(initial_state, nchains)
+
+    _initial_params =
+        initial_params === nothing ? FillArrays.Fill(nothing, nchains) : initial_params
+    _initial_state =
+        initial_state === nothing ? FillArrays.Fill(nothing, nchains) : initial_state
 
     # Create a seed for each chain using the provided random number generator.
     seeds = rand(rng, UInt, nchains)
 
     # Sample the chains.
-    function sample_chain(i, seed, init_params=nothing)
+    function sample_chain(i, seed, initial_params, initial_state)
         # Seed a new random number generator with the pre-made seed.
         Random.seed!(rng, seed)
 
@@ -520,16 +626,13 @@ function mcmcsample(
             sampler,
             N;
             progressname=string(progressname, " (Chain ", i, " of ", nchains, ")"),
-            init_params=init_params,
+            initial_params=initial_params,
+            initial_state=initial_state,
             kwargs...,
         )
     end
 
-    chains = if init_params === nothing
-        map(sample_chain, 1:nchains, seeds)
-    else
-        map(sample_chain, 1:nchains, seeds, init_params)
-    end
+    chains = map(sample_chain, 1:nchains, seeds, _initial_params, _initial_state)
 
     # Concatenate the chains together.
     return chainsstack(tighten_eltype(chains))
@@ -543,13 +646,30 @@ tighten_eltype(x::Vector{Any}) = map(identity, x)
         "initial parameters must be specified as a vector of length equal to the number of chains or `nothing`",
     ),
 )
-
 check_initial_params(::Nothing, n) = nothing
 function check_initial_params(x::AbstractArray, n)
     if length(x) != n
         throw(
             ArgumentError(
                 "incorrect number of initial parameters (expected $n, received $(length(x))"
+            ),
+        )
+    end
+
+    return nothing
+end
+
+@nospecialize check_initial_state(x, n) = throw(
+    ArgumentError(
+        "initial states must be specified as a vector of length equal to the number of chains or `nothing`",
+    ),
+)
+check_initial_state(::Nothing, n) = nothing
+function check_initial_state(x::AbstractArray, n)
+    if length(x) != n
+        throw(
+            ArgumentError(
+                "incorrect number of initial states (expected $n, received $(length(x))"
             ),
         )
     end
