@@ -115,10 +115,6 @@ To make it a bit easier to interact with some arbitrary sampler state, we encour
 AbstractMCMC.getparams
 AbstractMCMC.setparams!!
 ```
-and optionally
-```@docs
-AbstractMCMC.updatestate!!(state, transition, state_prev)
-```
 These methods can also be useful for implementing samplers which wraps some inner samplers, e.g. a mixture of samplers.
 
 ### Example: `MixtureSampler`
