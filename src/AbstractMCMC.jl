@@ -100,6 +100,7 @@ word, the sampler should implement a consistent transformation between its inter
 and the vector representation of the parameter values.
 """
 function setparams!! end
+
 include("samplingstats.jl")
 include("logging.jl")
 include("interface.jl")
