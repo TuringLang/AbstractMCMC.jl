@@ -66,7 +66,7 @@ For situations where model-specific details are required to compute the log dens
 
 ### Regarding `AbstractPPL.condition`
 
-While the `condition` function is a promising idea for Gibbs sampling, it is not currently being utilized in _Turing.jl_'s implementation. Instead, _Turing.jl_ uses a `GibbsContext` for reasons outlined [here](https://github.com/TuringLang/Turing.jl/blob/3c91eec43176d26048b810aae0f6f2fac0686cfa/src/experimental/gibbs.jl#L1-L12). Additionally, _JuliaBUGS_ requires caching the Markov blanket when calling `condition`, which means the proposed `Gibbs` implementation in this PR would not be fully compatible.
+While the `condition` function is a promising idea for Gibbs sampling, it is not currently being utilized in _Turing.jl_'s implementation. Instead, _Turing.jl_ uses a `GibbsContext` for reasons outlined [here](https://github.com/TuringLang/Turing.jl/blob/3c91eec43176d26048b810aae0f6f2fac0686cfa/src/experimental/gibbs.jl#L1-L12). Additionally, _JuliaBUGS_ requires caching the Markov blanket when calling `condition`, which means the proposed `Gibbs` implementation in the PR above would not be fully compatible.
 
 ### Samplers Should Not Manage Variable Names
 
