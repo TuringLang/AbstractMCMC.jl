@@ -15,7 +15,7 @@ The goal is to document some of the considerations that went into the closed PR 
 
 ### Recomputing Log Densities for Parameter Groups
 
-Let's consider splitting the model parameters into three groups (assuming the grouping stays fixed between iterations). Each parameter group will have a corresponding sampler state (along with the sampler used for that group).
+Let's consider splitting the model parameters into several groups (assuming the grouping stays fixed between iterations). Each parameter group will have a corresponding sampler state (along with the sampler used for that group).
 
 In the general case, the log densities stored in the states will be incorrect at the time of sampling each group. This is because the values of the other two parameter groups can change from when the current log density was computed, as they get updated within the Gibbs sweep.
 
