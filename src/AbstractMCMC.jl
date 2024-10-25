@@ -92,9 +92,7 @@ function getparams(model::AbstractModel, state)
 end
 
 """
-    setparams!!(model::AbstractModel, state, params)
-    setparams!!(logdensity, state, params)
-    setparams!!(state, params)
+    setparams!!([model::AbstractModel, ]state, params)
 
 Set the values of parameters in the sampler's `state` from a `Vector{<:Real}`. 
 
