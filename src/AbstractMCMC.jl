@@ -82,14 +82,24 @@ struct MCMCSerial <: AbstractMCMCEnsemble end
 
 """
     getparams(model::AbstractModel, state)
+    getparams(logdensity, state)
     getparams(state)
 
 Retrieve the values of parameters from the sampler's `state` as a `Vector{<:Real}`.
 """
 function getparams end
 
+function getparams(logdensity, state)
+    return getparams(_model(logdensity), state)
+end
+
+function getparams(model::AbstractModel, state)
+    return getparams(state)
+end
+
 """
     setparams!!(model::AbstractModel, state, params)
+    setparams!!(logdensity, state, params)
     setparams!!(state, params)
 
 Set the values of parameters in the sampler's `state` from a `Vector{<:Real}`. 
@@ -103,8 +113,18 @@ and the vector representation of the parameter values.
 
 Sometimes, to maintain the consistency of the log density and parameter values, a `model::AbstractModel`
 should be provided. This is useful for samplers that need to evaluate the log density at the new parameter values.
+If `model` is not an `AbstractMCMC.AbstractModel`, by default, it is assumed to be a log density function following 
+the `LogDensityProblems.jl` interface, and will be wrapped with [`AbstractMCMC.LogDensityModel`](@ref).
 """
 function setparams!! end
+
+function setparams!!(logdensity, state, params)
+    return setparams!!(_model(logdensity), state, params)
+end
+
+function setparams!!(model::AbstractModel, state, params)
+    return setparams!!(state, params)
+end
 
 include("samplingstats.jl")
 include("logging.jl")
