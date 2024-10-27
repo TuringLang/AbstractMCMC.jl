@@ -121,11 +121,11 @@ To make it a bit easier to interact with some arbitrary sampler state, we encour
 AbstractMCMC.getparams
 AbstractMCMC.setparams!!
 ```
-`getparams` and `setparams!!` provide a generic interface for interacting with the parameters of a sampler's state, regardless of how that state is represented internally. If the `model` argument is not provided, the functions will be dispatched to the implementations without the `model` argument.
+`getparams` and `setparams!!` provide a generic interface for interacting with the parameters of a sampler's state, regardless of how that state is represented internally.
 
 This allows generic code to be written that works with any sampler implementing this interface. For example, a generic ensemble sampler could use `getparams` to extract the parameters from each of its component samplers' states, and `setparams!!` to initialize each component sampler with a different set of parameters.
 
-The optional `model` argument to these functions allows sampler implementations to customize their behavior based on the model being used. This is useful for samplers that need to access or modify the model in order to extract or set the parameters.
+The optional `model` argument to these functions allows sampler implementations to customize their behavior based on the model being used. For example, some samplers may need to evaluate the log density at new parameter values when setting parameters, which requires access to the model. If access to `model` is not needed, the sampler only needs to implement the version without the `model` argument - the default implementations will then call those methods directly.
 
 These methods are particularly useful for implementing samplers which wrap some inner samplers, such as a mixture of samplers. In the next section, we will see how `getparams` and `setparams!!` can be used to implement a `MixtureSampler`.
 
