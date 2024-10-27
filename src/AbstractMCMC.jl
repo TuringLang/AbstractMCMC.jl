@@ -81,25 +81,36 @@ The `MCMCSerial` algorithm allows users to sample serially, with no thread or pr
 struct MCMCSerial <: AbstractMCMCEnsemble end
 
 """
-    getparams(state[; kwargs...])
+    getparams([model::AbstractModel, ]state)
 
 Retrieve the values of parameters from the sampler's `state` as a `Vector{<:Real}`.
 """
 function getparams end
 
+function getparams(model::AbstractModel, state)
+    return getparams(state)
+end
+
 """
-    setparams!!(state, params)
+    setparams!!([model::AbstractModel, ]state, params)
 
 Set the values of parameters in the sampler's `state` from a `Vector{<:Real}`. 
 
 This function should follow the `BangBang` interface: mutate `state` in-place if possible and 
 return the mutated `state`. Otherwise, it should return a new `state` containing the updated parameters.
 
-Although not enforced, it should hold that `setparams!!(state, getparams(state)) == state`. In another
-word, the sampler should implement a consistent transformation between its internal representation
+Although not enforced, it should hold that `setparams!!(state, getparams(state)) == state`. In other
+words, the sampler should implement a consistent transformation between its internal representation
 and the vector representation of the parameter values.
+
+Sometimes, to maintain the consistency of the log density and parameter values, a `model`
+should be provided. This is useful for samplers that need to evaluate the log density at the new parameter values.
 """
 function setparams!! end
+
+function setparams!!(model::AbstractModel, state, params)
+    return setparams!!(state, params)
+end
 
 include("samplingstats.jl")
 include("logging.jl")
