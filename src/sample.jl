@@ -1,6 +1,8 @@
 # Default implementations of `sample`.
 const PROGRESS = Ref(true)
 
+_pluralise(n; singular="", plural="s") = n == 1 ? singular : plural
+
 """
     setprogress!(progress::Bool; silent::Bool=false)
 
@@ -372,7 +374,7 @@ function mcmcsample(
     N::Integer,
     nchains::Integer;
     progress=PROGRESS[],
-    progressname="Sampling ($(min(nchains, Threads.nthreads())) threads)",
+    progressname="Sampling ($(min(nchains, Threads.nthreads())) thread$(_pluralise(min(nchains, Threads.nthreads()))))",
     initial_params=nothing,
     initial_state=nothing,
     kwargs...,
@@ -489,7 +491,7 @@ function mcmcsample(
     N::Integer,
     nchains::Integer;
     progress=PROGRESS[],
-    progressname="Sampling ($(Distributed.nworkers()) processes)",
+    progressname="Sampling ($(Distributed.nworkers()) process$(_pluralise(Distributed.nworkers(); plural="es")))",
     initial_params=nothing,
     initial_state=nothing,
     kwargs...,
