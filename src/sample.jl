@@ -445,7 +445,7 @@ function mcmcsample(
                             chainidx_hi = i * (m + 1)
                             nchains_chunk = m + 1
                         else
-                            chainidx_hi = n * (m + 1) + (i - n) * m
+                            chainidx_hi = i * m + n # n * (m + 1) + (i - n) * m
                             nchains_chunk = m
                         end
                         chainidx_lo = chainidx_hi - nchains_chunk + 1
