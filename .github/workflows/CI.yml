@@ -6,59 +6,70 @@ on:
       - master
   pull_request:
 
+# needed to allow julia-actions/cache to delete old caches that it has created
+permissions:
+  actions: write
+  contents: read
+
+# Cancel existing tests on the same PR if a new commit is added to a pull request
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.version == 'nightly' }}
+    runs-on: ${{ matrix.runner.os }}
     strategy:
       matrix:
-        version:
-          - '1.6'
-          - '1'
-          - nightly
-        os:
-          - ubuntu-latest
-          - macOS-latest
-          - windows-latest
-        arch:
-          - x86
-          - x64
         num_threads:
           - 1
           - 2
-        exclude:
-          - os: windows-latest
-            arch: x86
-          - os: macOS-latest
-            arch: x86
-          - version: '1.6'
-            num_threads: 2
-        include:
-          - version: '1'
-            os: ubuntu-latest
+        runner:
+          - os: ubuntu-latest
             arch: x64
-            num_threads: 1
-            coverage: true
+            version: '1'
+          # x86
+          - os: ubuntu-latest
+            arch: x86
+            version: '1'
+          # Minimum supported version
+          - os: ubuntu-latest
+            arch: x64
+            version: 'min'
+          # Windows
+          - os: windows-latest
+            arch: x64
+            version: '1'
+          # macOS
+          - os: macos-latest
+            arch: aarch64
+            version: '1'
+
     steps:
-      - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v2
         with:
-          version: ${{ matrix.version }}
-          arch: ${{ matrix.arch }}
-      - uses: julia-actions/cache@v1
-        with:
-          cache-packages: "false" # caching Conda.jl causes precompilation error
+          version: ${{ matrix.runner.version }}
+          arch: ${{ matrix.runner.arch }}
+
+      - uses: julia-actions/cache@v2
+
       - uses: julia-actions/julia-buildpkg@latest
+
       - uses: julia-actions/julia-runtest@latest
         env:
           JULIA_NUM_THREADS: ${{ matrix.num_threads }}
+
       - uses: julia-actions/julia-processcoverage@v1
         if: matrix.coverage
-      - uses: codecov/codecov-action@v1
-        if: matrix.coverage
+
+      - uses: codecov/codecov-action@v5
         with:
-          file: lcov.info
-      - uses: coverallsapp/github-action@master
+          files: lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - uses: coverallsapp/github-action@v2
         if: matrix.coverage
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
