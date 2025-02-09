@@ -11,5 +11,3 @@ makedocs(;
     pages=["Home" => "index.md", "api.md", "design.md"],
     checkdocs=:exports,
 )
-
-deploydocs(; repo="github.com/TuringLang/AbstractMCMC.jl.git", push_preview=true)
