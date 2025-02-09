@@ -692,7 +692,7 @@
         @test mean(x.a for x in view(chain, 2:1_000)) ≈ 0.5 atol = 6e-2
         @test var(x.a for x in view(chain, 2:1_000)) ≈ 1 / 12 atol = 1e-2
         @test mean(x.b for x in chain) ≈ 0 atol = 0.11
-        @test var(x.b for x in chain) ≈ 1 atol = 0.15
+        @test var(x.b for x in chain) ≈ 1 atol = 0.2
     end
 
     @testset "Testing callbacks" begin

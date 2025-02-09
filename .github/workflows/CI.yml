@@ -20,6 +20,7 @@ jobs:
   test:
     runs-on: ${{ matrix.runner.os }}
     strategy:
+      fail-fast: false
       matrix:
         num_threads:
           - 1
