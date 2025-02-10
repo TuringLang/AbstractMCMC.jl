@@ -20,6 +20,16 @@ chainsstack(c) = c
 chainsstack(c::AbstractVector{<:AbstractChains}) = reduce(chainscat, c)
 
 """
+    getadtype(sampler::AbstractSampler)
+
+If the sampler specifies an automatic differentiation (AD) backend to use, this
+function should return the corresponding `ADTypes.AbstractADType`.
+
+By default, this returns `nothing`.
+"""
+getadtype(::AbstractSampler) = nothing
+
+"""
     bundle_samples(samples, model, sampler, state, chain_type[; kwargs...])
 
 Bundle all `samples` that were sampled from the `model` with the given `sampler` in a chain.
