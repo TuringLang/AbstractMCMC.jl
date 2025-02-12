@@ -20,14 +20,18 @@ chainsstack(c) = c
 chainsstack(c::AbstractVector{<:AbstractChains}) = reduce(chainscat, c)
 
 """
-    getadtype(sampler::AbstractSampler)
+    getadtype(s::AbstractSampler)
+    getadtype(m::AbstractModel, s::AbstractSampler)
 
-If the sampler specifies an automatic differentiation (AD) backend to use, this
-function should return the corresponding `ADTypes.AbstractADType`.
+Specify the `ADTypes.AbstractADType` to be used when sampling from model `m` using sampler `s`.
+
+If the model is not relevant, then the implementation of AbstractSampler can
+directly overload the single-argument method `getadtype(s::AbstractSampler)`.
 
 By default, this returns `nothing`.
 """
 getadtype(::AbstractSampler) = nothing
+getadtype(::AbstractModel, spl::AbstractSampler) = getadtype(spl)
 
 """
     bundle_samples(samples, model, sampler, state, chain_type[; kwargs...])
