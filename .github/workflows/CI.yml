@@ -22,9 +22,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        num_threads:
-          - 1
-          - 2
         runner:
           - version: '1'
             os: ubuntu-latest
@@ -37,6 +34,9 @@ jobs:
           # macOS
           - version: '1'
             os: macos-latest
+        num_threads:
+          - 1
+          - 2
 
     steps:
       - uses: actions/checkout@v4
