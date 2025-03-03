@@ -3,7 +3,7 @@ name: IntegrationTest
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
 
 jobs:
