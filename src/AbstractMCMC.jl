@@ -123,8 +123,11 @@ include("logdensityproblems.jl")
 if isdefined(Base.Experimental, :register_error_hint)
     function __init__()
         Base.Experimental.register_error_hint(MethodError) do io, exc, argtypes, _
-            if Base.parentmodule(exc.f) == LogDensityProblems &&
-                any(a -> a <: LogDensityModel, argtypes)
+            if (
+                any(a -> a <: LogDensityModel, argtypes) &&
+                exc.f isa Function &&
+                Base.parentmodule(exc.f) == LogDensityProblems
+            )
                 print(
                     io,
                     "\n`AbstractMCMC.LogDensityModel` is a wrapper and does not itself implement the LogDensityProblems.jl interface. To use LogDensityProblems.jl methods, access the inner type with (e.g.) `logdensity(model.logdensity, params)` instead of `logdensity(model, params)`.",
