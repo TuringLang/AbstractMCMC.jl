@@ -144,7 +144,7 @@ function mcmcsample(
     @ifwithprogresslogger progress name = progressname begin
         # Determine threshold values for progress logging
         # (one update per 0.5% of progress)
-        if progress
+        if (progress == true || progress === nothing)
             threshold = Ntotal ÷ 200
             next_update = threshold
         end
@@ -166,8 +166,12 @@ function mcmcsample(
 
         # Update the progress bar.
         itotal = 1
-        if progress && itotal >= next_update
-            ProgressLogging.@logprogress itotal / Ntotal
+        if !(progress == false) && itotal >= next_update
+            if progress == true
+                ProgressLogging.@logprogress itotal / Ntotal
+            else
+                ProgressLogging.@logprogress itotal / Ntotal _id = "hello"
+            end
             next_update = itotal + threshold
         end
 
@@ -181,8 +185,12 @@ function mcmcsample(
             end
 
             # Update the progress bar.
-            if progress && (itotal += 1) >= next_update
-                ProgressLogging.@logprogress itotal / Ntotal
+            if !(progress == false) && (itotal += 1) >= next_update
+                if progress == true
+                    ProgressLogging.@logprogress itotal / Ntotal
+                else
+                    ProgressLogging.@logprogress itotal / Ntotal _id = "hello"
+                end
                 next_update = itotal + threshold
             end
         end
@@ -206,8 +214,12 @@ function mcmcsample(
                 end
 
                 # Update progress bar.
-                if progress && (itotal += 1) >= next_update
-                    ProgressLogging.@logprogress itotal / Ntotal
+                if !(progress == false) && (itotal += 1) >= next_update
+                    if progress == true
+                        ProgressLogging.@logprogress itotal / Ntotal
+                    else
+                        ProgressLogging.@logprogress itotal / Ntotal _id = "hello"
+                    end
                     next_update = itotal + threshold
                 end
             end
@@ -227,8 +239,12 @@ function mcmcsample(
             samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
 
             # Update the progress bar.
-            if progress && (itotal += 1) >= next_update
-                ProgressLogging.@logprogress itotal / Ntotal
+            if !(progress == false) && (itotal += 1) >= next_update
+                if progress == true
+                    ProgressLogging.@logprogress itotal / Ntotal
+                else
+                    ProgressLogging.@logprogress itotal / Ntotal _id = "hello"
+                end
                 next_update = itotal + threshold
             end
         end
@@ -456,12 +472,17 @@ function mcmcsample(
                             Random.seed!(_rng, seeds[chainidx])
 
                             # Sample a chain and save it to the vector.
-                            chains[chainidx] = StatsBase.sample(
+                            child_progress = if progress == false
+                                false
+                            else
+                                nothing
+                            end
+                            @ifwithprogresslogger progress chains[chainidx] = StatsBase.sample(
                                 _rng,
                                 _model,
                                 _sampler,
                                 N;
-                                progress=false,
+                                progress=child_progress,
                                 initial_params=if initial_params === nothing
                                     nothing
                                 else
