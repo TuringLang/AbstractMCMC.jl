@@ -4,7 +4,7 @@
 macro ifwithprogresslogger(progress, exprs...)
     return esc(
         quote
-            if $progress
+            if $progress == true
                 if $hasprogresslevel($Logging.current_logger())
                     $ProgressLogging.@withprogress $(exprs...)
                 else
