@@ -153,6 +153,7 @@ function mcmcsample(
 
         # Ugly hacky code to reset the start timer if called from a multi-chain
         # sampling process
+        # TODO: How to make this better?
         if progress isa ProgressLogging.Progress
             try
                 bartrees = Logging.current_logger().loggers[1].logger.bartrees
