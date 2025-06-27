@@ -454,9 +454,6 @@ function mcmcsample(
         # Start the progress bars (but in reverse order, because
         # ProgressLogging prints from the bottom up, and we want chain 1 to
         # show up at the top)
-        # TODO: This has an unintended effect that the 'time' field in the
-        # progress bar shows the total time since the beginning of sampling,
-        # even if the specific chain doesn't start sampling until later on.
         for (i, uuid) in enumerate(reverse(uuids))
             ProgressLogging.@logprogress name = "Chain $(nchains-i+1)/$nchains" nothing _id =
                 uuid
@@ -536,8 +533,13 @@ function mcmcsample(
                         end
                     end
                 finally
-                    # Stop updating the progress bar.
+                    # Stop updating the progress bars (either if sampling is done, or if
+                    # an error occurs).
                     progress && put!(channel, false)
+                    for (i, uuid) in enumerate(reverse(uuids))
+                        ProgressLogging.@logprogress name = "Chain $(nchains-i+1)/$nchains" "done" _id =
+                            uuid
+                    end
                 end
             end
         end
