@@ -544,34 +544,50 @@ function mcmcsample(
     pool = Distributed.CachingPool(Distributed.workers())
 
     local chains
-    # Create a channel for progress logging.
-    if progress
-        channel = Distributed.RemoteChannel(() -> Channel{Bool}(Distributed.nworkers()))
+
+    # Create overall progress logging object (tracks number of chains completed)
+    overall_progress_obj = ProgressMeter.Progress(
+        nchains; desc=progressname, dt=0.0, enabled=progress
+    )
+    # ProgressMeter doesn't start printing until the second iteration or so. This
+    # forces it to start printing an empty progress bar immediately.
+    # https://github.com/timholy/ProgressMeter.jl/issues/288
+    ProgressMeter.update!(overall_progress_obj, 0; force=true)
+    # Create per-chain progress logging objects
+    progress_objs = [
+        ProgressMeter.Progress(
+            N; desc="Chain $i/$nchains", dt=0.01, enabled=progress, offset=i
+        ) for i in 1:nchains
+    ]
+    for obj in progress_objs
+        ProgressMeter.update!(obj, 0; force=true)
     end
+    # Create a channel to synchronise progress updates.
+    channel = Distributed.RemoteChannel(() -> Channel{Tuple{Int,Bool}}(), 1)
 
     Distributed.@sync begin
-        if progress
-            # Update the progress bar.
-            Distributed.@async begin
-                # Determine threshold values for progress logging
-                # (one update per 0.5% of progress)
-                threshold = nchains ÷ 200
-                nextprogresschains = threshold
-
-                progresschains = 0
-                while take!(channel)
-                    progresschains += 1
-                    if progresschains >= nextprogresschains
-                        # ProgressLogging.@logprogress progresschains / nchains
-                        nextprogresschains = progresschains + threshold
-                    end
+        Distributed.@async begin
+            while true
+                i, res = take!(channel)
+                # i == 0 means the overall progress bar; i > 0 means the
+                # progress bar for chain i.
+                prog_obj = if i == 0
+                    overall_progress_obj
+                else
+                    progress_objs[i]
+                end
+                if res  # true = a chain / sample finished
+                    ProgressMeter.next!(prog_obj)
+                else  # false = all chains / samples finished (or one failed)
+                    ProgressMeter.finish!(prog_obj)
+                    break
                 end
             end
         end
 
         Distributed.@async begin
             try
-                function sample_chain(seed, initial_params, initial_state)
+                function sample_chain(i, seed, initial_params, initial_state)
                     # Seed a new random number generator with the pre-made seed.
                     Random.seed!(rng, seed)
 
@@ -584,21 +600,23 @@ function mcmcsample(
                         progress=false,
                         initial_params=initial_params,
                         initial_state=initial_state,
+                        _chain_idx=i,
+                        _progress_channel=channel,
                         kwargs...,
                     )
 
                     # Update the progress bar.
-                    progress && put!(channel, true)
+                    progress && put!(channel, (0, true))
 
                     # Return the new chain.
                     return chain
                 end
                 chains = Distributed.pmap(
-                    sample_chain, pool, seeds, _initial_params, _initial_state
+                    sample_chain, pool, 1:nchains, seeds, _initial_params, _initial_state
                 )
             finally
                 # Stop updating the progress bar.
-                progress && put!(channel, false)
+                progress && put!(channel, (0, false))
             end
         end
     end
