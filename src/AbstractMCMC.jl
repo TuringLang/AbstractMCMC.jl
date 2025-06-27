@@ -1,17 +1,12 @@
 module AbstractMCMC
 
 using BangBang: BangBang
-using ConsoleProgressMonitor: ConsoleProgressMonitor
 using LogDensityProblems: LogDensityProblems
-using LoggingExtras: LoggingExtras
-using ProgressLogging: ProgressLogging
 using StatsBase: StatsBase
-using TerminalLoggers: TerminalLoggers
 using Transducers: Transducers
 using FillArrays: FillArrays
 
 using Distributed: Distributed
-using Logging: Logging
 using Random: Random
 
 # Reexport sample
@@ -113,7 +108,6 @@ function setparams!!(model::AbstractModel, state, params)
 end
 
 include("samplingstats.jl")
-include("logging.jl")
 include("interface.jl")
 include("sample.jl")
 include("stepper.jl")

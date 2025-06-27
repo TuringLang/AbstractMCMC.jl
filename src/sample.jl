@@ -1,3 +1,5 @@
+using ProgressMeter: ProgressMeter
+
 # Default implementations of `sample`.
 const PROGRESS = Ref(true)
 
@@ -119,6 +121,8 @@ function mcmcsample(
     thinning=1,
     chain_type::Type=Any,
     initial_state=nothing,
+    _chain_idx=nothing, # for use when sampling multiple chains
+    _progress_channel=nothing, # for use when sampling multiple chains
     kwargs...,
 )
     # Check the number of requested samples.
@@ -141,77 +145,54 @@ function mcmcsample(
     start = time()
     local state
 
-    @ifwithprogresslogger progress name = progressname begin
-        # Determine threshold values for progress logging
-        # (one update per 0.5% of progress)
-        if progress
-            threshold = Ntotal ÷ 200
-            next_update = threshold
-        end
+    # Set up progress logging object
+    progress_obj = ProgressMeter.Progress(
+        Ntotal; desc=progressname, dt=0.01, enabled=progress
+    )
 
-        # Obtain the initial sample and state.
-        sample, state = if num_warmup > 0
-            if initial_state === nothing
-                step_warmup(rng, model, sampler; kwargs...)
-            else
-                step_warmup(rng, model, sampler, initial_state; kwargs...)
-            end
+    # Obtain the initial sample and state.
+    sample, state = if num_warmup > 0
+        if initial_state === nothing
+            step_warmup(rng, model, sampler; kwargs...)
         else
-            if initial_state === nothing
-                step(rng, model, sampler; kwargs...)
-            else
-                step(rng, model, sampler, initial_state; kwargs...)
-            end
+            step_warmup(rng, model, sampler, initial_state; kwargs...)
+        end
+    else
+        if initial_state === nothing
+            step(rng, model, sampler; kwargs...)
+        else
+            step(rng, model, sampler, initial_state; kwargs...)
+        end
+    end
+
+    # Discard initial samples.
+    for j in 1:discard_initial
+        # Obtain the next sample and state.
+        sample, state = if j ≤ num_warmup
+            step_warmup(rng, model, sampler, state; kwargs...)
+        else
+            step(rng, model, sampler, state; kwargs...)
         end
 
-        # Update the progress bar.
-        itotal = 1
-        if progress && itotal >= next_update
-            ProgressLogging.@logprogress itotal / Ntotal
-            next_update = itotal + threshold
-        end
+        # Update the progress bar (and channel if being called from a multi-chain method)
+        ProgressMeter.next!(progress_obj)
+    end
 
-        # Discard initial samples.
-        for j in 1:discard_initial
-            # Obtain the next sample and state.
-            sample, state = if j ≤ num_warmup
-                step_warmup(rng, model, sampler, state; kwargs...)
-            else
-                step(rng, model, sampler, state; kwargs...)
-            end
+    # Run callback.
+    callback === nothing || callback(rng, model, sampler, sample, state, 1; kwargs...)
 
-            # Update the progress bar.
-            if progress && (itotal += 1) >= next_update
-                ProgressLogging.@logprogress itotal / Ntotal
-                next_update = itotal + threshold
-            end
-        end
+    # Save the sample.
+    samples = AbstractMCMC.samples(sample, model, sampler, N; kwargs...)
+    samples = save!!(samples, sample, 1, model, sampler, N; kwargs...)
 
-        # Run callback.
-        callback === nothing || callback(rng, model, sampler, sample, state, 1; kwargs...)
+    # Update the progress bar (and channel if being called from a multi-chain method)
+    ProgressMeter.next!(progress_obj)
+    _progress_channel === nothing || put!(_progress_channel, (_chain_idx, true))
 
-        # Save the sample.
-        samples = AbstractMCMC.samples(sample, model, sampler, N; kwargs...)
-        samples = save!!(samples, sample, 1, model, sampler, N; kwargs...)
-
-        # Step through the sampler.
-        for i in 2:N
-            # Discard thinned samples.
-            for _ in 1:(thinning - 1)
-                # Obtain the next sample and state.
-                sample, state = if i ≤ keep_from_warmup
-                    step_warmup(rng, model, sampler, state; kwargs...)
-                else
-                    step(rng, model, sampler, state; kwargs...)
-                end
-
-                # Update progress bar.
-                if progress && (itotal += 1) >= next_update
-                    ProgressLogging.@logprogress itotal / Ntotal
-                    next_update = itotal + threshold
-                end
-            end
-
+    # Step through the sampler.
+    for i in 2:N
+        # Discard thinned samples.
+        for _ in 1:(thinning - 1)
             # Obtain the next sample and state.
             sample, state = if i ≤ keep_from_warmup
                 step_warmup(rng, model, sampler, state; kwargs...)
@@ -219,19 +200,26 @@ function mcmcsample(
                 step(rng, model, sampler, state; kwargs...)
             end
 
-            # Run callback.
-            callback === nothing ||
-                callback(rng, model, sampler, sample, state, i; kwargs...)
-
-            # Save the sample.
-            samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
-
-            # Update the progress bar.
-            if progress && (itotal += 1) >= next_update
-                ProgressLogging.@logprogress itotal / Ntotal
-                next_update = itotal + threshold
-            end
+            # Update the progress bar
+            ProgressMeter.next!(progress_obj)
         end
+
+        # Obtain the next sample and state.
+        sample, state = if i ≤ keep_from_warmup
+            step_warmup(rng, model, sampler, state; kwargs...)
+        else
+            step(rng, model, sampler, state; kwargs...)
+        end
+
+        # Run callback.
+        callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
+
+        # Save the sample.
+        samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
+
+        # Update the progress bar (and channel if being called from a multi-chain method)
+        ProgressMeter.next!(progress_obj)
+        _progress_channel === nothing || put!(_progress_channel, (_chain_idx, true))
     end
 
     # Get the sample stop time.
@@ -278,79 +266,88 @@ function mcmcsample(
     discard_from_warmup = min(num_warmup, discard_initial)
     keep_from_warmup = num_warmup - discard_from_warmup
 
+    # Set up progress logging object (if needed)
+    progress_obj = ProgressMeter.ProgressUnknown(; desc=progressname, enabled=progress)
+
     # Start the timer
     start = time()
     local state
 
-    @ifwithprogresslogger progress name = progressname begin
-        # Obtain the initial sample and state.
-        sample, state = if num_warmup > 0
-            if initial_state === nothing
-                step_warmup(rng, model, sampler; kwargs...)
-            else
-                step_warmup(rng, model, sampler, initial_state; kwargs...)
-            end
+    # Obtain the initial sample and state.
+    sample, state = if num_warmup > 0
+        if initial_state === nothing
+            step_warmup(rng, model, sampler; kwargs...)
         else
-            if initial_state === nothing
-                step(rng, model, sampler; kwargs...)
-            else
-                step(rng, model, sampler, initial_state; kwargs...)
-            end
+            step_warmup(rng, model, sampler, initial_state; kwargs...)
         end
-
-        # Discard initial samples.
-        for j in 1:discard_initial
-            # Obtain the next sample and state.
-            sample, state = if j ≤ num_warmup
-                step_warmup(rng, model, sampler, state; kwargs...)
-            else
-                step(rng, model, sampler, state; kwargs...)
-            end
+    else
+        if initial_state === nothing
+            step(rng, model, sampler; kwargs...)
+        else
+            step(rng, model, sampler, initial_state; kwargs...)
         end
+    end
 
-        # Run callback.
-        callback === nothing || callback(rng, model, sampler, sample, state, 1; kwargs...)
+    # Discard initial samples.
+    for j in 1:discard_initial
+        # Obtain the next sample and state.
+        sample, state = if j ≤ num_warmup
+            step_warmup(rng, model, sampler, state; kwargs...)
+        else
+            step(rng, model, sampler, state; kwargs...)
+        end
+    end
 
-        # Save the sample.
-        samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
-        samples = save!!(samples, sample, 1, model, sampler; kwargs...)
+    # Run callback.
+    callback === nothing || callback(rng, model, sampler, sample, state, 1; kwargs...)
 
-        # Step through the sampler until stopping.
-        i = 2
-        while !isdone(rng, model, sampler, samples, state, i; progress=progress, kwargs...)
-            # Discard thinned samples.
-            for _ in 1:(thinning - 1)
-                # Obtain the next sample and state.
-                sample, state = if i ≤ keep_from_warmup
-                    step_warmup(rng, model, sampler, state; kwargs...)
-                else
-                    step(rng, model, sampler, state; kwargs...)
-                end
-            end
+    # Save the sample.
+    samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
+    samples = save!!(samples, sample, 1, model, sampler; kwargs...)
 
+    # Update the progress bar.
+    ProgressMeter.next!(progress_obj)
+
+    # Step through the sampler until stopping.
+    i = 2
+    while !isdone(rng, model, sampler, samples, state, i; progress=progress, kwargs...)
+        # Discard thinned samples.
+        for _ in 1:(thinning - 1)
             # Obtain the next sample and state.
             sample, state = if i ≤ keep_from_warmup
                 step_warmup(rng, model, sampler, state; kwargs...)
             else
                 step(rng, model, sampler, state; kwargs...)
             end
-
-            # Run callback.
-            callback === nothing ||
-                callback(rng, model, sampler, sample, state, i; kwargs...)
-
-            # Save the sample.
-            samples = save!!(samples, sample, i, model, sampler; kwargs...)
-
-            # Increment iteration counter.
-            i += 1
         end
+
+        # Obtain the next sample and state.
+        sample, state = if i ≤ keep_from_warmup
+            step_warmup(rng, model, sampler, state; kwargs...)
+        else
+            step(rng, model, sampler, state; kwargs...)
+        end
+
+        # Run callback.
+        callback === nothing || callback(rng, model, sampler, sample, state, i; kwargs...)
+
+        # Save the sample.
+        samples = save!!(samples, sample, i, model, sampler; kwargs...)
+
+        # Increment iteration counter.
+        i += 1
+
+        # Update the progress bar.
+        ProgressMeter.next!(progress_obj)
     end
 
     # Get the sample stop time.
     stop = time()
     duration = stop - start
     stats = SamplingStats(start, stop, duration)
+
+    # Stop the progress bar
+    ProgressMeter.finish!(progress_obj)
 
     # Wrap the samples up.
     return bundle_samples(
@@ -411,78 +408,95 @@ function mcmcsample(
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
 
-    @ifwithprogresslogger progress name = progressname begin
-        # Create a channel for progress logging.
-        if progress
-            channel = Channel{Bool}(length(interval))
-        end
+    # Create overall progress logging object (tracks number of chains completed)
+    overall_progress_obj = ProgressMeter.Progress(
+        nchains; desc=progressname, dt=0.01, enabled=progress
+    )
+    # ProgressMeter doesn't start printing until the second iteration or so. This
+    # forces it to start printing an empty progress bar immediately.
+    # https://github.com/timholy/ProgressMeter.jl/issues/288
+    ProgressMeter.update!(overall_progress_obj, 0; force=true)
+    # Create per-chain progress logging objects
+    progress_objs = [
+        ProgressMeter.Progress(
+            N; desc="Chain $i/$nchains", dt=0.01, enabled=progress, offset=i
+        ) for i in 1:nchains
+    ]
+    for obj in progress_objs
+        ProgressMeter.update!(obj, 0; force=true)
+    end
+    # Create a channel to synchronise progress updates.
+    channel = Distributed.RemoteChannel(() -> Channel{Tuple{Int,Bool}}(), 1)
 
-        Distributed.@sync begin
-            if progress
-                # Update the progress bar.
-                Distributed.@async begin
-                    # Determine threshold values for progress logging
-                    # (one update per 0.5% of progress)
-                    threshold = nchains ÷ 200
-                    nextprogresschains = threshold
-
-                    progresschains = 0
-                    while take!(channel)
-                        progresschains += 1
-                        if progresschains >= nextprogresschains
-                            ProgressLogging.@logprogress progresschains / nchains
-                            nextprogresschains = progresschains + threshold
-                        end
-                    end
+    Distributed.@sync begin
+        Distributed.@async begin
+            while true
+                i, res = take!(channel)
+                # i == 0 means the overall progress bar; i > 0 means the
+                # progress bar for chain i.
+                prog_obj = if i == 0
+                    overall_progress_obj
+                else
+                    progress_objs[i]
+                end
+                if res  # true = a chain / sample finished
+                    ProgressMeter.next!(prog_obj)
+                else  # false = all chains / samples finished (or one failed)
+                    ProgressMeter.finish!(prog_obj)
+                    break
                 end
             end
+        end
 
-            Distributed.@async begin
-                try
-                    Distributed.@sync for (i, _rng, _model, _sampler) in
-                                          zip(interval, rngs, models, samplers)
-                        if i <= n
-                            chainidx_hi = i * (m + 1)
-                            nchains_chunk = m + 1
-                        else
-                            chainidx_hi = i * m + n # n * (m + 1) + (i - n) * m
-                            nchains_chunk = m
-                        end
-                        chainidx_lo = chainidx_hi - nchains_chunk + 1
-                        chainidxs = chainidx_lo:chainidx_hi
-
-                        Threads.@spawn for chainidx in chainidxs
-                            # Seed the chunk-specific random number generator with the pre-made seed.
-                            Random.seed!(_rng, seeds[chainidx])
-
-                            # Sample a chain and save it to the vector.
-                            chains[chainidx] = StatsBase.sample(
-                                _rng,
-                                _model,
-                                _sampler,
-                                N;
-                                progress=false,
-                                initial_params=if initial_params === nothing
-                                    nothing
-                                else
-                                    initial_params[chainidx]
-                                end,
-                                initial_state=if initial_state === nothing
-                                    nothing
-                                else
-                                    initial_state[chainidx]
-                                end,
-                                kwargs...,
-                            )
-
-                            # Update the progress bar.
-                            progress && put!(channel, true)
-                        end
+        Distributed.@async begin
+            try
+                Distributed.@sync for (i, _rng, _model, _sampler) in
+                                      zip(interval, rngs, models, samplers)
+                    if i <= n
+                        chainidx_hi = i * (m + 1)
+                        nchains_chunk = m + 1
+                    else
+                        chainidx_hi = i * m + n # n * (m + 1) + (i - n) * m
+                        nchains_chunk = m
                     end
-                finally
-                    # Stop updating the progress bar.
-                    progress && put!(channel, false)
+                    chainidx_lo = chainidx_hi - nchains_chunk + 1
+                    chainidxs = chainidx_lo:chainidx_hi
+
+                    Threads.@spawn for chainidx in chainidxs
+                        # Seed the chunk-specific random number generator with the pre-made seed.
+                        Random.seed!(_rng, seeds[chainidx])
+
+                        # Sample a chain and save it to the vector.
+                        chains[chainidx] = StatsBase.sample(
+                            _rng,
+                            _model,
+                            _sampler,
+                            N;
+                            progress=false,
+                            progressname="Chain $chainidx/$nchains",
+                            # use these to allow each chain to update progress bar
+                            _chain_idx=chainidx,
+                            _progress_channel=channel,
+                            initial_params=if initial_params === nothing
+                                nothing
+                            else
+                                initial_params[chainidx]
+                            end,
+                            initial_state=if initial_state === nothing
+                                nothing
+                            else
+                                initial_state[chainidx]
+                            end,
+                            kwargs...,
+                        )
+
+                        # Update the overall progress bar.
+                        put!(channel, (0, true))
+                    end
                 end
+            finally
+                # Stop updating the overall progress bar.
+                put!(channel, (0, false))
             end
         end
     end
@@ -530,63 +544,61 @@ function mcmcsample(
     pool = Distributed.CachingPool(Distributed.workers())
 
     local chains
-    @ifwithprogresslogger progress name = progressname begin
-        # Create a channel for progress logging.
+    # Create a channel for progress logging.
+    if progress
+        channel = Distributed.RemoteChannel(() -> Channel{Bool}(Distributed.nworkers()))
+    end
+
+    Distributed.@sync begin
         if progress
-            channel = Distributed.RemoteChannel(() -> Channel{Bool}(Distributed.nworkers()))
-        end
+            # Update the progress bar.
+            Distributed.@async begin
+                # Determine threshold values for progress logging
+                # (one update per 0.5% of progress)
+                threshold = nchains ÷ 200
+                nextprogresschains = threshold
 
-        Distributed.@sync begin
-            if progress
-                # Update the progress bar.
-                Distributed.@async begin
-                    # Determine threshold values for progress logging
-                    # (one update per 0.5% of progress)
-                    threshold = nchains ÷ 200
-                    nextprogresschains = threshold
-
-                    progresschains = 0
-                    while take!(channel)
-                        progresschains += 1
-                        if progresschains >= nextprogresschains
-                            ProgressLogging.@logprogress progresschains / nchains
-                            nextprogresschains = progresschains + threshold
-                        end
+                progresschains = 0
+                while take!(channel)
+                    progresschains += 1
+                    if progresschains >= nextprogresschains
+                        # ProgressLogging.@logprogress progresschains / nchains
+                        nextprogresschains = progresschains + threshold
                     end
                 end
             end
+        end
 
-            Distributed.@async begin
-                try
-                    function sample_chain(seed, initial_params, initial_state)
-                        # Seed a new random number generator with the pre-made seed.
-                        Random.seed!(rng, seed)
+        Distributed.@async begin
+            try
+                function sample_chain(seed, initial_params, initial_state)
+                    # Seed a new random number generator with the pre-made seed.
+                    Random.seed!(rng, seed)
 
-                        # Sample a chain.
-                        chain = StatsBase.sample(
-                            rng,
-                            model,
-                            sampler,
-                            N;
-                            progress=false,
-                            initial_params=initial_params,
-                            initial_state=initial_state,
-                            kwargs...,
-                        )
-
-                        # Update the progress bar.
-                        progress && put!(channel, true)
-
-                        # Return the new chain.
-                        return chain
-                    end
-                    chains = Distributed.pmap(
-                        sample_chain, pool, seeds, _initial_params, _initial_state
+                    # Sample a chain.
+                    chain = StatsBase.sample(
+                        rng,
+                        model,
+                        sampler,
+                        N;
+                        progress=false,
+                        initial_params=initial_params,
+                        initial_state=initial_state,
+                        kwargs...,
                     )
-                finally
-                    # Stop updating the progress bar.
-                    progress && put!(channel, false)
+
+                    # Update the progress bar.
+                    progress && put!(channel, true)
+
+                    # Return the new chain.
+                    return chain
                 end
+                chains = Distributed.pmap(
+                    sample_chain, pool, seeds, _initial_params, _initial_state
+                )
+            finally
+                # Stop updating the progress bar.
+                progress && put!(channel, false)
             end
         end
     end
