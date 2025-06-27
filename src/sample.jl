@@ -410,7 +410,7 @@ function mcmcsample(
 
     # Create overall progress logging object (tracks number of chains completed)
     overall_progress_obj = ProgressMeter.Progress(
-        nchains; desc=progressname, dt=0.01, enabled=progress
+        nchains; desc=progressname, dt=0.0, enabled=progress
     )
     # ProgressMeter doesn't start printing until the second iteration or so. This
     # forces it to start printing an empty progress bar immediately.
@@ -614,7 +614,7 @@ function mcmcsample(
     ::MCMCSerial,
     N::Integer,
     nchains::Integer;
-    progressname="Sampling",
+    progress=PROGRESS[],
     initial_params=nothing,
     initial_state=nothing,
     kwargs...,
@@ -647,7 +647,8 @@ function mcmcsample(
             model,
             sampler,
             N;
-            progressname=string(progressname, " (Chain ", i, " of ", nchains, ")"),
+            progress=progress,
+            progressname="Chain $i/$nchains",
             initial_params=initial_params,
             initial_state=initial_state,
             kwargs...,
