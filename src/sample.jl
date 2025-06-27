@@ -121,6 +121,7 @@ function mcmcsample(
     thinning=1,
     chain_type::Type=Any,
     initial_state=nothing,
+    _progress_channel=nothing,
     kwargs...,
 )
     # Check the number of requested samples.
@@ -146,10 +147,8 @@ function mcmcsample(
     @ifwithprogresslogger progress name = progressname begin
         # Determine threshold values for progress logging
         # (one update per 0.5% of progress)
-        if !(progress == false)
-            threshold = Ntotal ÷ 200
-            next_update = threshold
-        end
+        threshold = Ntotal ÷ 200
+        next_update = threshold
 
         # Ugly hacky code to reset the start timer if called from a multi-chain
         # sampling process
@@ -180,10 +179,10 @@ function mcmcsample(
 
         # Update the progress bar.
         itotal = 1
-        if !(progress == false) && itotal >= next_update
+        if itotal >= next_update
             if progress == true
                 ProgressLogging.@logprogress itotal / Ntotal
-            else
+            elseif progress isa ProgressLogging.Progress
                 ProgressLogging.@logprogress name = progressname itotal / Ntotal _id =
                     progress.id
             end
@@ -200,10 +199,11 @@ function mcmcsample(
             end
 
             # Update the progress bar.
-            if !(progress == false) && (itotal += 1) >= next_update
+            _progress_channel !== nothing && put!(_progress_channel, true)
+            if (itotal += 1) >= next_update
                 if progress == true
                     ProgressLogging.@logprogress itotal / Ntotal
-                else
+                elseif progress isa ProgressLogging.Progress
                     ProgressLogging.@logprogress name = progressname itotal / Ntotal _id =
                         progress.id
                 end
@@ -230,10 +230,10 @@ function mcmcsample(
                 end
 
                 # Update progress bar.
-                if !(progress == false) && (itotal += 1) >= next_update
+                if (itotal += 1) >= next_update
                     if progress == true
                         ProgressLogging.@logprogress itotal / Ntotal
-                    else
+                    elseif progress isa ProgressLogging.Progress
                         ProgressLogging.@logprogress name = progressname itotal / Ntotal _id =
                             progress.id
                     end
@@ -256,10 +256,11 @@ function mcmcsample(
             samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
 
             # Update the progress bar.
-            if !(progress == false) && (itotal += 1) >= next_update
+            _progress_channel !== nothing && put!(_progress_channel, true)
+            if (itotal += 1) >= next_update
                 if progress == true
                     ProgressLogging.@logprogress itotal / Ntotal
-                else
+                elseif progress isa ProgressLogging.Progress
                     ProgressLogging.@logprogress name = progressname itotal / Ntotal _id =
                         progress.id
                 end
@@ -451,14 +452,14 @@ function mcmcsample(
             channel = Channel{Bool}(length(interval))
         end
         # Generate nchains independent UUIDs for each progress bar
-        uuids = [uuid4() for _ in 1:nchains]
+        # uuids = [uuid4() for _ in 1:nchains]
         # Start the progress bars (but in reverse order, because
         # ProgressLogging prints from the bottom up, and we want chain 1 to
         # show up at the top)
-        for (i, uuid) in enumerate(reverse(uuids))
-            ProgressLogging.@logprogress name = "Chain $(nchains-i+1)/$nchains" nothing _id =
-                uuid
-        end
+        # for (i, uuid) in enumerate(reverse(uuids))
+        #     ProgressLogging.@logprogress name = "Chain $(nchains-i+1)/$nchains" nothing _id =
+        #         uuid
+        # end
 
         Distributed.@sync begin
             if progress
@@ -466,15 +467,16 @@ function mcmcsample(
                 Distributed.@async begin
                     # Determine threshold values for progress logging
                     # (one update per 0.5% of progress)
-                    threshold = nchains ÷ 200
-                    nextprogresschains = threshold
+                    nprogupdates = nchains * N
+                    threshold = nprogupdates ÷ 200
+                    counter = 0
+                    next_update = threshold
 
-                    progresschains = 0
                     while take!(channel)
-                        progresschains += 1
-                        if progresschains >= nextprogresschains
-                            ProgressLogging.@logprogress progresschains / nchains
-                            nextprogresschains = progresschains + threshold
+                        counter += 1
+                        if counter >= next_update
+                            ProgressLogging.@logprogress counter / nprogupdates
+                            next_update = next_update + threshold
                         end
                     end
                 end
@@ -499,21 +501,12 @@ function mcmcsample(
                             Random.seed!(_rng, seeds[chainidx])
 
                             # Sample a chain and save it to the vector.
-                            child_progressname = "Chain $chainidx/$nchains"
-                            child_progress = if progress == false
-                                false
-                            else
-                                ProgressLogging.Progress(
-                                    uuids[chainidx]; name=child_progressname
-                                )
-                            end
                             chains[chainidx] = StatsBase.sample(
                                 _rng,
                                 _model,
                                 _sampler,
                                 N;
-                                progress=child_progress,
-                                progressname=child_progressname,
+                                progress=false,
                                 initial_params=if initial_params === nothing
                                     nothing
                                 else
@@ -524,11 +517,12 @@ function mcmcsample(
                                 else
                                     initial_state[chainidx]
                                 end,
+                                _progress_channel=channel,
                                 kwargs...,
                             )
 
-                            ProgressLogging.@logprogress name = child_progressname "done" _id = uuids[chainidx]
-
+                            # ProgressLogging.@logprogress name = child_progressname "done" _id = uuids[chainidx]
+                            #
                             # Update the progress bar.
                             progress && put!(channel, true)
                         end
@@ -537,10 +531,10 @@ function mcmcsample(
                     # Stop updating the progress bars (either if sampling is done, or if
                     # an error occurs).
                     progress && put!(channel, false)
-                    for (i, uuid) in enumerate(reverse(uuids))
-                        ProgressLogging.@logprogress name = "Chain $(nchains-i+1)/$nchains" "done" _id =
-                            uuid
-                    end
+                    # for (i, uuid) in enumerate(reverse(uuids))
+                    #     ProgressLogging.@logprogress name = "Chain $(nchains-i+1)/$nchains" "done" _id =
+                    #         uuid
+                    # end
                 end
             end
         end
