@@ -29,7 +29,7 @@ end
 
 """
     sample(
-        rng::Random.AbatractRNG=Random.default_rng(),
+        rng::Random.AbstractRNG=Random.default_rng(),
         model::AbstractModel,
         sampler::AbstractSampler,
         N_or_isdone;
@@ -226,6 +226,10 @@ function mcmcsample(
     stop = time()
     duration = stop - start
     stats = SamplingStats(start, stop, duration)
+
+    # Stop the progress bar
+    ProgressMeter.finish!(progress_obj; keep=true)
+    _progress_channel === nothing || put!(_progress_channel, (_chain_idx, false))
 
     return bundle_samples(
         samples,
@@ -429,22 +433,20 @@ function mcmcsample(
     channel = Distributed.RemoteChannel(() -> Channel{Tuple{Int,Bool}}(), 1)
 
     Distributed.@sync begin
-        Distributed.@async begin
-            while true
-                i, res = take!(channel)
-                # i == 0 means the overall progress bar; i > 0 means the
-                # progress bar for chain i.
-                prog_obj = if i == 0
-                    overall_progress_obj
-                else
-                    progress_objs[i]
-                end
-                if res  # true = a chain / sample finished
-                    ProgressMeter.next!(prog_obj)
-                else  # false = all chains / samples finished (or one failed)
-                    ProgressMeter.finish!(prog_obj)
-                    break
-                end
+        Distributed.@async while true
+            i, res = take!(channel)
+            # i == 0 means the overall progress bar; i > 0 means the
+            # progress bar for chain i.
+            prog_obj = if i == 0
+                overall_progress_obj
+            else
+                progress_objs[i]
+            end
+            if res  # true = a chain / sample finished
+                ProgressMeter.next!(prog_obj)
+            else  # false = all chains / samples finished (or one failed)
+                ProgressMeter.finish!(prog_obj)
+                i == 0 && break
             end
         end
 
@@ -566,22 +568,20 @@ function mcmcsample(
     channel = Distributed.RemoteChannel(() -> Channel{Tuple{Int,Bool}}(), 1)
 
     Distributed.@sync begin
-        Distributed.@async begin
-            while true
-                i, res = take!(channel)
-                # i == 0 means the overall progress bar; i > 0 means the
-                # progress bar for chain i.
-                prog_obj = if i == 0
-                    overall_progress_obj
-                else
-                    progress_objs[i]
-                end
-                if res  # true = a chain / sample finished
-                    ProgressMeter.next!(prog_obj)
-                else  # false = all chains / samples finished (or one failed)
-                    ProgressMeter.finish!(prog_obj)
-                    break
-                end
+        Distributed.@async while true
+            i, res = take!(channel)
+            # i == 0 means the overall progress bar; i > 0 means the
+            # progress bar for chain i.
+            prog_obj = if i == 0
+                overall_progress_obj
+            else
+                progress_objs[i]
+            end
+            if res  # true = a chain / sample finished
+                ProgressMeter.next!(prog_obj)
+            else  # false = all chains / samples finished (or one failed)
+                ProgressMeter.finish!(prog_obj; keep=true)
+                i == 0 && break
             end
         end
 
