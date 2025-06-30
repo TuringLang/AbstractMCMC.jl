@@ -441,7 +441,11 @@ function mcmcsample(
     elseif progress == false
         progress = :none
     end
-    # By this point, `progress` should be a Symbol, one of `:overall`, `:perchain`, or `:none`.
+    progress in [:overall, :perchain, :none] || throw(
+        ArgumentError(
+            "`progress` for MCMCThreads must be `:overall`, `:perchain`, `:none`, or a boolean",
+        ),
+    )
 
     # Copy the random number generator, model, and sample for each thread
     nchunks = min(nchains, Threads.nthreads())
@@ -581,12 +585,8 @@ function mcmcsample(
                         # Stop updating the main progress bar (either if sampling
                         # is done, or if an error occurs).
                         put!(progress_channel, false)
-                        # Additionally stop the per-chain progress bars (but in
-                        # reverse order, because ProgressLogging prints from
-                        # the bottom up, and we want chain 1 to show up at the
-                        # top)
-                        for (progress_name, uuid) in
-                            reverse(collect(zip(progress_names, uuids)))
+                        # Additionally stop the per-chain progress bars
+                        for (progress_name, uuid) in zip(progress_names, uuids)
                             ProgressLogging.@logprogress progress_name "done" _id = uuid
                         end
                     elseif progress == :overall
@@ -626,13 +626,18 @@ function mcmcsample(
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
     end
 
-    # Determine default progress bar style.
+    # Determine default progress bar style. Note that for MCMCDistributed(),
+    # :perchain isn't implemented.
     if progress == true
-        progress = nchains > MAX_CHAINS_PROGRESS[] ? :overall : :perchain
+        progress = :overall
     elseif progress == false
         progress = :none
     end
-    # By this point, `progress` should be a Symbol, one of `:overall`, `:perchain`, or `:none`.
+    progress in [:overall, :none] || throw(
+        ArgumentError(
+            "`progress` for MCMCDistributed must be `:overall`, `:none`, or a boolean"
+        ),
+    )
 
     # Ensure that initial parameters and states are `nothing` or of the correct length
     check_initial_params(initial_params, nchains)
@@ -652,25 +657,7 @@ function mcmcsample(
     local chains
     @ifwithprogresslogger (progress != :none) name = progressname begin
         # Set up progress logging.
-        if progress == :perchain
-            # This is the 'overall' progress bar. We create a channel for each
-            # chain to report back to when it finishes sampling.
-            progress_channel = Distributed.RemoteChannel(
-                () -> Channel{Bool}(Distributed.nworkers())
-            )
-            # These are the per-chain progress bars. We generate `nchains`
-            # independent UUIDs for each progress bar
-            uuids = [UUIDs.uuid4() for _ in 1:nchains]
-            progress_names = ["Chain $i/$nchains" for i in 1:nchains]
-            # Start the per-chain progress bars (but in reverse order, because
-            # ProgressLogging prints from the bottom up, and we want chain 1 to
-            # show up at the top)
-            for (progress_name, uuid) in reverse(collect(zip(progress_names, uuids)))
-                ProgressLogging.@logprogress name = progress_name nothing _id = uuid
-            end
-            child_progresses = uuids
-            child_progressnames = progress_names
-        elseif progress == :overall
+        if progress == :overall
             # Just a single progress bar for the entire sampling, but instead
             # of tracking each chain as it comes in, we track each sample as it
             # comes in. This allows us to have more granular progress updates.
@@ -684,12 +671,12 @@ function mcmcsample(
         end
 
         Distributed.@sync begin
-            if progress != :none
+            if progress == :overall
                 # This task updates the progress bar
                 Distributed.@async begin
                     # Determine threshold values for progress logging
                     # (one update per 0.5% of progress)
-                    Ntotal = progress == :overall ? nchains * N : nchains
+                    Ntotal = nchains * N
                     threshold = Ntotal ÷ 200
                     next_update = threshold
 
@@ -754,19 +741,7 @@ function mcmcsample(
                         child_progressnames,
                     )
                 finally
-                    if progress == :perchain
-                        # Stop updating the main progress bar (either if sampling
-                        # is done, or if an error occurs).
-                        put!(progress_channel, false)
-                        # Additionally stop the per-chain progress bars (but in
-                        # reverse order, because ProgressLogging prints from
-                        # the bottom up, and we want chain 1 to show up at the
-                        # top)
-                        for (progress_name, uuid) in
-                            reverse(collect(zip(progress_names, uuids)))
-                            ProgressLogging.@logprogress progress_name "done" _id = uuid
-                        end
-                    elseif progress == :overall
+                    if progress == :overall
                         # Stop updating the main progress bar (either if sampling
                         # is done, or if an error occurs).
                         put!(progress_channel, false)
