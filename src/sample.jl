@@ -304,7 +304,7 @@ function mcmcsample(
     sampler::AbstractSampler,
     isdone;
     chain_type::Type=Any,
-    progress=PROGRESS[],
+    progress::Bool=PROGRESS[],
     progressname="Convergence sampling",
     callback=nothing,
     num_warmup=0,
@@ -328,7 +328,7 @@ function mcmcsample(
     start = time()
     local state
 
-    @ifwithprogresslogger (progress == true) name = progressname begin
+    @ifwithprogresslogger progress name = progressname begin
         # Obtain the initial sample and state.
         sample, state = if num_warmup > 0
             if initial_state === nothing
