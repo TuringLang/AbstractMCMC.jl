@@ -5,8 +5,7 @@ macro ifwithprogresslogger(cond, exprs...)
     return esc(
         quote
             if $cond
-                # If progress == true, then we want to create a new logger. Note that
-                # progress might not be a Bool.
+                # Create a new logger
                 if $hasprogresslevel($Logging.current_logger())
                     $ProgressLogging.@withprogress $(exprs...)
                 else
@@ -15,8 +14,9 @@ macro ifwithprogresslogger(cond, exprs...)
                     end
                 end
             else
-                # otherwise, progress isa UUID, or a channel, or false, in
-                # which case we don't want to create a new logger.
+                # Don't create a new logger, either because progress logging
+                # was disabled, or because it's otherwise being manually
+                # managed.
                 $(exprs[end])
             end
         end,
@@ -27,8 +27,10 @@ macro log_progress_dispatch(progress, progressname, progress_frac)
     return esc(
         quote
             if $progress == true
+                # Use global logger
                 $ProgressLogging.@logprogress $progress_frac
             elseif $progress isa $UUIDs.UUID
+                # Use the logger with this specific UUID
                 $ProgressLogging.@logprogress $progressname $progress_frac _id = $progress
             else
                 # progress == false, or progress isa Channel, both of which are
