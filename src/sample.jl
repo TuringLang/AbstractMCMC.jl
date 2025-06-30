@@ -161,7 +161,10 @@ function mcmcsample(
     start = time()
     local state
 
-    @single_ifwithprogresslogger progress name = progressname begin
+    # Only create a new progress bar if progress is explicitly equal to true, i.e.
+    # it's not a UUID (the progress bar already exists), a channel (there's no need
+    # for a new progress bar), or false (no progress bar).
+    @ifwithprogresslogger (progress == true) name = progressname begin
         # Determine threshold values for progress logging
         # (one update per 0.5% of progress)
         threshold = Ntotal ÷ 200
@@ -319,7 +322,7 @@ function mcmcsample(
     start = time()
     local state
 
-    @single_ifwithprogresslogger progress name = progressname begin
+    @ifwithprogresslogger (progress == true) name = progressname begin
         # Obtain the initial sample and state.
         sample, state = if num_warmup > 0
             if initial_state === nothing
@@ -456,7 +459,7 @@ function mcmcsample(
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
 
-    @multi_ifwithprogresslogger progress name = progressname begin
+    @ifwithprogresslogger (progress != :none) name = progressname begin
         if progress == :perchain
             # This is the 'overall' progress bar. We create a channel for each
             # chain to report back to when it finishes sampling.
@@ -633,7 +636,7 @@ function mcmcsample(
     pool = Distributed.CachingPool(Distributed.workers())
 
     local chains
-    @single_ifwithprogresslogger progress name = progressname begin
+    @ifwithprogresslogger (progress == true) name = progressname begin
         # Create a channel for progress logging.
         if progress
             channel = Distributed.RemoteChannel(() -> Channel{Bool}(Distributed.nworkers()))

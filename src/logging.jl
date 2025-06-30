@@ -1,10 +1,10 @@
 # avoid creating a progress bar with @withprogress if progress logging is disabled
 # and add a custom progress logger if the current logger does not seem to be able to handle
 # progress logs
-macro single_ifwithprogresslogger(progress, exprs...)
+macro ifwithprogresslogger(cond, exprs...)
     return esc(
         quote
-            if $progress == true
+            if $cond
                 # If progress == true, then we want to create a new logger. Note that
                 # progress might not be a Bool.
                 if $hasprogresslevel($Logging.current_logger())
@@ -23,25 +23,6 @@ macro single_ifwithprogresslogger(progress, exprs...)
     )
 end
 
-# TODO(penelopeysm): figure out how to not have so much code duplication
-macro multi_ifwithprogresslogger(progress, exprs...)
-    return esc(
-        quote
-            if $progress != :none
-                if $hasprogresslevel($Logging.current_logger())
-                    $ProgressLogging.@withprogress $(exprs...)
-                else
-                    $with_progresslogger($Base.@__MODULE__, $Logging.current_logger()) do
-                        $ProgressLogging.@withprogress $(exprs...)
-                    end
-                end
-            else
-                $(exprs[end])
-            end
-        end,
-    )
-end
-
 macro log_progress_dispatch(progress, progressname, progress_frac)
     return esc(
         quote
@@ -50,7 +31,8 @@ macro log_progress_dispatch(progress, progressname, progress_frac)
             elseif $progress isa $UUIDs.UUID
                 $ProgressLogging.@logprogress $progressname $progress_frac _id = $progress
             else
-                # progress == false, or progress isa Channel, which is handled manually
+                # progress == false, or progress isa Channel, both of which are
+                # handled manually
                 nothing
             end
         end,
