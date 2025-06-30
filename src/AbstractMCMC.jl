@@ -13,6 +13,7 @@ using FillArrays: FillArrays
 using Distributed: Distributed
 using Logging: Logging
 using Random: Random
+using UUIDs: UUIDs
 
 # Reexport sample
 using StatsBase: sample

@@ -1,10 +1,33 @@
 # avoid creating a progress bar with @withprogress if progress logging is disabled
 # and add a custom progress logger if the current logger does not seem to be able to handle
 # progress logs
-macro ifwithprogresslogger(progress, exprs...)
+macro single_ifwithprogresslogger(progress, exprs...)
     return esc(
         quote
             if $progress == true
+                # If progress == true, then we want to create a new logger. Note that
+                # progress might not be a Bool.
+                if $hasprogresslevel($Logging.current_logger())
+                    $ProgressLogging.@withprogress $(exprs...)
+                else
+                    $with_progresslogger($Base.@__MODULE__, $Logging.current_logger()) do
+                        $ProgressLogging.@withprogress $(exprs...)
+                    end
+                end
+            else
+                # otherwise, progress isa UUID, or a channel, or false, in
+                # which case we don't want to create a new logger.
+                $(exprs[end])
+            end
+        end,
+    )
+end
+
+# TODO(penelopeysm): figure out how to not have so much code duplication
+macro multi_ifwithprogresslogger(progress, exprs...)
+    return esc(
+        quote
+            if $progress != :none
                 if $hasprogresslevel($Logging.current_logger())
                     $ProgressLogging.@withprogress $(exprs...)
                 else
@@ -14,6 +37,21 @@ macro ifwithprogresslogger(progress, exprs...)
                 end
             else
                 $(exprs[end])
+            end
+        end,
+    )
+end
+
+macro log_progress_dispatch(progress, progressname, progress_frac)
+    return esc(
+        quote
+            if $progress == true
+                $ProgressLogging.@logprogress $progress_frac
+            elseif $progress isa $UUIDs.UUID
+                $ProgressLogging.@logprogress $progressname $progress_frac _id = $progress
+            else
+                # progress == false, or progress isa Channel, which is handled manually
+                nothing
             end
         end,
     )
