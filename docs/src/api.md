@@ -68,7 +68,7 @@ AbstractMCMC.MCMCSerial
 ## Common keyword arguments
 
 Common keyword arguments for regular and parallel sampling are:
-- `progress` (default: `AbstractMCMC.PROGRESS[]` which is `true` initially):  toggles progress logging
+- `progress` (default: `AbstractMCMC.PROGRESS[]` which is `true` initially): toggles progress logging. See the section on [Progress logging](#progress-logging) below for more details.
 - `chain_type` (default: `Any`): determines the type of the returned chain
 - `callback` (default: `nothing`): if `callback !== nothing`, then
   `callback(rng, model, sampler, sample, iteration)` is called after every sampling step,
@@ -90,11 +90,30 @@ However, multiple packages such as [EllipticalSliceSampling.jl](https://github.c
 To ensure that sampling multiple chains "just works" when sampling of a single chain is implemented, [we decided to support `initial_params` in the default implementations of the ensemble methods](https://github.com/TuringLang/AbstractMCMC.jl/pull/94):
 - `initial_params` (default: `nothing`): if `initial_params isa AbstractArray`, then the `i`th element of `initial_params` is used as initial parameters of the `i`th chain. If one wants to use the same initial parameters `x` for every chain, one can specify e.g. `initial_params = FillArrays.Fill(x, N)`.
 
-Progress logging can be enabled and disabled globally with `AbstractMCMC.setprogress!(progress)`.
+## Progress logging
+
+The default value for the `progress` keyword argument is `AbstractMCMC.PROGRESS[]`, which is always set to `true` unless modified with `AbstractMCMC.setprogress!`.
+For example, `setprogress!(false)` will disable all progress logging.
 
 ```@docs
 AbstractMCMC.setprogress!
 ```
+
+For single-chain sampling (i.e., `sample([rng,] model, sampler, N)`), as well as multiple-chain sampling with `MCMCSerial`, the `progress` keyword argument should be a `Bool`.
+
+For multiple-chain sampling using `MCMCThreads`, there are several, more detailed, options:
+
+- `:perchain`: create one progress bar per chain being sampled
+- `:overall`: create one progress bar for the overall sampling process, which tracks the percentage of samples that have been sampled across all chains
+- `:none`: do not create any progress bar
+- `true` (the default): use `perchain` for 10 or fewer chains, and `overall` for more than 10 chains
+- `false`: same as `none`, i.e. no progress bar
+
+The threshold of 10 chains can be changed using `AbstractMCMC.setmaxchainsprogress!(N)`, which will cause `MCMCThreads` to use `:perchain` for `N` or fewer chains, and `:overall` for more than `N` chains.
+Thus, for example, if you _always_ want to use `:overall`, you can call `AbstractMCMC.setmaxchainsprogress!(0)`.
+
+Multiple-chain sampling using `MCMCDistributed` behaves the same as `MCMCThreads`, except that `:perchain` is not (yet?) implemented.
+So, `true` always corresponds to `:overall`, and `false` corresponds to `:none`.
 
 ## Chains
 
