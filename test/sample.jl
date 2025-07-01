@@ -10,8 +10,7 @@
             @test length(LOGGERS) == 1
             logger = first(LOGGERS)
             @test logger isa TeeLogger
-            @test logger.loggers[1].logger isa
-                (Sys.iswindows() && VERSION < v"1.5.3" ? ProgressLogger : TerminalLogger)
+            @test logger.loggers[1].logger isa TerminalLogger
             @test logger.loggers[2].logger === CURRENT_LOGGER
             @test Logging.current_logger() === CURRENT_LOGGER
 
