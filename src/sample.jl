@@ -131,7 +131,7 @@ function mcmcsample(
     model::AbstractModel,
     sampler::AbstractSampler,
     N::Integer;
-    progress::Union{Bool,UUIDs.UUID,Channel{Bool},Distributed.RemoteChannel{Channel{Bool}}}=PROGRESS[],
+    progress::Union{Bool,<:AbstractProgressKwarg}=PROGRESS[],
     progressname="Sampling",
     callback=nothing,
     num_warmup::Int=0,
@@ -152,6 +152,14 @@ function mcmcsample(
         ArgumentError("number of warm-up samples exceeds the total number of samples")
     )
 
+    # Initialise progress bar
+    if progress === true
+        progress = CreateNewProgressBar(progressname)
+    elseif progress === false
+        progress = NoLogging()
+    end
+    init_progress(progress)
+
     # Determine how many samples to drop from `num_warmup` and the
     # main sampling process before we start saving samples.
     discard_from_warmup = min(num_warmup, discard_initial)
@@ -161,10 +169,7 @@ function mcmcsample(
     start = time()
     local state
 
-    # Only create a new progress bar if progress is explicitly equal to true, i.e.
-    # it's not a UUID (the progress bar already exists), a channel (there's no need
-    # for a new progress bar), or false (no progress bar).
-    @ifwithprogresslogger (progress == true) name = progressname begin
+    try
         # Determine threshold values for progress logging
         # (one update per 0.5% of progress)
         threshold = Ntotal ÷ 200
@@ -175,10 +180,10 @@ function mcmcsample(
         # is constructed in the multi-chain method, i.e. if we don't do this
         # the progress bar shows the time elapsed since _all_ sampling began,
         # not since the current chain started.
-        if progress isa UUIDs.UUID
+        if progress isa ExistingProgressBar
             try
                 bartrees = Logging.current_logger().loggers[1].logger.bartrees
-                bar = TerminalLoggers.findbar(bartrees, progress).data
+                bar = TerminalLoggers.findbar(bartrees, progress.uuid).data
                 bar.tfirst = time()
             catch
             end
@@ -202,12 +207,8 @@ function mcmcsample(
         # Start the progress bar.
         itotal = 1
         if itotal >= next_update
-            @log_progress_dispatch progress progressname itotal / Ntotal
+            update_progress(progress, itotal / Ntotal, true)
             next_update = itotal + threshold
-        end
-        if progress isa Channel{Bool} ||
-            progress isa Distributed.RemoteChannel{Channel{Bool}}
-            put!(progress, true)
         end
 
         # Discard initial samples.
@@ -222,7 +223,7 @@ function mcmcsample(
             # Update the progress bar.
             itotal += 1
             if itotal >= next_update
-                @log_progress_dispatch progress progressname itotal / Ntotal
+                update_progress(progress, itotal / Ntotal, false)
                 next_update = itotal + threshold
             end
         end
@@ -248,7 +249,7 @@ function mcmcsample(
                 # Update progress bar.
                 itotal += 1
                 if itotal >= next_update
-                    @log_progress_dispatch progress progressname itotal / Ntotal
+                    update_progress(progress, itotal / Ntotal, false)
                     next_update = itotal + threshold
                 end
             end
@@ -270,14 +271,17 @@ function mcmcsample(
             # Update the progress bar.
             itotal += 1
             if itotal >= next_update
-                @log_progress_dispatch progress progressname itotal / Ntotal
+                update_progress(progress, itotal / Ntotal, true)
                 next_update = itotal + threshold
             end
-            if progress isa Channel{Bool} ||
-                progress isa Distributed.RemoteChannel{Channel{Bool}}
-                put!(progress, true)
-            end
         end
+    catch e
+        # If an error occurs, we still want to finish the progress bar.
+        finish_progress(progress)
+        rethrow(e)
+    finally
+        # Finish the progress bar.
+        finish_progress(progress)
     end
 
     # Get the sample stop time.
@@ -473,7 +477,7 @@ function mcmcsample(
         if progress == :perchain
             # This is the 'overall' progress bar. We create a channel for each
             # chain to report back to when it finishes sampling.
-            progress_channel = Channel{Bool}()
+            progress_channel = Channel{Bool}(nchunks)
             # These are the per-chain progress bars. We generate `nchains`
             # independent UUIDs for each progress bar
             uuids = [UUIDs.uuid4() for _ in 1:nchains]
