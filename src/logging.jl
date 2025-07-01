@@ -23,6 +23,7 @@ function init_progress(p::CreateNewProgressBar)
 end
 function update_progress(p::CreateNewProgressBar, progress_frac)
     ProgressLogging.@logprogress p.name progress_frac _id = p.uuid
+    @show progress_frac
 end
 function finish_progress(p::CreateNewProgressBar)
     ProgressLogging.@logprogress p.name "done" _id = p.uuid

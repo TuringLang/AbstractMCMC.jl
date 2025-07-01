@@ -170,10 +170,11 @@ function mcmcsample(
 
     @withprogresslogger begin
         init_progress(progress)
-        # Determine threshold values for progress logging
-        # (one update per 0.5% of progress)
+        # Determine threshold values for progress logging (by default, one
+        # update per 0.5% of progress, unless this has been passed in
+        # explicitly)
         n_updates = progress isa ChannelProgress ? progress.n_updates : 200
-        threshold = Ntotal ÷ n_updates
+        threshold = Ntotal / n_updates
         next_update = threshold
 
         # Obtain the initial sample and state.
@@ -195,7 +196,7 @@ function mcmcsample(
         itotal = 1
         if itotal >= next_update
             update_progress(progress, itotal / Ntotal)
-            next_update = itotal + threshold
+            next_update += threshold
         end
 
         # Discard initial samples.
@@ -211,7 +212,7 @@ function mcmcsample(
             itotal += 1
             if itotal >= next_update
                 update_progress(progress, itotal / Ntotal)
-                next_update = itotal + threshold
+                next_update += threshold
             end
         end
 
@@ -237,7 +238,7 @@ function mcmcsample(
                 itotal += 1
                 if itotal >= next_update
                     update_progress(progress, itotal / Ntotal)
-                    next_update = itotal + threshold
+                    next_update += threshold
                 end
             end
 
@@ -259,7 +260,7 @@ function mcmcsample(
             itotal += 1
             if itotal >= next_update
                 update_progress(progress, itotal / Ntotal)
-                next_update = itotal + threshold
+                next_update += threshold
             end
         end
         finish_progress(progress)
@@ -510,7 +511,7 @@ function mcmcsample(
                     Ntotal = progress == :overall ? nchains * updates_per_chain : nchains
                     # Determine threshold values for progress logging
                     # (one update per 0.5% of progress)
-                    threshold = Ntotal ÷ 200
+                    threshold = Ntotal / 200
                     next_update = threshold
 
                     itotal = 0
@@ -518,7 +519,7 @@ function mcmcsample(
                         itotal += 1
                         if itotal >= next_update
                             update_progress(overall_progress_bar, itotal / Ntotal)
-                            next_update = itotal + threshold
+                            next_update += threshold
                         end
                     end
                     finish_progress(overall_progress_bar)
@@ -686,7 +687,7 @@ function mcmcsample(
                     # Determine threshold values for progress logging
                     # (one update per 0.5% of progress)
                     Ntotal = nchains * updates_per_chain
-                    threshold = Ntotal ÷ 200
+                    threshold = Ntotal / 200
                     next_update = threshold
 
                     itotal = 0
@@ -694,7 +695,7 @@ function mcmcsample(
                         itotal += 1
                         if itotal >= next_update
                             update_progress(overall_progress_bar, itotal / Ntotal)
-                            next_update = itotal + threshold
+                            next_update += threshold
                         end
                     end
                     finish_progress(overall_progress_bar)
