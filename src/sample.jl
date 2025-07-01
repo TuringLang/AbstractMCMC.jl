@@ -158,7 +158,6 @@ function mcmcsample(
     elseif progress === false
         progress = NoLogging()
     end
-    init_progress(progress)
 
     # Determine how many samples to drop from `num_warmup` and the
     # main sampling process before we start saving samples.
@@ -170,6 +169,7 @@ function mcmcsample(
     local state
 
     @withprogresslogger begin
+        init_progress(progress)
         # Determine threshold values for progress logging
         # (one update per 0.5% of progress)
         n_updates = progress isa ChannelProgress ? progress.n_updates : 200
@@ -310,7 +310,6 @@ function mcmcsample(
     elseif progress === false
         progress = NoLogging()
     end
-    init_progress(progress)
 
     # Determine how many samples to drop from `num_warmup` and the
     # main sampling process before we start saving samples.
@@ -322,6 +321,7 @@ function mcmcsample(
     local state
 
     @withprogresslogger begin
+        init_progress(progress)
         # Obtain the initial sample and state.
         sample, state = if num_warmup > 0
             if initial_state === nothing
@@ -384,10 +384,10 @@ function mcmcsample(
             # Increment iteration counter.
             i += 1
         end
+        finish_progress(progress)
     end
 
     # Get the sample stop time.
-    finish_progress(progress)
     stop = time()
     duration = stop - start
     stats = SamplingStats(start, stop, duration)
