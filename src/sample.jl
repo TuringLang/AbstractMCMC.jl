@@ -465,9 +465,13 @@ function mcmcsample(
 
     @withprogresslogger begin
         if progress == :perchain
-            # This is the 'overall' progress bar. We create a channel for each
-            # chain to report back to when it finishes sampling.
+            # Create a channel for each chain to report back to when it
+            # finishes sampling.
             progress_channel = Channel{Bool}(nchunks)
+            # This is the 'overall' progress bar which tracks the number of
+            # chains that have completed. Note that this progress bar is backed
+            # by a channel, but it is not itself a ChannelProgress (because
+            # ChannelProgress doesn't come with a progress bar).
             overall_progress_bar = CreateNewProgressBar(progressname)
             init_progress(overall_progress_bar)
             # These are the per-chain progress bars. We generate `nchains`
