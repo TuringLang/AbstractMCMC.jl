@@ -95,7 +95,7 @@ finish_progress(::ChannelProgress) = nothing
 
 # Add a custom progress logger if the current logger does not seem to be able to handle
 # progress logs.
-macro withprogresslogger(expr)
+macro maybewithricherlogger(expr)
     return esc(
         quote
             if !($hasprogresslevel($Logging.current_logger()))

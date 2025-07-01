@@ -168,7 +168,7 @@ function mcmcsample(
     start = time()
     local state
 
-    @withprogresslogger begin
+    @maybewithricherlogger begin
         init_progress(progress)
         # Determine threshold values for progress logging (by default, one
         # update per 0.5% of progress, unless this has been passed in
@@ -321,7 +321,7 @@ function mcmcsample(
     start = time()
     local state
 
-    @withprogresslogger begin
+    @maybewithricherlogger begin
         init_progress(progress)
         # Obtain the initial sample and state.
         sample, state = if num_warmup > 0
@@ -464,7 +464,7 @@ function mcmcsample(
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
 
-    @withprogresslogger begin
+    @maybewithricherlogger begin
         if progress == :perchain
             # Create a channel for each chain to report back to when it
             # finishes sampling.
@@ -661,7 +661,7 @@ function mcmcsample(
     pool = Distributed.CachingPool(Distributed.workers())
 
     local chains
-    @withprogresslogger begin
+    @maybewithricherlogger begin
         # Set up progress logging.
         if progress == :overall
             # Just a single progress bar for the entire sampling, but instead
