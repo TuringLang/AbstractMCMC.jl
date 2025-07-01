@@ -115,6 +115,9 @@ Thus, for example, if you _always_ want to use `:overall`, you can call `Abstrac
 Multiple-chain sampling using `MCMCDistributed` behaves the same as `MCMCThreads`, except that `:perchain` is not (yet?) implemented.
 So, `true` always corresponds to `:overall`, and `false` corresponds to `:none`.
 
+!!! warning "Do not override the `progress` keyword argument"
+    If you are implementing your own methods for `sample(...)`, you should make sure to not override the `progress` keyword argument if you want progress logging in multi-chain sampling to work correctly, as the multi-chain `sample()` call makes sure to specifically pass custom values of `progress` to the single-chain calls.
+
 ## Chains
 
 The `chain_type` keyword argument allows to set the type of the returned chain. A common
