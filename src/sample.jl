@@ -488,7 +488,7 @@ function mcmcsample(
             # Just a single progress bar for the entire sampling, but instead
             # of tracking each chain as it comes in, we track each sample as it
             # comes in. This allows us to have more granular progress updates.
-            progress_channel = Channel{Bool}()
+            progress_channel = Channel{Bool}(nchains)
         end
 
         Distributed.@sync begin
