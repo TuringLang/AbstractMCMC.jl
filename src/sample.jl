@@ -169,7 +169,7 @@ function mcmcsample(
     local state
 
     @maybewithricherlogger begin
-        init_progress(progress)
+        init_progress!(progress)
         # Determine threshold values for progress logging (by default, one
         # update per 0.5% of progress, unless this has been passed in
         # explicitly)
@@ -195,7 +195,7 @@ function mcmcsample(
         # Start the progress bar.
         itotal = 1
         if itotal >= next_update
-            update_progress(progress, itotal / Ntotal)
+            update_progress!(progress, itotal / Ntotal)
             next_update += threshold
         end
 
@@ -211,7 +211,7 @@ function mcmcsample(
             # Update the progress bar.
             itotal += 1
             if itotal >= next_update
-                update_progress(progress, itotal / Ntotal)
+                update_progress!(progress, itotal / Ntotal)
                 next_update += threshold
             end
         end
@@ -237,7 +237,7 @@ function mcmcsample(
                 # Update progress bar.
                 itotal += 1
                 if itotal >= next_update
-                    update_progress(progress, itotal / Ntotal)
+                    update_progress!(progress, itotal / Ntotal)
                     next_update += threshold
                 end
             end
@@ -259,11 +259,11 @@ function mcmcsample(
             # Update the progress bar.
             itotal += 1
             if itotal >= next_update
-                update_progress(progress, itotal / Ntotal)
+                update_progress!(progress, itotal / Ntotal)
                 next_update += threshold
             end
         end
-        finish_progress(progress)
+        finish_progress!(progress)
     end
 
     # Get the sample stop time.
@@ -322,7 +322,7 @@ function mcmcsample(
     local state
 
     @maybewithricherlogger begin
-        init_progress(progress)
+        init_progress!(progress)
         # Obtain the initial sample and state.
         sample, state = if num_warmup > 0
             if initial_state === nothing
@@ -385,7 +385,7 @@ function mcmcsample(
             # Increment iteration counter.
             i += 1
         end
-        finish_progress(progress)
+        finish_progress!(progress)
     end
 
     # Get the sample stop time.
@@ -474,7 +474,7 @@ function mcmcsample(
             # by a channel, but it is not itself a ChannelProgress (because
             # ChannelProgress doesn't come with a progress bar).
             overall_progress_bar = CreateNewProgressBar(progressname)
-            init_progress(overall_progress_bar)
+            init_progress!(overall_progress_bar)
             # These are the per-chain progress bars. We generate `nchains`
             # independent UUIDs for each progress bar
             child_progresses = [
@@ -484,7 +484,7 @@ function mcmcsample(
             # ProgressLogging prints from the bottom up, and we want chain 1 to
             # show up at the top)
             for child_progress in reverse(child_progresses)
-                init_progress(child_progress)
+                init_progress!(child_progress)
             end
             updates_per_chain = nothing
         elseif progress == :overall
@@ -518,11 +518,11 @@ function mcmcsample(
                     while take!(progress_channel)
                         itotal += 1
                         if itotal >= next_update
-                            update_progress(overall_progress_bar, itotal / Ntotal)
+                            update_progress!(overall_progress_bar, itotal / Ntotal)
                             next_update += threshold
                         end
                     end
-                    finish_progress(overall_progress_bar)
+                    finish_progress!(overall_progress_bar)
                 end
             end
 
@@ -578,7 +578,7 @@ function mcmcsample(
                                 # Tell the 'main' progress bar that this chain is done.
                                 put!(progress_channel, true)
                                 # Conclude the per-chain progress bar.
-                                finish_progress(child_progresses[chainidx])
+                                finish_progress!(child_progresses[chainidx])
                             end
                             # Note that if progress == :overall, we don't need to do anything
                             # because progress on that bar is triggered by
@@ -593,7 +593,7 @@ function mcmcsample(
                         put!(progress_channel, false)
                         # Additionally stop the per-chain progress bars
                         for child_progress in child_progresses
-                            finish_progress(child_progress)
+                            finish_progress!(child_progress)
                         end
                     elseif progress == :overall
                         # Stop updating the main progress bar (either if sampling
@@ -670,7 +670,7 @@ function mcmcsample(
             chan = Channel{Bool}(Distributed.nworkers())
             progress_channel = Distributed.RemoteChannel(() -> chan)
             overall_progress_bar = CreateNewProgressBar(progressname)
-            init_progress(overall_progress_bar)
+            init_progress!(overall_progress_bar)
             # See MCMCThreads method for the rationale behind updates_per_chain.
             updates_per_chain = max(1, 400 ÷ nchains)
             child_progresses = [
@@ -694,11 +694,11 @@ function mcmcsample(
                     while take!(progress_channel)
                         itotal += 1
                         if itotal >= next_update
-                            update_progress(overall_progress_bar, itotal / Ntotal)
+                            update_progress!(overall_progress_bar, itotal / Ntotal)
                             next_update += threshold
                         end
                     end
-                    finish_progress(overall_progress_bar)
+                    finish_progress!(overall_progress_bar)
                 end
             end
 

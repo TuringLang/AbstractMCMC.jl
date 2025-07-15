@@ -18,13 +18,13 @@ struct CreateNewProgressBar{S<:AbstractString} <: AbstractProgressKwarg
         return new{typeof(name)}(name, UUIDs.uuid4())
     end
 end
-function init_progress(p::CreateNewProgressBar)
+function init_progress!(p::CreateNewProgressBar)
     ProgressLogging.@logprogress p.name nothing _id = p.uuid
 end
-function update_progress(p::CreateNewProgressBar, progress_frac)
+function update_progress!(p::CreateNewProgressBar, progress_frac)
     ProgressLogging.@logprogress p.name progress_frac _id = p.uuid
 end
-function finish_progress(p::CreateNewProgressBar)
+function finish_progress!(p::CreateNewProgressBar)
     ProgressLogging.@logprogress p.name "done" _id = p.uuid
 end
 
@@ -34,9 +34,9 @@ end
 Do not log progress at all.
 """
 struct NoLogging <: AbstractProgressKwarg end
-init_progress(::NoLogging) = nothing
-update_progress(::NoLogging, ::Any) = nothing
-finish_progress(::NoLogging) = nothing
+init_progress!(::NoLogging) = nothing
+update_progress!(::NoLogging, ::Any) = nothing
+finish_progress!(::NoLogging) = nothing
 
 """
     ExistingProgressBar
@@ -51,7 +51,7 @@ struct ExistingProgressBar{S<:AbstractString} <: AbstractProgressKwarg
     name::S
     uuid::UUIDs.UUID
 end
-function init_progress(p::ExistingProgressBar)
+function init_progress!(p::ExistingProgressBar)
     # Hacky code to reset the start timer if called from a multi-chain sampling
     # process. We need this because the progress bar is constructed in the
     # multi-chain method, i.e. if we don't do this the progress bar shows the
@@ -65,10 +65,10 @@ function init_progress(p::ExistingProgressBar)
     end
     ProgressLogging.@logprogress p.name nothing _id = p.uuid
 end
-function update_progress(p::ExistingProgressBar, progress_frac)
+function update_progress!(p::ExistingProgressBar, progress_frac)
     ProgressLogging.@logprogress p.name progress_frac _id = p.uuid
 end
-function finish_progress(p::ExistingProgressBar)
+function finish_progress!(p::ExistingProgressBar)
     ProgressLogging.@logprogress p.name "done" _id = p.uuid
 end
 
@@ -87,11 +87,11 @@ struct ChannelProgress{T<:Union{Channel{Bool},Distributed.RemoteChannel{Channel{
     channel::T
     n_updates::Int
 end
-init_progress(::ChannelProgress) = nothing
-update_progress(p::ChannelProgress, ::Any) = put!(p.channel, true)
+init_progress!(::ChannelProgress) = nothing
+update_progress!(p::ChannelProgress, ::Any) = put!(p.channel, true)
 # Note: We don't want to `put!(p.channel, false)`, because that would stop the
 # channel from being used for further updates e.g. from other chains.
-finish_progress(::ChannelProgress) = nothing
+finish_progress!(::ChannelProgress) = nothing
 
 # Add a custom progress logger if the current logger does not seem to be able to handle
 # progress logs.
