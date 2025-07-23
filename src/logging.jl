@@ -27,6 +27,7 @@ end
 function finish_progress!(p::CreateNewProgressBar)
     ProgressLogging.@logprogress p.name "done" _id = p.uuid
 end
+get_n_updates(::CreateNewProgressBar) = 200
 
 """
     NoLogging
