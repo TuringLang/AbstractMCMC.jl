@@ -153,7 +153,7 @@ function mcmcsample(
         # Determine threshold values for progress logging (by default, one
         # update per 0.5% of progress, unless this has been passed in
         # explicitly)
-        n_updates = progress isa ChannelProgress ? progress.n_updates : 200
+        n_updates = get_n_updates(progress)
         threshold = Ntotal / n_updates
         next_update = threshold
 
@@ -445,30 +445,8 @@ function mcmcsample(
     chains = Vector{Any}(undef, nchains)
 
     @maybewithricherlogger begin
-        if progress == :perchain
-            # Create a channel for each chain to report back to when it
-            # finishes sampling.
-            progress_channel = Channel{Bool}(nchunks)
-            # This is the 'overall' progress bar which tracks the number of
-            # chains that have completed. Note that this progress bar is backed
-            # by a channel, but it is not itself a ChannelProgress (because
-            # ChannelProgress doesn't come with a progress bar).
-            overall_progress_bar = CreateNewProgressBar(progressname)
-            init_progress!(overall_progress_bar)
-            # These are the per-chain progress bars. We generate `nchains`
-            # independent UUIDs for each progress bar
-            child_progresses = [
-                ExistingProgressBar("Chain $i/$nchains", UUIDs.uuid4()) for i in 1:nchains
-            ]
-            # Start the per-chain progress bars (but in reverse order, because
-            # ProgressLogging prints from the bottom up, and we want chain 1 to
-            # show up at the top)
-            for child_progress in reverse(child_progresses)
-                init_progress!(child_progress)
-            end
-            updates_per_chain = nothing
-        elseif progress == :overall
-            # Just a single progress bar for the entire sampling, but instead
+        if progress == :perchain || progress == :overall
+            # Create a single progress bar for the entire sampling, but instead
             # of tracking each chain as it comes in, we track each sample as it
             # comes in. This allows us to have more granular progress updates.
             progress_channel = Channel{Bool}(nchains)
@@ -481,14 +459,28 @@ function mcmcsample(
             # twice the amount needed per chain, which doesn't cause a real
             # performance hit.
             updates_per_chain = max(1, 400 ÷ nchains)
+            init_progress!(overall_progress_bar)
+        end
+        if progress == :perchain
+            # Additionally, we create per-chain progress bars. We generate `nchains`
+            # independent UUIDs for each progress bar
+            child_progresses = [
+                ExistingProgressBar("Chain $i/$nchains", UUIDs.uuid4()) for i in 1:nchains
+            ]
+            # Start the per-chain progress bars (but in reverse order, because
+            # ProgressLogging prints from the bottom up, and we want chain 1 to
+            # show up at the top)
+            for child_progress in reverse(child_progresses)
+                init_progress!(child_progress)
+            end
         end
 
         Distributed.@sync begin
-            if progress != :none
-                # This task updates the progress bar
+            if progress == :overall || progress == :perchain
+                # This task updates the overall progress bar
                 Distributed.@async begin
                     # Total number of updates (across all chains)
-                    Ntotal = progress == :overall ? nchains * updates_per_chain : nchains
+                    Ntotal = nchains * updates_per_chain
                     # Determine threshold values for progress logging
                     # (one update per 0.5% of progress)
                     threshold = Ntotal / 200
@@ -530,7 +522,10 @@ function mcmcsample(
                             elseif progress == :overall
                                 ChannelProgress(progress_channel, updates_per_chain)
                             elseif progress == :perchain
-                                child_progresses[chainidx] # <- isa ExistingProgressBar
+                                chan_prog = ChannelProgress(progress_channel, updates_per_chain)
+                                ChannelPlusExistingProgress(
+                                    chan_prog, child_progresses[chainidx]
+                                )
                             end
 
                             # Sample a chain and save it to the vector.
@@ -552,33 +547,19 @@ function mcmcsample(
                                 end,
                                 kwargs...,
                             )
-
-                            # Update the progress bars.
-                            if progress == :perchain
-                                # Tell the 'main' progress bar that this chain is done.
-                                put!(progress_channel, true)
-                                # Conclude the per-chain progress bar.
-                                finish_progress!(child_progresses[chainidx])
-                            end
-                            # Note that if progress == :overall, we don't need to do anything
-                            # because progress on that bar is triggered by
-                            # samples being obtained rather than chains being
-                            # completed.
                         end
                     end
                 finally
-                    if progress == :perchain
+                    if progress == :overall || progress == :perchain
                         # Stop updating the main progress bar (either if sampling
                         # is done, or if an error occurs).
                         put!(progress_channel, false)
+                    end
+                    if progress == :perchain
                         # Additionally stop the per-chain progress bars
                         for child_progress in child_progresses
                             finish_progress!(child_progress)
                         end
-                    elseif progress == :overall
-                        # Stop updating the main progress bar (either if sampling
-                        # is done, or if an error occurs).
-                        put!(progress_channel, false)
                     end
                 end
             end

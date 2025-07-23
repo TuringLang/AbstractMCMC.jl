@@ -37,15 +37,15 @@ struct NoLogging <: AbstractProgressKwarg end
 init_progress!(::NoLogging) = nothing
 update_progress!(::NoLogging, ::Any) = nothing
 finish_progress!(::NoLogging) = nothing
+get_n_updates(::NoLogging) = 200
 
 """
     ExistingProgressBar
-
 Use an existing progress bar to log progress. This is used for tracking
 progress in a progress bar that has been previously generated elsewhere,
-specifically, when `sample(..., MCMCThreads(), ...; progress=:perchain)` is
-called. In this case we can use `@logprogress name progress_frac _id = uuid` to
-log progress.
+specifically, during multi-threaded sampling where per-chain progress
+bars are requested. In this case we can use `@logprogress name progress_frac
+_id = uuid` to log progress.
 """
 struct ExistingProgressBar{S<:AbstractString} <: AbstractProgressKwarg
     name::S
@@ -71,13 +71,13 @@ end
 function finish_progress!(p::ExistingProgressBar)
     ProgressLogging.@logprogress p.name "done" _id = p.uuid
 end
+get_n_updates(::ExistingProgressBar) = 200
 
 """
     ChannelProgress
 
-Use a `Channel` to log progress. This is used for 'reporting' progress back
-to the main thread or worker when using `progress=:overall` with MCMCThreads or
-MCMCDistributed.
+Use a `Channel` to log progress. This is used for 'reporting' progress back to
+the main thread or worker when using multi-threaded or distributed sampling.
 
 n_updates is the number of updates that each child thread is expected to report
 back to the main thread.
@@ -92,6 +92,34 @@ update_progress!(p::ChannelProgress, ::Any) = put!(p.channel, true)
 # Note: We don't want to `put!(p.channel, false)`, because that would stop the
 # channel from being used for further updates e.g. from other chains.
 finish_progress!(::ChannelProgress) = nothing
+get_n_updates(p::ChannelProgress) = p.n_updates
+
+"""
+    ChannelPlusExistingProgress
+
+Send updates to two places: a `Channel` as well as an existing progress bar.
+"""
+struct ChannelPlusExistingProgress{C<:ChannelProgress,E<:ExistingProgressBar} <:
+       AbstractProgressKwarg
+    channel_progress::C
+    existing_progress::E
+end
+function init_progress!(p::ChannelPlusExistingProgress)
+    init_progress!(p.channel_progress)
+    init_progress!(p.existing_progress)
+    return nothing
+end
+function update_progress!(p::ChannelPlusExistingProgress, progress_frac)
+    update_progress!(p.channel_progress, progress_frac)
+    update_progress!(p.existing_progress, progress_frac)
+    return nothing
+end
+function finish_progress!(p::ChannelPlusExistingProgress)
+    finish_progress!(p.channel_progress)
+    finish_progress!(p.existing_progress)
+    return nothing
+end
+get_n_updates(p::ChannelPlusExistingProgress) = get_n_updates(p.channel_progress)
 
 # Add a custom progress logger if the current logger does not seem to be able to handle
 # progress logs.
