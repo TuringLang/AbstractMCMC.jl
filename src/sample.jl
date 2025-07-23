@@ -1,6 +1,5 @@
 # Default implementations of `sample`.
 const PROGRESS = Ref(true)
-const MAX_CHAINS_PROGRESS = Ref(10)
 
 _pluralise(n; singular="", plural="s") = n == 1 ? singular : plural
 
@@ -16,25 +15,6 @@ function setprogress!(progress::Bool; silent::Bool=false)
     end
     PROGRESS[] = progress
     return progress
-end
-
-"""
-    setmaxchainsprogress!(max_chains::Int, silent::Bool=false)
-
-Set the maximum number of chains to display progress bars for when sampling
-multiple chains at once (if progress logging is enabled). Above this limit, no
-progress bars are displayed for individual chains; instead, a single progress
-bar is displayed for the entire sampling process.
-"""
-function setmaxchainsprogress!(max_chains::Int, silent::Bool=false)
-    if max_chains < 0
-        throw(ArgumentError("maximum number of chains must be non-negative"))
-    end
-    if !silent
-        @info "AbstractMCMC: maximum number of per-chain progress bars set to $max_chains"
-    end
-    MAX_CHAINS_PROGRESS[] = max_chains
-    return nothing
 end
 
 function StatsBase.sample(
@@ -432,7 +412,7 @@ function mcmcsample(
 
     # Determine default progress bar style.
     if progress == true
-        progress = nchains > MAX_CHAINS_PROGRESS[] ? :overall : :perchain
+        progress = :overall
     elseif progress == false
         progress = :none
     end

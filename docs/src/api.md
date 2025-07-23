@@ -103,33 +103,31 @@ For single-chain sampling (i.e., `sample([rng,] model, sampler, N)`), as well as
 
 For multiple-chain sampling using `MCMCThreads`, there are several, more detailed, options:
 
-- `:perchain`: create one progress bar per chain being sampled, plus one progress bar tracking the number of chains
 - `:overall`: create one progress bar for the overall sampling process, which tracks the percentage of samples that have been sampled across all chains
+- `:perchain`: in addition to `:overall`, also create one progress bar for each individual chain
 - `:none`: do not create any progress bar
-- `true` (the default): use `perchain` for 10 or fewer chains, and `overall` for more than 10 chains
-- `false`: same as `none`, i.e. no progress bar
+- `true` (the default): same as `:overall`, i.e. one progress bar for the overall sampling process
+- `false`: same as `:none`, i.e. no progress bar
 
 Multiple-chain sampling using `MCMCDistributed` behaves the same as `MCMCThreads`, except that `:perchain` is not (yet?) implemented.
-So, `true` always corresponds to `:overall`, and `false` corresponds to `:none`.
 
 !!! warning "Do not override the `progress` keyword argument"
     If you are implementing your own methods for `sample(...)`, you should make sure to not override the `progress` keyword argument if you want progress logging in multi-chain sampling to work correctly, as the multi-chain `sample()` call makes sure to specifically pass custom values of `progress` to the single-chain calls.
 
 ### Global settings
 
-If you are sampling multiple times and would like to change the default behaviour, you can use these functions to control progress logging globally:
+If you are sampling multiple times and would like to change the default behaviour, you can use this function to control progress logging globally:
 
 ```@docs
 AbstractMCMC.setprogress!
-AbstractMCMC.setmaxchainsprogress!
 ```
 
 `setprogress!` is more general, and applies to all types of sampling (both single- and multiple-chain).
 It only takes a boolean argument, which switches progress logging on or off.
 For example, `setprogress!(false)` will disable all progress logging.
 
-On the other hand, `setmaxchainsprogress!` is specific to multiple-chain sampling, and allows you to set the threshold for when to switch from `:perchain` to `:overall` progress logging.
-Thus, for example, if you want to keep progress logging on but _always_ want to use `:overall`, you can set `AbstractMCMC.setmaxchainsprogress!(0)`.
+Note that `setprogress!` cannot be used to set the type of progress bar for multiple-chain sampling.
+If you want to use `:perchain`, it has to be set on each individual call to `sample`.
 
 ## Chains
 
