@@ -111,7 +111,7 @@ function mcmcsample(
     model::AbstractModel,
     sampler::AbstractSampler,
     N::Integer;
-    progress=PROGRESS[],
+    progress::Union{Bool,<:AbstractProgressKwarg}=PROGRESS[],
     progressname="Sampling",
     callback=nothing,
     num_warmup::Int=0,
@@ -132,6 +132,13 @@ function mcmcsample(
         ArgumentError("number of warm-up samples exceeds the total number of samples")
     )
 
+    # Initialise progress bar
+    if progress === true
+        progress = CreateNewProgressBar(progressname)
+    elseif progress === false
+        progress = NoLogging()
+    end
+
     # Determine how many samples to drop from `num_warmup` and the
     # main sampling process before we start saving samples.
     discard_from_warmup = min(num_warmup, discard_initial)
@@ -141,13 +148,14 @@ function mcmcsample(
     start = time()
     local state
 
-    @ifwithprogresslogger progress name = progressname begin
-        # Determine threshold values for progress logging
-        # (one update per 0.5% of progress)
-        if progress
-            threshold = Ntotal ÷ 200
-            next_update = threshold
-        end
+    @maybewithricherlogger begin
+        init_progress!(progress)
+        # Determine threshold values for progress logging (by default, one
+        # update per 0.5% of progress, unless this has been passed in
+        # explicitly)
+        n_updates = get_n_updates(progress)
+        threshold = Ntotal / n_updates
+        next_update = threshold
 
         # Obtain the initial sample and state.
         sample, state = if num_warmup > 0
@@ -164,11 +172,11 @@ function mcmcsample(
             end
         end
 
-        # Update the progress bar.
+        # Start the progress bar.
         itotal = 1
-        if progress && itotal >= next_update
-            ProgressLogging.@logprogress itotal / Ntotal
-            next_update = itotal + threshold
+        if itotal >= next_update
+            update_progress!(progress, itotal / Ntotal)
+            next_update += threshold
         end
 
         # Discard initial samples.
@@ -181,9 +189,10 @@ function mcmcsample(
             end
 
             # Update the progress bar.
-            if progress && (itotal += 1) >= next_update
-                ProgressLogging.@logprogress itotal / Ntotal
-                next_update = itotal + threshold
+            itotal += 1
+            if itotal >= next_update
+                update_progress!(progress, itotal / Ntotal)
+                next_update += threshold
             end
         end
 
@@ -206,9 +215,10 @@ function mcmcsample(
                 end
 
                 # Update progress bar.
-                if progress && (itotal += 1) >= next_update
-                    ProgressLogging.@logprogress itotal / Ntotal
-                    next_update = itotal + threshold
+                itotal += 1
+                if itotal >= next_update
+                    update_progress!(progress, itotal / Ntotal)
+                    next_update += threshold
                 end
             end
 
@@ -227,11 +237,13 @@ function mcmcsample(
             samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
 
             # Update the progress bar.
-            if progress && (itotal += 1) >= next_update
-                ProgressLogging.@logprogress itotal / Ntotal
-                next_update = itotal + threshold
+            itotal += 1
+            if itotal >= next_update
+                update_progress!(progress, itotal / Ntotal)
+                next_update += threshold
             end
         end
+        finish_progress!(progress)
     end
 
     # Get the sample stop time.
@@ -258,7 +270,7 @@ function mcmcsample(
     sampler::AbstractSampler,
     isdone;
     chain_type::Type=Any,
-    progress=PROGRESS[],
+    progress::Bool=PROGRESS[],
     progressname="Convergence sampling",
     callback=nothing,
     num_warmup=0,
@@ -273,6 +285,13 @@ function mcmcsample(
     num_warmup >= 0 ||
         throw(ArgumentError("number of warm-up samples must be non-negative"))
 
+    # Initialise progress bar
+    if progress === true
+        progress = CreateNewProgressBar(progressname)
+    elseif progress === false
+        progress = NoLogging()
+    end
+
     # Determine how many samples to drop from `num_warmup` and the
     # main sampling process before we start saving samples.
     discard_from_warmup = min(num_warmup, discard_initial)
@@ -282,7 +301,8 @@ function mcmcsample(
     start = time()
     local state
 
-    @ifwithprogresslogger progress name = progressname begin
+    @maybewithricherlogger begin
+        init_progress!(progress)
         # Obtain the initial sample and state.
         sample, state = if num_warmup > 0
             if initial_state === nothing
@@ -345,6 +365,7 @@ function mcmcsample(
             # Increment iteration counter.
             i += 1
         end
+        finish_progress!(progress)
     end
 
     # Get the sample stop time.
@@ -373,7 +394,7 @@ function mcmcsample(
     ::MCMCThreads,
     N::Integer,
     nchains::Integer;
-    progress=PROGRESS[],
+    progress::Union{Bool,Symbol}=PROGRESS[],
     progressname="Sampling ($(min(nchains, Threads.nthreads())) thread$(_pluralise(min(nchains, Threads.nthreads()))))",
     initial_params=nothing,
     initial_state=nothing,
@@ -388,6 +409,18 @@ function mcmcsample(
     if nchains > N
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
     end
+
+    # Determine default progress bar style.
+    if progress == true
+        progress = :overall
+    elseif progress == false
+        progress = :none
+    end
+    progress in [:overall, :perchain, :none] || throw(
+        ArgumentError(
+            "`progress` for MCMCThreads must be `:overall`, `:perchain`, `:none`, or a boolean",
+        ),
+    )
 
     # Copy the random number generator, model, and sample for each thread
     nchunks = min(nchains, Threads.nthreads())
@@ -411,29 +444,57 @@ function mcmcsample(
     # Set up a chains vector.
     chains = Vector{Any}(undef, nchains)
 
-    @ifwithprogresslogger progress name = progressname begin
-        # Create a channel for progress logging.
-        if progress
-            channel = Channel{Bool}(length(interval))
+    @maybewithricherlogger begin
+        if progress == :perchain || progress == :overall
+            # Create a single progress bar for the entire sampling, but instead
+            # of tracking each chain as it comes in, we track each sample as it
+            # comes in. This allows us to have more granular progress updates.
+            progress_channel = Channel{Bool}(nchains)
+            overall_progress_bar = CreateNewProgressBar(progressname)
+            # If we have many chains and many samples, we don't want to force
+            # each chain to report back to the main thread for each sample, as
+            # this would cause serious performance issues due to lock conflicts.
+            # In the overall progress bar we only expect 200 updates (i.e., one
+            # update per 0.5%). To avoid possible throttling issues we ask for
+            # twice the amount needed per chain, which doesn't cause a real
+            # performance hit.
+            updates_per_chain = max(1, 400 ÷ nchains)
+            init_progress!(overall_progress_bar)
+        end
+        if progress == :perchain
+            # Additionally, we create per-chain progress bars. We generate `nchains`
+            # independent UUIDs for each progress bar
+            child_progresses = [
+                ExistingProgressBar("Chain $i/$nchains", UUIDs.uuid4()) for i in 1:nchains
+            ]
+            # Start the per-chain progress bars (but in reverse order, because
+            # ProgressLogging prints from the bottom up, and we want chain 1 to
+            # show up at the top)
+            for child_progress in reverse(child_progresses)
+                init_progress!(child_progress)
+            end
         end
 
         Distributed.@sync begin
-            if progress
-                # Update the progress bar.
+            if progress == :overall || progress == :perchain
+                # This task updates the overall progress bar
                 Distributed.@async begin
+                    # Total number of updates (across all chains)
+                    Ntotal = nchains * updates_per_chain
                     # Determine threshold values for progress logging
                     # (one update per 0.5% of progress)
-                    threshold = nchains ÷ 200
-                    nextprogresschains = threshold
+                    threshold = Ntotal / 200
+                    next_update = threshold
 
-                    progresschains = 0
-                    while take!(channel)
-                        progresschains += 1
-                        if progresschains >= nextprogresschains
-                            ProgressLogging.@logprogress progresschains / nchains
-                            nextprogresschains = progresschains + threshold
+                    itotal = 0
+                    while take!(progress_channel)
+                        itotal += 1
+                        if itotal >= next_update
+                            update_progress!(overall_progress_bar, itotal / Ntotal)
+                            next_update += threshold
                         end
                     end
+                    finish_progress!(overall_progress_bar)
                 end
             end
 
@@ -455,13 +516,25 @@ function mcmcsample(
                             # Seed the chunk-specific random number generator with the pre-made seed.
                             Random.seed!(_rng, seeds[chainidx])
 
+                            # Determine how to monitor progress for the child chains.
+                            child_progress = if progress == :none
+                                false
+                            elseif progress == :overall
+                                ChannelProgress(progress_channel, updates_per_chain)
+                            elseif progress == :perchain
+                                chan_prog = ChannelProgress(progress_channel, updates_per_chain)
+                                ChannelPlusExistingProgress(
+                                    chan_prog, child_progresses[chainidx]
+                                )
+                            end
+
                             # Sample a chain and save it to the vector.
                             chains[chainidx] = StatsBase.sample(
                                 _rng,
                                 _model,
                                 _sampler,
                                 N;
-                                progress=false,
+                                progress=child_progress,
                                 initial_params=if initial_params === nothing
                                     nothing
                                 else
@@ -474,14 +547,20 @@ function mcmcsample(
                                 end,
                                 kwargs...,
                             )
-
-                            # Update the progress bar.
-                            progress && put!(channel, true)
                         end
                     end
                 finally
-                    # Stop updating the progress bar.
-                    progress && put!(channel, false)
+                    if progress == :overall || progress == :perchain
+                        # Stop updating the main progress bar (either if sampling
+                        # is done, or if an error occurs).
+                        put!(progress_channel, false)
+                    end
+                    if progress == :perchain
+                        # Additionally stop the per-chain progress bars
+                        for child_progress in child_progresses
+                            finish_progress!(child_progress)
+                        end
+                    end
                 end
             end
         end
@@ -498,7 +577,7 @@ function mcmcsample(
     ::MCMCDistributed,
     N::Integer,
     nchains::Integer;
-    progress=PROGRESS[],
+    progress::Union{Bool,Symbol}=PROGRESS[],
     progressname="Sampling ($(Distributed.nworkers()) process$(_pluralise(Distributed.nworkers(); plural="es")))",
     initial_params=nothing,
     initial_state=nothing,
@@ -513,6 +592,19 @@ function mcmcsample(
     if nchains > N
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
     end
+
+    # Determine default progress bar style. Note that for MCMCDistributed(),
+    # :perchain isn't implemented.
+    if progress == true
+        progress = :overall
+    elseif progress == false
+        progress = :none
+    end
+    progress in [:overall, :none] || throw(
+        ArgumentError(
+            "`progress` for MCMCDistributed must be `:overall`, `:none`, or a boolean"
+        ),
+    )
 
     # Ensure that initial parameters and states are `nothing` or of the correct length
     check_initial_params(initial_params, nchains)
@@ -530,35 +622,52 @@ function mcmcsample(
     pool = Distributed.CachingPool(Distributed.workers())
 
     local chains
-    @ifwithprogresslogger progress name = progressname begin
-        # Create a channel for progress logging.
-        if progress
-            channel = Distributed.RemoteChannel(() -> Channel{Bool}(Distributed.nworkers()))
+    @maybewithricherlogger begin
+        # Set up progress logging.
+        if progress == :overall
+            # Just a single progress bar for the entire sampling, but instead
+            # of tracking each chain as it comes in, we track each sample as it
+            # comes in. This allows us to have more granular progress updates.
+            chan = Channel{Bool}(Distributed.nworkers())
+            progress_channel = Distributed.RemoteChannel(() -> chan)
+            overall_progress_bar = CreateNewProgressBar(progressname)
+            init_progress!(overall_progress_bar)
+            # See MCMCThreads method for the rationale behind updates_per_chain.
+            updates_per_chain = max(1, 400 ÷ nchains)
+            child_progresses = [
+                ChannelProgress(progress_channel, updates_per_chain) for _ in 1:nchains
+            ]
+        elseif progress == :none
+            child_progresses = [false for _ in 1:nchains]
         end
 
         Distributed.@sync begin
-            if progress
-                # Update the progress bar.
+            if progress == :overall
+                # This task updates the progress bar
                 Distributed.@async begin
                     # Determine threshold values for progress logging
                     # (one update per 0.5% of progress)
-                    threshold = nchains ÷ 200
-                    nextprogresschains = threshold
+                    Ntotal = nchains * updates_per_chain
+                    threshold = Ntotal / 200
+                    next_update = threshold
 
-                    progresschains = 0
-                    while take!(channel)
-                        progresschains += 1
-                        if progresschains >= nextprogresschains
-                            ProgressLogging.@logprogress progresschains / nchains
-                            nextprogresschains = progresschains + threshold
+                    itotal = 0
+                    while take!(progress_channel)
+                        itotal += 1
+                        if itotal >= next_update
+                            update_progress!(overall_progress_bar, itotal / Ntotal)
+                            next_update += threshold
                         end
                     end
+                    finish_progress!(overall_progress_bar)
                 end
             end
 
             Distributed.@async begin
                 try
-                    function sample_chain(seed, initial_params, initial_state)
+                    function sample_chain(
+                        seed, initial_params, initial_state, child_progress
+                    )
                         # Seed a new random number generator with the pre-made seed.
                         Random.seed!(rng, seed)
 
@@ -568,24 +677,29 @@ function mcmcsample(
                             model,
                             sampler,
                             N;
-                            progress=false,
+                            progress=child_progress,
                             initial_params=initial_params,
                             initial_state=initial_state,
                             kwargs...,
                         )
 
-                        # Update the progress bar.
-                        progress && put!(channel, true)
-
                         # Return the new chain.
                         return chain
                     end
                     chains = Distributed.pmap(
-                        sample_chain, pool, seeds, _initial_params, _initial_state
+                        sample_chain,
+                        pool,
+                        seeds,
+                        _initial_params,
+                        _initial_state,
+                        child_progresses,
                     )
                 finally
-                    # Stop updating the progress bar.
-                    progress && put!(channel, false)
+                    if progress == :overall
+                        # Stop updating the main progress bar (either if sampling
+                        # is done, or if an error occurs).
+                        put!(progress_channel, false)
+                    end
                 end
             end
         end
