@@ -6,6 +6,8 @@ internally take for single-chain sampling.
 """
 abstract type AbstractProgressKwarg end
 
+DEFAULT_N_UPDATES = 200
+
 """
     CreateNewProgressBar
 
@@ -27,7 +29,7 @@ end
 function finish_progress!(p::CreateNewProgressBar)
     ProgressLogging.@logprogress p.name "done" _id = p.uuid
 end
-get_n_updates(::CreateNewProgressBar) = 200
+get_n_updates(::CreateNewProgressBar) = DEFAULT_N_UPDATES
 
 """
     NoLogging
@@ -38,7 +40,7 @@ struct NoLogging <: AbstractProgressKwarg end
 init_progress!(::NoLogging) = nothing
 update_progress!(::NoLogging, ::Any) = nothing
 finish_progress!(::NoLogging) = nothing
-get_n_updates(::NoLogging) = 200
+get_n_updates(::NoLogging) = DEFAULT_N_UPDATES
 
 """
     ExistingProgressBar
@@ -72,7 +74,7 @@ end
 function finish_progress!(p::ExistingProgressBar)
     ProgressLogging.@logprogress p.name "done" _id = p.uuid
 end
-get_n_updates(::ExistingProgressBar) = 200
+get_n_updates(::ExistingProgressBar) = DEFAULT_N_UPDATES
 
 """
     ChannelProgress
