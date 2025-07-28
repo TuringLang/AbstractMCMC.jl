@@ -452,13 +452,12 @@ function mcmcsample(
             progress_channel = Channel{Bool}(nchains)
             overall_progress_bar = CreateNewProgressBar(progressname)
             # If we have many chains and many samples, we don't want to force
-            # each chain to report back to the main thread for each sample, as
-            # this would cause serious performance issues due to lock conflicts.
-            # In the overall progress bar we only expect 200 updates (i.e., one
-            # update per 0.5%). To avoid possible throttling issues we ask for
-            # twice the amount needed per chain, which doesn't cause a real
-            # performance hit.
-            updates_per_chain = max(1, 400 ÷ nchains)
+            # each chain to report back to the main thread for each sample, as this would
+            # cause serious performance issues due to lock conflicts. In the overall
+            # progress bar we only expect N updates (by default N = 200, i.e., one update
+            # per 0.5%). To avoid possible throttling issues we ask for twice
+            # the amount needed per chain, which doesn't cause a real performance hit.
+            updates_per_chain = max(1, (2 * get_n_updates(overall_progress_bar)) ÷ nchains)
             init_progress!(overall_progress_bar)
         end
         if progress == :perchain
@@ -483,7 +482,7 @@ function mcmcsample(
                     Ntotal = nchains * updates_per_chain
                     # Determine threshold values for progress logging
                     # (one update per 0.5% of progress)
-                    threshold = Ntotal / 200
+                    threshold = Ntotal / get_n_updates(overall_progress_bar)
                     next_update = threshold
 
                     itotal = 0
@@ -633,7 +632,7 @@ function mcmcsample(
             overall_progress_bar = CreateNewProgressBar(progressname)
             init_progress!(overall_progress_bar)
             # See MCMCThreads method for the rationale behind updates_per_chain.
-            updates_per_chain = max(1, 400 ÷ nchains)
+            updates_per_chain = max(1, (2 * get_n_updates(overall_progress_bar)) ÷ nchains)
             child_progresses = [
                 ChannelProgress(progress_channel, updates_per_chain) for _ in 1:nchains
             ]
@@ -646,9 +645,8 @@ function mcmcsample(
                 # This task updates the progress bar
                 Distributed.@async begin
                     # Determine threshold values for progress logging
-                    # (one update per 0.5% of progress)
                     Ntotal = nchains * updates_per_chain
-                    threshold = Ntotal / 200
+                    threshold = Ntotal / get_n_updates(overall_progress_bar)
                     next_update = threshold
 
                     itotal = 0
