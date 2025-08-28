@@ -136,7 +136,7 @@ macro maybewithricherlogger(expr)
             else
                 $(expr)
             end
-        end,
+        end
     )
 end
 

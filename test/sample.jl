@@ -509,12 +509,12 @@
         )
         @test all(ismissing(c.as[1]) for c in chains_threads)
         @test all(
-            c1.as[i] == c2.as[i] for (c1, c2) in zip(chains_serial, chains_threads),
-            i in 2:N
+            c1.as[i] == c2.as[i] for
+            (c1, c2) in zip(chains_serial, chains_threads), i in 2:N
         )
         @test all(
-            c1.bs[i] == c2.bs[i] for (c1, c2) in zip(chains_serial, chains_threads),
-            i in 1:N
+            c1.bs[i] == c2.bs[i] for
+            (c1, c2) in zip(chains_serial, chains_threads), i in 1:N
         )
 
         # Multi-core sampling
@@ -530,12 +530,12 @@
         )
         @test all(ismissing(c.as[1]) for c in chains_distributed)
         @test all(
-            c1.as[i] == c2.as[i] for (c1, c2) in zip(chains_serial, chains_distributed),
-            i in 2:N
+            c1.as[i] == c2.as[i] for
+            (c1, c2) in zip(chains_serial, chains_distributed), i in 2:N
         )
         @test all(
-            c1.bs[i] == c2.bs[i] for (c1, c2) in zip(chains_serial, chains_distributed),
-            i in 1:N
+            c1.bs[i] == c2.bs[i] for
+            (c1, c2) in zip(chains_serial, chains_distributed), i in 1:N
         )
     end
 
