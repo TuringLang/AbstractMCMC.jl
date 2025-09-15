@@ -681,14 +681,17 @@
 
     @testset "chain_number keyword argument" begin
         @testset for m in [MCMCSerial(), MCMCThreads(), MCMCDistributed()]
-            # check that the `chain_number` keyword argument is passed to the callback
-            chain_numbers = Int[]
-            function callback(args...; kwargs...)
-                @test haskey(kwargs, :chain_number)
-                return push!(chain_numbers, kwargs[:chain_number])
+            niters = 10
+            channel = Channel{Int}() do chn
+                # check that the `chain_number` keyword argument is passed to the callback
+                function callback(args...; kwargs...)
+                    @test haskey(kwargs, :chain_number)
+                    return put!(chn, kwargs[:chain_number])
+                end
+                chain = sample(MyModel(), MySampler(), m, niters, 4; callback=callback)
             end
-            chain = sample(MyModel(), MySampler(), m, 10, 4; callback=callback)
-            @test sort(chain_numbers) == repeat(1:4; inner=10)
+            chain_numbers = collect(channel)
+            @test sort(chain_numbers) == repeat(1:4; inner=niters)
         end
     end
 
