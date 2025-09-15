@@ -679,6 +679,19 @@
         @test all(chain[i].b == ref_chain[i].b for i in 1:N)
     end
 
+    @testset "chain_number keyword argument" begin
+        @testset for m in [MCMCSerial(), MCMCThreads(), MCMCDistributed()]
+            # check that the `chain_number` keyword argument is passed to the callback
+            chain_numbers = Int[]
+            function callback(args...; kwargs...)
+                @test haskey(kwargs, :chain_number)
+                return push!(chain_numbers, kwargs[:chain_number])
+            end
+            chain = sample(MyModel(), MySampler(), m, 10, 4; callback=callback)
+            @test sort(chain_numbers) == repeat(1:4; inner=10)
+        end
+    end
+
     @testset "Sample vector of `NamedTuple`s" begin
         chain = sample(MyModel(), MySampler(), 1_000; chain_type=Vector{NamedTuple})
         # Check output type
