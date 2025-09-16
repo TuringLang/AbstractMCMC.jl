@@ -549,6 +549,7 @@ function mcmcsample(
                                 else
                                     initial_state[chainidx]
                                 end,
+                                chain_number=chainidx,
                                 kwargs...,
                             )
                         end
@@ -669,7 +670,7 @@ function mcmcsample(
             Distributed.@async begin
                 try
                     function sample_chain(
-                        seed, initial_params, initial_state, child_progress
+                        seed, initial_params, initial_state, child_progress, chainidx
                     )
                         # Seed a new random number generator with the pre-made seed.
                         Random.seed!(rng, seed)
@@ -683,6 +684,7 @@ function mcmcsample(
                             progress=child_progress,
                             initial_params=initial_params,
                             initial_state=initial_state,
+                            chain_number=chainidx,
                             kwargs...,
                         )
 
@@ -696,6 +698,7 @@ function mcmcsample(
                         _initial_params,
                         _initial_state,
                         child_progresses,
+                        1:nchains;
                     )
                 finally
                     if progress == :overall
@@ -755,6 +758,7 @@ function mcmcsample(
             progressname=string(progressname, " (Chain ", i, " of ", nchains, ")"),
             initial_params=initial_params,
             initial_state=initial_state,
+            chain_number=i,
             kwargs...,
         )
     end
