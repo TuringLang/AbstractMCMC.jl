@@ -63,6 +63,14 @@ abstract type AbstractMCMCEnsemble end
 
 The `MCMCThreads` algorithm allows users to sample MCMC chains in parallel using multiple
 threads.
+
+# Usage
+
+```julia
+sample(model, sampler, MCMCThreads(), N, nchains)
+```
+
+See also [`sample`](@ref).
 """
 struct MCMCThreads <: AbstractMCMCEnsemble end
 
@@ -71,6 +79,14 @@ struct MCMCThreads <: AbstractMCMCEnsemble end
 
 The `MCMCDistributed` algorithm allows users to sample MCMC chains in parallel using multiple
 processes.
+
+# Usage
+
+```julia
+sample(model, sampler, MCMCDistributed(), N, nchains)
+```
+
+See also [`sample`](@ref).
 """
 struct MCMCDistributed <: AbstractMCMCEnsemble end
 
@@ -78,6 +94,14 @@ struct MCMCDistributed <: AbstractMCMCEnsemble end
     MCMCSerial
 
 The `MCMCSerial` algorithm allows users to sample serially, with no thread or process parallelism.
+
+# Usage
+
+```julia
+sample(model, sampler, MCMCSerial(), N, nchains)
+```
+
+See also [`sample`](@ref).
 """
 struct MCMCSerial <: AbstractMCMCEnsemble end
 
