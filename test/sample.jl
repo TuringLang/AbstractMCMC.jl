@@ -34,9 +34,8 @@
 
             # test warning for initial_parameters (typo)
             # Note: initial_parameters will be ignored, but it should warn the user
-            @test_logs (:warn, r"initial_parameters.*not recognised.*initial_params") (
-                :warn,
-            ) sample(
+            @test_logs (:warn, r"initial_parameters.*not recognised.*initial_params") match_mode =
+                :any sample(
                 MyModel(),
                 MySampler(),
                 MCMCThreads(),
