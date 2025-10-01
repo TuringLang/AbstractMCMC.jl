@@ -34,8 +34,16 @@
 
             # test warning for initial_parameters (typo)
             # Note: initial_parameters will be ignored, but it should warn the user
-            @test_logs (:warn, r"initial_parameters.*not recognised.*initial_params") (:warn,) sample(
-                MyModel(), MySampler(), MCMCThreads(), 3, 2; progress=false, initial_parameters=(b=1.0, a=2.0)
+            @test_logs (:warn, r"initial_parameters.*not recognised.*initial_params") (
+                :warn,
+            ) sample(
+                MyModel(),
+                MySampler(),
+                MCMCThreads(),
+                3,
+                2;
+                progress=false,
+                initial_parameters=(b=1.0, a=2.0),
             )
         end
 
@@ -290,7 +298,13 @@
 
         # Test warning for initial_parameters (typo)
         @test_logs (:warn, r"initial_parameters.*not recognised.*initial_params") sample(
-            MyModel(), MySampler(), MCMCDistributed(), 3, 2; progress=false, initial_parameters=(b=1.0, a=2.0)
+            MyModel(),
+            MySampler(),
+            MCMCDistributed(),
+            3,
+            2;
+            progress=false,
+            initial_parameters=(b=1.0, a=2.0),
         )
 
         # Suppress output.
@@ -421,7 +435,13 @@
 
         # Test warning for initial_parameters (typo)
         @test_logs (:warn, r"initial_parameters.*not recognised.*initial_params") sample(
-            MyModel(), MySampler(), MCMCSerial(), 3, 2; progress=false, initial_parameters=(b=1.0, a=2.0)
+            MyModel(),
+            MySampler(),
+            MCMCSerial(),
+            3,
+            2;
+            progress=false,
+            initial_parameters=(b=1.0, a=2.0),
         )
 
         # Suppress output.
