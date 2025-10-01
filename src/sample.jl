@@ -405,6 +405,11 @@ function mcmcsample(
     initial_state=nothing,
     kwargs...,
 )
+    # Warn if initial_parameters is passed instead of initial_params
+    if haskey(kwargs, :initial_parameters)
+        @warn "The `initial_parameters` keyword argument is not recognised; please use `initial_params` instead."
+    end
+
     # Check if actually multiple threads are used.
     if Threads.nthreads() == 1
         @warn "Only a single thread available: MCMC chains are not sampled in parallel"
@@ -588,6 +593,11 @@ function mcmcsample(
     initial_state=nothing,
     kwargs...,
 )
+    # Warn if initial_parameters is passed instead of initial_params
+    if haskey(kwargs, :initial_parameters)
+        @warn "The `initial_parameters` keyword argument is not recognised; please use `initial_params` instead."
+    end
+
     # Check if actually multiple processes are used.
     if Distributed.nworkers() == 1
         @warn "Only a single process available: MCMC chains are not sampled in parallel"
@@ -727,6 +737,11 @@ function mcmcsample(
     initial_state=nothing,
     kwargs...,
 )
+    # Warn if initial_parameters is passed instead of initial_params
+    if haskey(kwargs, :initial_parameters)
+        @warn "The `initial_parameters` keyword argument is not recognised; please use `initial_params` instead."
+    end
+
     # Check if the number of chains is larger than the number of samples
     if nchains > N
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
