@@ -414,7 +414,9 @@ function mcmcsample(
     if haskey(kwargs, :initial_parameters)
         @warn "The `initial_parameters` keyword argument is not recognised; please use `initial_params` instead."
         # Remove initial_parameters from kwargs to prevent it from being passed to single-chain sample
-        kwargs = pairs((; (k => v for (k, v) in pairs(kwargs) if k !== :initial_parameters)...))
+        kwargs = pairs((;
+            (k => v for (k, v) in pairs(kwargs) if k !== :initial_parameters)...
+        ))
     end
 
     # Check if actually multiple threads are used.
@@ -604,7 +606,9 @@ function mcmcsample(
     if haskey(kwargs, :initial_parameters)
         @warn "The `initial_parameters` keyword argument is not recognised; please use `initial_params` instead."
         # Remove initial_parameters from kwargs to prevent it from being passed to single-chain sample
-        kwargs = pairs((; (k => v for (k, v) in pairs(kwargs) if k !== :initial_parameters)...))
+        kwargs = pairs((;
+            (k => v for (k, v) in pairs(kwargs) if k !== :initial_parameters)...
+        ))
     end
 
     # Check if actually multiple processes are used.
@@ -750,7 +754,9 @@ function mcmcsample(
     if haskey(kwargs, :initial_parameters)
         @warn "The `initial_parameters` keyword argument is not recognised; please use `initial_params` instead."
         # Remove initial_parameters from kwargs to prevent it from being passed to single-chain sample
-        kwargs = pairs((; (k => v for (k, v) in pairs(kwargs) if k !== :initial_parameters)...))
+        kwargs = pairs((;
+            (k => v for (k, v) in pairs(kwargs) if k !== :initial_parameters)...
+        ))
     end
 
     # Check if the number of chains is larger than the number of samples
