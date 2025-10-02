@@ -121,6 +121,11 @@ function mcmcsample(
     initial_state=nothing,
     kwargs...,
 )
+    # Warn if initial_parameters is passed instead of initial_params
+    if haskey(kwargs, :initial_parameters)
+        @warn "The `initial_parameters` keyword argument is not recognised; please use `initial_params` instead."
+    end
+
     # Check the number of requested samples.
     N > 0 || error("the number of samples must be ≥ 1")
     discard_initial >= 0 ||
@@ -408,6 +413,8 @@ function mcmcsample(
     # Warn if initial_parameters is passed instead of initial_params
     if haskey(kwargs, :initial_parameters)
         @warn "The `initial_parameters` keyword argument is not recognised; please use `initial_params` instead."
+        # Remove initial_parameters from kwargs to prevent it from being passed to single-chain sample
+        kwargs = pairs((; (k => v for (k, v) in pairs(kwargs) if k !== :initial_parameters)...))
     end
 
     # Check if actually multiple threads are used.
@@ -596,6 +603,8 @@ function mcmcsample(
     # Warn if initial_parameters is passed instead of initial_params
     if haskey(kwargs, :initial_parameters)
         @warn "The `initial_parameters` keyword argument is not recognised; please use `initial_params` instead."
+        # Remove initial_parameters from kwargs to prevent it from being passed to single-chain sample
+        kwargs = pairs((; (k => v for (k, v) in pairs(kwargs) if k !== :initial_parameters)...))
     end
 
     # Check if actually multiple processes are used.
@@ -740,6 +749,8 @@ function mcmcsample(
     # Warn if initial_parameters is passed instead of initial_params
     if haskey(kwargs, :initial_parameters)
         @warn "The `initial_parameters` keyword argument is not recognised; please use `initial_params` instead."
+        # Remove initial_parameters from kwargs to prevent it from being passed to single-chain sample
+        kwargs = pairs((; (k => v for (k, v) in pairs(kwargs) if k !== :initial_parameters)...))
     end
 
     # Check if the number of chains is larger than the number of samples

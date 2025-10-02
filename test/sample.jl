@@ -32,7 +32,12 @@
             @test chain[1].a == -1.8
             @test chain[1].b == 3.2
 
-            # test warning for initial_parameters (typo)
+            # test warning for initial_parameters (typo) in single-chain sampling
+            @test_logs (:warn, r"initial_parameters.*not recognised.*initial_params") sample(
+                MyModel(), MySampler(), 3; progress=false, initial_parameters=(b=1.0, a=2.0)
+            )
+
+            # test warning for initial_parameters (typo) in multi-chain sampling
             # Note: initial_parameters will be ignored, but it should warn the user
             @test_logs (:warn, r"initial_parameters.*not recognised.*initial_params") match_mode =
                 :any sample(
