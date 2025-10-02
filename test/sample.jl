@@ -31,6 +31,23 @@
             )
             @test chain[1].a == -1.8
             @test chain[1].b == 3.2
+
+            # test warning for initial_parameters (typo) in single-chain sampling
+            @test_logs (:warn, r"initial_parameters.*not recognised.*initial_params") sample(
+                MyModel(), MySampler(), 3; progress=false, initial_parameters=(b=1.0, a=2.0)
+            )
+
+            # test warning for initial_parameters (typo) in multi-chain sampling
+            @test_logs (:warn, r"initial_parameters.*not recognised.*initial_params") match_mode =
+                :any sample(
+                MyModel(),
+                MySampler(),
+                MCMCThreads(),
+                3,
+                2;
+                progress=false,
+                initial_parameters=(b=1.0, a=2.0),
+            )
         end
 
         @testset "IJulia" begin
@@ -282,6 +299,17 @@
             MyModel(), MySampler(), MCMCDistributed(), 5, 10; chain_type=MyChain
         )
 
+        # Test warning for initial_parameters (typo)
+        @test_logs (:warn, r"initial_parameters.*not recognised.*initial_params") sample(
+            MyModel(),
+            MySampler(),
+            MCMCDistributed(),
+            3,
+            2;
+            progress=false,
+            initial_parameters=(b=1.0, a=2.0),
+        )
+
         # Suppress output.
         logs, _ = collect_test_logs(; min_level=Logging.LogLevel(-1)) do
             sample(
@@ -406,6 +434,17 @@
         str = "Number of chains (10) is greater than number of samples per chain (5)"
         @test_logs (:warn, str) match_mode = :any sample(
             MyModel(), MySampler(), MCMCSerial(), 5, 10; chain_type=MyChain
+        )
+
+        # Test warning for initial_parameters (typo)
+        @test_logs (:warn, r"initial_parameters.*not recognised.*initial_params") sample(
+            MyModel(),
+            MySampler(),
+            MCMCSerial(),
+            3,
+            2;
+            progress=false,
+            initial_parameters=(b=1.0, a=2.0),
         )
 
         # Suppress output.

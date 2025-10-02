@@ -105,6 +105,20 @@ function StatsBase.sample(
     return mcmcsample(rng, model, sampler, parallel, N, nchains; kwargs...)
 end
 
+# Utility function to check and warn about common kwargs mistakes
+function _check_initial_params_kwarg(kwargs)
+    if haskey(kwargs, :initial_parameters)
+        @warn "The `initial_parameters` keyword argument is not recognised; please use `initial_params` instead."
+        return true
+    end
+    return false
+end
+
+# Utility function to remove initial_parameters from kwargs after warning
+function _filter_initial_params_kwarg(kwargs)
+    return pairs((; (k => v for (k, v) in pairs(kwargs) if k !== :initial_parameters)...))
+end
+
 # Default implementations of regular and parallel sampling.
 function mcmcsample(
     rng::Random.AbstractRNG,
@@ -121,6 +135,9 @@ function mcmcsample(
     initial_state=nothing,
     kwargs...,
 )
+    # Warn if initial_parameters is passed instead of initial_params
+    _check_initial_params_kwarg(kwargs)
+
     # Check the number of requested samples.
     N > 0 || error("the number of samples must be ≥ 1")
     discard_initial >= 0 ||
@@ -405,6 +422,11 @@ function mcmcsample(
     initial_state=nothing,
     kwargs...,
 )
+    # Warn if initial_parameters is passed instead of initial_params and remove it from kwargs
+    if _check_initial_params_kwarg(kwargs)
+        kwargs = _filter_initial_params_kwarg(kwargs)
+    end
+
     # Check if actually multiple threads are used.
     if Threads.nthreads() == 1
         @warn "Only a single thread available: MCMC chains are not sampled in parallel"
@@ -588,6 +610,11 @@ function mcmcsample(
     initial_state=nothing,
     kwargs...,
 )
+    # Warn if initial_parameters is passed instead of initial_params and remove it from kwargs
+    if _check_initial_params_kwarg(kwargs)
+        kwargs = _filter_initial_params_kwarg(kwargs)
+    end
+
     # Check if actually multiple processes are used.
     if Distributed.nworkers() == 1
         @warn "Only a single process available: MCMC chains are not sampled in parallel"
@@ -727,6 +754,11 @@ function mcmcsample(
     initial_state=nothing,
     kwargs...,
 )
+    # Warn if initial_parameters is passed instead of initial_params and remove it from kwargs
+    if _check_initial_params_kwarg(kwargs)
+        kwargs = _filter_initial_params_kwarg(kwargs)
+    end
+
     # Check if the number of chains is larger than the number of samples
     if nchains > N
         @warn "Number of chains ($nchains) is greater than number of samples per chain ($N)"
