@@ -67,6 +67,9 @@ AbstractMCMC.MCMCSerial
 
 ## Common keyword arguments
 
+!!! tip "Turing.jl"
+    The description of keyword arguments here is fairly generic, since it only pertains to the AbstractMCMC interface. If you are specifically interested in sampling with Turing.jl, there is [a dedicated documentation page for that](https://turinglang.org/docs/usage/sampling-options/).
+
 Common keyword arguments for regular and parallel sampling are:
 - `progress` (default: `AbstractMCMC.PROGRESS[]` which is `true` initially): toggles progress logging. See the section on [Progress logging](#progress-logging) below for more details.
 - `chain_type` (default: `Any`): determines the type of the returned chain
