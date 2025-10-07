@@ -179,9 +179,9 @@ function mcmcsample(
             # Obtain the initial sample and state.
             sample, state = if num_warmup > 0
                 if initial_state === nothing
-                    step_warmup(rng, model, sampler; kwargs...)
+                    step_warmup(rng, model, sampler; num_warmup, kwargs...)
                 else
-                    step_warmup(rng, model, sampler, initial_state; kwargs...)
+                    step_warmup(rng, model, sampler, initial_state; num_warmup, kwargs...)
                 end
             else
                 if initial_state === nothing
@@ -202,7 +202,7 @@ function mcmcsample(
             for j in 1:discard_initial
                 # Obtain the next sample and state.
                 sample, state = if j ≤ num_warmup
-                    step_warmup(rng, model, sampler, state; kwargs...)
+                    step_warmup(rng, model, sampler, state; num_warmup, kwargs...)
                 else
                     step(rng, model, sampler, state; kwargs...)
                 end
@@ -229,7 +229,7 @@ function mcmcsample(
                 for _ in 1:(thinning - 1)
                     # Obtain the next sample and state.
                     sample, state = if i ≤ keep_from_warmup
-                        step_warmup(rng, model, sampler, state; kwargs...)
+                        step_warmup(rng, model, sampler, state; num_warmup, kwargs...)
                     else
                         step(rng, model, sampler, state; kwargs...)
                     end
@@ -244,7 +244,7 @@ function mcmcsample(
 
                 # Obtain the next sample and state.
                 sample, state = if i ≤ keep_from_warmup
-                    step_warmup(rng, model, sampler, state; kwargs...)
+                    step_warmup(rng, model, sampler, state; num_warmup, kwargs...)
                 else
                     step(rng, model, sampler, state; kwargs...)
                 end
@@ -328,9 +328,9 @@ function mcmcsample(
         # Obtain the initial sample and state.
         sample, state = if num_warmup > 0
             if initial_state === nothing
-                step_warmup(rng, model, sampler; kwargs...)
+                step_warmup(rng, model, sampler; num_warmup, kwargs...)
             else
-                step_warmup(rng, model, sampler, initial_state; kwargs...)
+                step_warmup(rng, model, sampler, initial_state; num_warmup, kwargs...)
             end
         else
             if initial_state === nothing
@@ -344,7 +344,7 @@ function mcmcsample(
         for j in 1:discard_initial
             # Obtain the next sample and state.
             sample, state = if j ≤ num_warmup
-                step_warmup(rng, model, sampler, state; kwargs...)
+                step_warmup(rng, model, sampler, state; num_warmup, kwargs...)
             else
                 step(rng, model, sampler, state; kwargs...)
             end
@@ -364,7 +364,7 @@ function mcmcsample(
             for _ in 1:(thinning - 1)
                 # Obtain the next sample and state.
                 sample, state = if i ≤ keep_from_warmup
-                    step_warmup(rng, model, sampler, state; kwargs...)
+                    step_warmup(rng, model, sampler, state; num_warmup, kwargs...)
                 else
                     step(rng, model, sampler, state; kwargs...)
                 end
@@ -372,7 +372,7 @@ function mcmcsample(
 
             # Obtain the next sample and state.
             sample, state = if i ≤ keep_from_warmup
-                step_warmup(rng, model, sampler, state; kwargs...)
+                step_warmup(rng, model, sampler, state; num_warmup, kwargs...)
             else
                 step(rng, model, sampler, state; kwargs...)
             end

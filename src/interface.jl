@@ -83,6 +83,10 @@ When sampling using [`sample`](@ref), this takes the place of [`AbstractMCMC.ste
 This is useful if the sampler has an initial "warmup"-stage that is different from the
 standard iteration.
 
+The total number of warmup steps requested in sampling will be passed to the `step_warmup`
+function as the `num_warmup` keyword argument. This allows implementations of `step_warmup`
+to customise their behavior based on this information.
+
 By default, this simply calls [`AbstractMCMC.step`](@ref).
 """
 step_warmup(rng, model, sampler; kwargs...) = step(rng, model, sampler; kwargs...)

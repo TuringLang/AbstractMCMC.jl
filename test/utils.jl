@@ -26,8 +26,11 @@ function AbstractMCMC.step_warmup(
     state::Union{Nothing,Integer}=nothing;
     loggers=false,
     initial_params=nothing,
+    num_warmup,
     kwargs...,
 )
+    num_warmup isa Integer ||
+        error("num_warmup should have been passed as a keyword argument to step_warmup")
     transition, state = AbstractMCMC.step(
         rng, model, sampler, state; loggers, initial_params, kwargs...
     )
