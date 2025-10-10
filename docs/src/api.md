@@ -144,11 +144,22 @@ AbstractMCMC defines the abstract type `AbstractChains` for Markov chains.
 AbstractMCMC.AbstractChains
 ```
 
-For chains of this type, AbstractMCMC defines the following two methods.
+For chains of this type, AbstractMCMC defines the following two **public** methods.
 
 ```@docs
 AbstractMCMC.chainscat
 AbstractMCMC.chainsstack
+```
+
+The following interface methods are considered experimental and may change even in formally non-breaking releases.
+
+```@docs
+AbstractMCMC.Chains.get_data
+AbstractMCMC.Chains.iter_indices
+AbstractMCMC.Chains.chain_indices
+AbstractMCMC.Chains.niters
+AbstractMCMC.Chains.nchains
+AbstractMCMC.Chains.test_interface
 ```
 
 ## Interacting with states of samplers
