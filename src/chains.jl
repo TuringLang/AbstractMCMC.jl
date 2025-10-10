@@ -27,14 +27,14 @@ To implement a new subtype of `AbstractChains`, you need to define the following
 
 - `Base.size` should return a tuple of ints (the exact meaning is left to you)
 - `Base.keys` should return a list of keys
-- [`AbstractMCMC.get_data`](@ref)`(chn, key)`
-- [`AbstractMCMC.iter_indices`](@ref)`(chn)`
-- [`AbstractMCMC.chain_indices`](@ref)`(chn)`
+- [`AbstractMCMC.Chains.get_data`](@ref)`(chn, key)`
+- [`AbstractMCMC.Chains.iter_indices`](@ref)`(chn)`
+- [`AbstractMCMC.Chains.chain_indices`](@ref)`(chn)`
 
 You can optionally define the following methods for efficiency:
 
-- [`AbstractChains.niters`](@ref)`(chn)`
-- [`AbstractChains.nchains`](@ref)`(chn)`
+- [`AbstractMCMC.Chains.niters`](@ref)`(chn)`
+- [`AbstractMCMC.Chains.nchains`](@ref)`(chn)`
 """
 abstract type AbstractChains end
 
