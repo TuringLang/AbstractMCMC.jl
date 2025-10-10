@@ -23,14 +23,6 @@ export sample
 export MCMCThreads, MCMCDistributed, MCMCSerial
 
 """
-    AbstractChains
-
-`AbstractChains` is an abstract type for an object that stores
-parameter samples generated through a MCMC process.
-"""
-abstract type AbstractChains end
-
-"""
     AbstractSampler
 
 The `AbstractSampler` type is intended to be inherited from when
@@ -137,6 +129,7 @@ function setparams!!(model::AbstractModel, state, params)
     return setparams!!(state, params)
 end
 
+include("chains.jl")
 include("samplingstats.jl")
 include("logging.jl")
 include("interface.jl")
