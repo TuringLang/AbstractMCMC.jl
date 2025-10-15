@@ -18,6 +18,9 @@ function get_data end
 
 Obtain the indices of each iteration for the `AbstractChains` object `chn`.
 
+For example, if `chn` contains 1000 samples, but 1000 warmup steps and a thinning factor of
+2 was used, then this function should return `1001:2:3000` (or an equivalent vector).
+
 This function should return an `AbstractVector{<:Integer}`.
 """
 function iter_indices end
@@ -26,6 +29,10 @@ function iter_indices end
     AbstractMCMC.Chains.chain_indices(chn)
 
 Obtain the indices of each chain in the `AbstractChains` object `chn`.
+
+If there is no special numbering associated with chains, then this function can simply
+return `1:nchains(chn)`. However, this function provides the flexibility to have
+non-standard chain numbering (e.g. if chains are combined from multiple sources).
 
 This function should return an `AbstractVector{<:Integer}`.
 """
