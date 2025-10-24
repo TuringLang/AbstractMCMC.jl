@@ -106,7 +106,14 @@ See also [`sample`](@ref).
 struct MCMCSerial <: AbstractMCMCEnsemble end
 
 """
-    getparams([model::AbstractModel, ]state)
+    requires_unconstrained_space(sampler::AbstractSampler)::Bool
+
+Return `true` if the given sampler must run in unconstrained space. Defaults to true.
+"""
+requires_unconstrained_space(::AbstractSampler) = true
+
+"""
+    getparams([model::AbstractModel, ]state)::Vector{<:Real}
 
 Retrieve the values of parameters from the sampler's `state` as a `Vector{<:Real}`.
 """
@@ -117,7 +124,7 @@ function getparams(model::AbstractModel, state)
 end
 
 """
-    getstats(state)
+    getstats(state)::NamedTuple
 
 Retrieve sampler statistics from the sampler's `state` as a `NamedTuple`.
 """
