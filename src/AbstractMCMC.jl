@@ -117,6 +117,13 @@ function getparams(model::AbstractModel, state)
 end
 
 """
+    getstats(state)
+
+Retrieve sampler statistics from the sampler's `state` as a `NamedTuple`.
+"""
+function getstats end
+
+"""
     setparams!!([model::AbstractModel, ]state, params)
 
 Set the values of parameters in the sampler's `state` from a `Vector{<:Real}`. 
