@@ -31,6 +31,37 @@ parameter samples generated through a MCMC process.
 abstract type AbstractChains end
 
 """
+    AbstractMCMC.from_samples(::Type{T}, samples::Matrix) where {T<:AbstractChains}
+
+Convert a Matrix of parameter samples to an `AbstractChains` object.
+
+Methods of this function should be implemented with the signature listed above, and should
+return a chain of type `T`.
+
+This function is the inverse of [`to_samples`](@ref).
+
+In general, it is expected that for `chains::Tchn`, `from_samples(Tchn, to_samples(Tsample,
+chains))` contains data that are equivalent to that in `chains` (although differences in
+e.g. metadata or ordering are permissible).
+
+Furthermore, the same should hold true for `to_samples(Tsample, from_samples(Tchn,
+samples))` where `samples::Matrix{Tsample}`.
+"""
+function from_samples end
+
+"""
+    AbstractMCMC.to_samples(::Type{T}, chains::AbstractChains) where {T}
+
+Convert an `AbstractChains` object to an `Matrix` of parameter samples.
+
+Methods of this function should be implemented with the signature listed above, and should
+return a `Matrix{T}`.
+
+See also: [`from_samples`](@ref).
+"""
+function to_samples end
+
+"""
     AbstractSampler
 
 The `AbstractSampler` type is intended to be inherited from when
