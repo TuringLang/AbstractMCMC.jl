@@ -144,6 +144,13 @@ AbstractMCMC defines the abstract type `AbstractChains` for Markov chains.
 AbstractMCMC.AbstractChains
 ```
 
+The following two functions exist for converting `AbstractChains` from and to matrices of samples.
+
+```@docs
+AbstractMCMC.to_samples
+AbstractMCMC.from_samples
+```
+
 For chains of this type, AbstractMCMC defines the following two methods.
 
 ```@docs
