@@ -34,6 +34,12 @@ function TensorBoardCallback(args...; kwargs...)
             "Add `using TensorBoardLogger, OnlineStats` before using TensorBoardCallback.",
         )
     end
+    if !isdefined(@__MODULE__, :Skip)
+        eval(:(const Skip = $(ext.Skip)))
+        eval(:(const Thin = $(ext.Thin)))
+        eval(:(const WindowStat = $(ext.WindowStat)))
+        eval(:(export Skip, Thin, WindowStat))
+    end
     return ext.TensorBoardCallback(args...; kwargs...)
 end
 export TensorBoardCallback

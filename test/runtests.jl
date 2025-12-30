@@ -24,5 +24,8 @@ include("utils.jl")
     include("stepper.jl")
     include("transducer.jl")
     include("logdensityproblems.jl")
+end
+
+@testset "Callbacks" begin
     include("callbacks.jl")
 end

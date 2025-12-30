@@ -104,7 +104,7 @@ using OnlineStats
     @testset "TensorBoardCallback creation" begin
         logdir = mktempdir()
         cb = TensorBoardCallback(logdir)
-        @test cb isa TensorBoardCallback
+        @test typeof(cb).name.name == :TensorBoardCallback
         @test cb.logger isa TensorBoardLogger.TBLogger
     end
 
@@ -112,7 +112,7 @@ using OnlineStats
         logdir = mktempdir()
         custom_stats = Mean()
         cb = TensorBoardCallback(logdir; stats=custom_stats)
-        @test cb isa TensorBoardCallback
+        @test typeof(cb).name.name == :TensorBoardCallback
     end
 
     @testset "TensorBoardCallback with filter options" begin
