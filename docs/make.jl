@@ -8,6 +8,6 @@ makedocs(;
     sitename="AbstractMCMC",
     format=Documenter.HTML(),
     modules=[AbstractMCMC],
-    pages=["Home" => "index.md", "api.md", "design.md"],
+    pages=["Home" => "index.md", "api.md", "callbacks.md", "design.md"],
     checkdocs=:exports,
 )

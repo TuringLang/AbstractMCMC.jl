@@ -1,0 +1,129 @@
+"""
+    MultiCallback
+
+A callback that combines multiple callbacks into one.
+
+Implements `push!!` from [BangBang.jl](https://github.com/JuliaFolds/BangBang.jl) to add callbacks to the list.
+"""
+struct MultiCallback{Cs}
+    callbacks::Cs
+end
+
+MultiCallback() = MultiCallback(())
+MultiCallback(callbacks...) = MultiCallback(callbacks)
+
+(c::MultiCallback)(args...; kwargs...) = foreach(c -> c(args...; kwargs...), c.callbacks)
+
+BangBang.push!!(c::MultiCallback{<:Tuple}, callback) = MultiCallback((c.callbacks..., callback))
+BangBang.push!!(c::MultiCallback{<:AbstractArray}, callback) = (push!(c.callbacks, callback); return c)
+
+"""
+    NameFilter(; include=nothing, exclude=nothing)
+
+A filter for variable names.
+
+- If `include` is not `nothing`, only names in `include` will pass the filter.
+- If `exclude` is not `nothing`, names in `exclude` will be excluded.
+"""
+Base.@kwdef struct NameFilter{A,B}
+    include::A = nothing
+    exclude::B = nothing
+end
+
+(f::NameFilter)(name, value) = f(name)
+function (f::NameFilter)(name)
+    include, exclude = f.include, f.exclude
+    (exclude === nothing || name ∉ exclude) && (include === nothing || name ∈ include)
+end
+
+"""
+    default_param_names_for_values(x)
+
+Return an iterator of `θ[i]` for each element in `x`.
+"""
+default_param_names_for_values(x) = ("θ[$i]" for i = 1:length(x))
+
+"""
+    params_and_values(model, state; kwargs...)
+    params_and_values(model, sampler, state; kwargs...)
+    params_and_values(model, transition, state; kwargs...)
+    params_and_values(model, sampler, transition, state; kwargs...)
+
+Return an iterator over parameter names and values from a `state`.
+
+Default implementation uses `AbstractMCMC.getparams(state)` to extract parameters
+and returns an iterator with names `θ[i]` for each parameter.
+
+The 3-argument and 4-argument versions provide fallbacks for transition-based extraction
+(used by some samplers like Turing).
+"""
+function params_and_values(model, state; kwargs...)
+    params = getparams(state)
+    return zip(default_param_names_for_values(params), params)
+end
+
+function params_and_values(model, sampler::AbstractSampler, state; kwargs...)
+    return params_and_values(model, state; kwargs...)
+end
+
+function params_and_values(model, transition, state; kwargs...)
+    return params_and_values(model, state; kwargs...)
+end
+
+function params_and_values(model, sampler::AbstractSampler, transition, state; kwargs...)
+    return params_and_values(model, transition, state; kwargs...)
+end
+
+"""
+    extras(model, state; kwargs...)
+    extras(model, sampler, state; kwargs...)
+    extras(model, transition, state; kwargs...)
+    extras(model, sampler, transition, state; kwargs...)
+
+Return an iterator with elements of the form `(name, value)` for additional statistics in `state`.
+
+Default implementation uses `AbstractMCMC.getstats(state)` if available and returns
+an iterator over the named tuple fields. Returns empty iterator if getstats is not implemented.
+"""
+function extras(model, state; kwargs...)
+    try
+        stats = getstats(state)
+        if stats isa NamedTuple
+            return pairs(stats)
+        else
+            return ()
+        end
+    catch
+        return ()
+    end
+end
+
+function extras(model, sampler::AbstractSampler, state; kwargs...)
+    return extras(model, state; kwargs...)
+end
+
+extras(model, transition, state; kwargs...) = extras(model, state; kwargs...)
+
+function extras(model, sampler::AbstractSampler, transition, state; kwargs...)
+    return extras(model, transition, state; kwargs...)
+end
+
+"""
+    hyperparams(model, sampler[, state]; kwargs...)
+
+Return an iterator with elements of the form `(name, value)` for hyperparameters in `model`.
+
+Default returns an empty iterator. Override for specific model/sampler combinations.
+"""
+hyperparams(model, sampler; kwargs...) = Pair{String,Any}[]
+hyperparams(model, sampler, state; kwargs...) = hyperparams(model, sampler; kwargs...)
+
+"""
+    hyperparam_metrics(model, sampler[, state]; kwargs...)
+
+Return a `Vector{String}` of metrics for hyperparameters in `model`.
+
+Default returns an empty vector. Override for specific model/sampler combinations.
+"""
+hyperparam_metrics(model, sampler; kwargs...) = String[]
+hyperparam_metrics(model, sampler, state; kwargs...) = hyperparam_metrics(model, sampler; kwargs...)

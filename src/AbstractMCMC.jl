@@ -22,6 +22,22 @@ export sample
 # Parallel sampling types
 export MCMCThreads, MCMCDistributed, MCMCSerial
 
+# Callbacks
+export MultiCallback, NameFilter
+
+# TensorBoard integration - returns TensorBoardCallback type when extension is loaded
+function TensorBoardCallback(args...; kwargs...)
+    ext = Base.get_extension(@__MODULE__, :AbstractMCMCTensorBoardLoggerExt)
+    if ext === nothing
+        error(
+            "TensorBoardCallback requires TensorBoardLogger and OnlineStats to be loaded. " *
+            "Add `using TensorBoardLogger, OnlineStats` before using TensorBoardCallback."
+        )
+    end
+    return ext.TensorBoardCallback(args...; kwargs...)
+end
+export TensorBoardCallback
+
 """
     AbstractChains
 
@@ -189,6 +205,7 @@ include("sample.jl")
 include("stepper.jl")
 include("transducer.jl")
 include("logdensityproblems.jl")
+include("callbacks.jl")
 
 if isdefined(Base.Experimental, :register_error_hint)
     function __init__()
