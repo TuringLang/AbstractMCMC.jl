@@ -143,7 +143,7 @@ Navigate to `localhost:6006` in your browser to see the dashboard. You'll see re
 
 ### TensorBoardCallback Options
 
-```julia
+```@docs
 TensorBoardCallback(
     directory::String;
     # Statistics estimator options
@@ -339,7 +339,7 @@ To make your sampler compatible with `TensorBoardCallback`, implement these meth
 !!! note
     The `params_and_values(model, sampler, transition, state; kwargs...)` method is not usually overloaded, but it can sometimes be useful for defining more complex behaviors.
 
-### params_and_values
+### `params_and_values`
 
 Returns parameter names and values from a transition/state:
 

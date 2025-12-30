@@ -100,7 +100,16 @@ end
 using TensorBoardLogger
 using OnlineStats
 
+# Helper to ensure extension is loaded and constants are defined in AbstractMCMC
+function ensure_tb_extension_loaded()
+    try
+        TensorBoardCallback(mktempdir())
+    catch
+    end
+end
+
 @testset "TensorBoardCallback Extension" begin
+    ensure_tb_extension_loaded()
     @testset "TensorBoardCallback creation" begin
         logdir = mktempdir()
         cb = TensorBoardCallback(logdir)
@@ -177,7 +186,7 @@ using OnlineStats
     end
 
     @testset "Skip OnlineStat wrapper" begin
-        skip = Skip(10, Mean())
+        skip = AbstractMCMC.Skip(10, Mean())
         @test skip.b == 10
         @test skip.stat isa Mean
 
@@ -186,7 +195,7 @@ using OnlineStats
         end
         @test OnlineStats.value(skip) ≈ mean(12:15)
 
-        skip2 = Skip(5, Variance())
+        skip2 = AbstractMCMC.Skip(5, Variance())
         for i in 1:20
             OnlineStats.fit!(skip2, Float64(i))
         end
@@ -194,7 +203,7 @@ using OnlineStats
     end
 
     @testset "Thin OnlineStat wrapper" begin
-        thin = Thin(5, Mean())
+        thin = AbstractMCMC.Thin(5, Mean())
         @test thin.b == 5
         @test thin.stat isa Mean
 
@@ -205,7 +214,7 @@ using OnlineStats
     end
 
     @testset "WindowStat OnlineStat wrapper" begin
-        ws = WindowStat(5, Mean())
+        ws = AbstractMCMC.WindowStat(5, Mean())
         @test OnlineStats.nobs(ws) == 0
 
         for i in 1:10
@@ -218,7 +227,7 @@ using OnlineStats
     end
 
     @testset "Skip basic behavior" begin
-        stat = Skip(3, Mean())
+        stat = AbstractMCMC.Skip(3, Mean())
         for i in 1:5
             OnlineStats.fit!(stat, Float64(i))
         end
@@ -226,7 +235,7 @@ using OnlineStats
     end
 
     @testset "Thin basic behavior" begin
-        stat = Thin(2, Mean())
+        stat = AbstractMCMC.Thin(2, Mean())
         for i in 1:6
             OnlineStats.fit!(stat, Float64(i))
         end

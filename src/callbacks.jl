@@ -54,7 +54,7 @@ default_param_names_for_values(x) = ("θ[$i]" for i in 1:length(x))
     params_and_values(model, transition, state; kwargs...)
     params_and_values(model, sampler, transition, state; kwargs...)
 
-Return an iterator over parameter names and values from a `state`.
+Return an iterator over parameter names and values from a `state` or `transition`.
 
 Default implementation uses `AbstractMCMC.getparams(state)` to extract parameters
 and returns an iterator with names `θ[i]` for each parameter.
@@ -63,8 +63,12 @@ The 3-argument and 4-argument versions provide fallbacks for transition-based ex
 (used by some samplers like Turing).
 """
 function params_and_values(model, state; kwargs...)
-    params = getparams(state)
-    return zip(default_param_names_for_values(params), params)
+    try
+        params = getparams(state)
+        return zip(default_param_names_for_values(params), params)
+    catch
+        return ()
+    end
 end
 
 function params_and_values(model, sampler::AbstractSampler, state; kwargs...)
