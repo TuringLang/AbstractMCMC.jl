@@ -14,8 +14,12 @@ MultiCallback(callbacks...) = MultiCallback(callbacks)
 
 (c::MultiCallback)(args...; kwargs...) = foreach(c -> c(args...; kwargs...), c.callbacks)
 
-BangBang.push!!(c::MultiCallback{<:Tuple}, callback) = MultiCallback((c.callbacks..., callback))
-BangBang.push!!(c::MultiCallback{<:AbstractArray}, callback) = (push!(c.callbacks, callback); return c)
+function BangBang.push!!(c::MultiCallback{<:Tuple}, callback)
+    return MultiCallback((c.callbacks..., callback))
+end
+function BangBang.push!!(c::MultiCallback{<:AbstractArray}, callback)
+    (push!(c.callbacks, callback); return c)
+end
 
 """
     NameFilter(; include=nothing, exclude=nothing)
@@ -33,7 +37,8 @@ end
 (f::NameFilter)(name, value) = f(name)
 function (f::NameFilter)(name)
     include, exclude = f.include, f.exclude
-    (exclude === nothing || name ∉ exclude) && (include === nothing || name ∈ include)
+    return (exclude === nothing || name ∉ exclude) &&
+           (include === nothing || name ∈ include)
 end
 
 """
@@ -41,7 +46,7 @@ end
 
 Return an iterator of `θ[i]` for each element in `x`.
 """
-default_param_names_for_values(x) = ("θ[$i]" for i = 1:length(x))
+default_param_names_for_values(x) = ("θ[$i]" for i in 1:length(x))
 
 """
     params_and_values(model, state; kwargs...)
@@ -126,4 +131,6 @@ Return a `Vector{String}` of metrics for hyperparameters in `model`.
 Default returns an empty vector. Override for specific model/sampler combinations.
 """
 hyperparam_metrics(model, sampler; kwargs...) = String[]
-hyperparam_metrics(model, sampler, state; kwargs...) = hyperparam_metrics(model, sampler; kwargs...)
+function hyperparam_metrics(model, sampler, state; kwargs...)
+    return hyperparam_metrics(model, sampler; kwargs...)
+end

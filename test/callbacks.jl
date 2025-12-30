@@ -40,17 +40,17 @@
     end
 
     @testset "NameFilter" begin
-        f1 = AbstractMCMC.NameFilter(include=["a", "b"])
+        f1 = AbstractMCMC.NameFilter(; include=["a", "b"])
         @test f1("a") == true
         @test f1("b") == true
         @test f1("c") == false
 
-        f2 = AbstractMCMC.NameFilter(exclude=["x", "y"])
+        f2 = AbstractMCMC.NameFilter(; exclude=["x", "y"])
         @test f2("a") == true
         @test f2("x") == false
         @test f2("y") == false
 
-        f3 = AbstractMCMC.NameFilter(include=["a", "b", "c"], exclude=["c"])
+        f3 = AbstractMCMC.NameFilter(; include=["a", "b", "c"], exclude=["c"])
         @test f3("a") == true
         @test f3("c") == false
         @test f3("d") == false
@@ -58,15 +58,15 @@
         f4 = AbstractMCMC.NameFilter()
         @test f4("anything") == true
 
-        f5 = AbstractMCMC.NameFilter(include=[:alpha, :beta])
+        f5 = AbstractMCMC.NameFilter(; include=[:alpha, :beta])
         @test f5(:alpha) == true
         @test f5(:gamma) == false
 
-        f6 = AbstractMCMC.NameFilter(include=[])
+        f6 = AbstractMCMC.NameFilter(; include=[])
         @test f6("a") == false
         @test f6("b") == false
 
-        f7 = AbstractMCMC.NameFilter(exclude=[])
+        f7 = AbstractMCMC.NameFilter(; exclude=[])
         @test f7("a") == true
         @test f7("z") == true
     end
@@ -81,7 +81,7 @@
         counts = [Ref(0), Ref(0)]
         multi = AbstractMCMC.MultiCallback(
             (args...; kwargs...) -> counts[1][] += 1,
-            (args...; kwargs...) -> counts[2][] += 1
+            (args...; kwargs...) -> counts[2][] += 1,
         )
         chain = sample(MyModel(), MySampler(), 50; callback=multi)
         @test counts[1][] == 50
@@ -159,9 +159,8 @@ using OnlineStats
         cb2 = TensorBoardCallback(logdir; include_hyperparams=true)
         @test cb2.include_hyperparams == true
 
-        cb3 = TensorBoardCallback(logdir; 
-            include_hyperparams=true, 
-            hyperparams_include=["target_accept"]
+        cb3 = TensorBoardCallback(
+            logdir; include_hyperparams=true, hyperparams_include=["target_accept"]
         )
         @test cb3.hyperparam_filter("target_accept", 0.8) == true
         @test cb3.hyperparam_filter("other", 1.0) == false

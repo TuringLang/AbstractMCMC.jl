@@ -31,7 +31,7 @@ function TensorBoardCallback(args...; kwargs...)
     if ext === nothing
         error(
             "TensorBoardCallback requires TensorBoardLogger and OnlineStats to be loaded. " *
-            "Add `using TensorBoardLogger, OnlineStats` before using TensorBoardCallback."
+            "Add `using TensorBoardLogger, OnlineStats` before using TensorBoardCallback.",
         )
     end
     return ext.TensorBoardCallback(args...; kwargs...)

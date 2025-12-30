@@ -5,7 +5,8 @@ using AbstractMCMC: NameFilter, params_and_values, extras, hyperparams, hyperpar
 using TensorBoardLogger
 using TensorBoardLogger: TBLogger
 using OnlineStats
-using OnlineStats: OnlineStat, Mean, Variance, KHist, Series, AutoCov, MovingWindow, fit!, value, nobs
+using OnlineStats:
+    OnlineStat, Mean, Variance, KHist, Series, AutoCov, MovingWindow, fit!, value, nobs
 using DataStructures: DefaultDict  # Available via StatsBase dependency chain
 using Logging: AbstractLogger, with_logger, @info, Info
 using Dates: now, DateFormat, format
@@ -39,7 +40,9 @@ function OnlineStats._fit!(o::Skip, x::Real)
     return o
 end
 
-Base.show(io::IO, o::Skip) = print(io, "Skip ($(o.b)): current_index=$(o.current_index) | stat=$(o.stat)`")
+function Base.show(io::IO, o::Skip)
+    return print(io, "Skip ($(o.b)): current_index=$(o.current_index) | stat=$(o.stat)`")
+end
 
 """
     Thin(b::Int, stat::OnlineStat)
@@ -64,7 +67,9 @@ function OnlineStats._fit!(o::Thin, x::Real)
     return o
 end
 
-Base.show(io::IO, o::Thin) = print(io, "Thin ($(o.b)): current_index=$(o.current_index) | stat=$(o.stat)`")
+function Base.show(io::IO, o::Thin)
+    return print(io, "Thin ($(o.b)): current_index=$(o.current_index) | stat=$(o.stat)`")
+end
 
 """
     WindowStat(b::Int, stat::OnlineStat)
@@ -80,7 +85,9 @@ struct WindowStat{T,O} <: OnlineStat{T}
 end
 
 WindowStat(b::Int, T::Type, o) = WindowStat{T,typeof(o)}(MovingWindow(b, T), o)
-WindowStat(b::Int, o::OnlineStat{T}) where {T} = WindowStat{T,typeof(o)}(MovingWindow(b, T), o)
+function WindowStat(b::Int, o::OnlineStat{T}) where {T}
+    return WindowStat{T,typeof(o)}(MovingWindow(b, T), o)
+end
 
 OnlineStats.nobs(o::WindowStat) = OnlineStats.nobs(o.window)
 OnlineStats._fit!(o::WindowStat, x) = OnlineStats._fit!(o.window, x)
@@ -91,7 +98,9 @@ function OnlineStats.value(o::WindowStat{<:Any,<:OnlineStat})
     return stat_new
 end
 
-Base.show(io::IO, o::WindowStat) = print(io, "WindowStat ($(o.window.b)): nobs=$(nobs(o)) | stat=$(o.stat)")
+function Base.show(io::IO, o::WindowStat)
+    return print(io, "WindowStat ($(o.window.b)): nobs=$(nobs(o)) | stat=$(o.stat)")
+end
 
 #########################################
 ### TensorBoardLogger name formatting ###
@@ -112,24 +121,24 @@ tb_name(arg, args...) = tb_name(arg) * "/" * tb_name(args...)
 #########################################
 
 function TBL.preprocess(name, stat::OnlineStat, data)
-    nobs(stat) > 0 && TBL.preprocess(tb_name(name, stat), value(stat), data)
+    return nobs(stat) > 0 && TBL.preprocess(tb_name(name, stat), value(stat), data)
 end
 
 function TBL.preprocess(name, stat::Skip, data)
-    TBL.preprocess(tb_name(name, stat), stat.stat, data)
+    return TBL.preprocess(tb_name(name, stat), stat.stat, data)
 end
 
 function TBL.preprocess(name, stat::Thin, data)
-    TBL.preprocess(tb_name(name, stat), stat.stat, data)
+    return TBL.preprocess(tb_name(name, stat), stat.stat, data)
 end
 
 function TBL.preprocess(name, stat::WindowStat, data)
-    TBL.preprocess(tb_name(name, stat), value(stat), data)
+    return TBL.preprocess(tb_name(name, stat), value(stat), data)
 end
 
 function TBL.preprocess(name, stat::AutoCov, data)
     autocor = OnlineStats.autocor(stat)
-    for b = 1:(stat.lag.b - 1)
+    for b in 1:(stat.lag.b - 1)
         bname = tb_name(stat, b)
         TBL.preprocess(tb_name(name, bname), autocor[b + 1], data)
     end
@@ -150,8 +159,11 @@ function TBL.preprocess(name, hist::KHist, data)
 end
 
 function TBL.log_histogram(
-    logger::AbstractLogger, name::AbstractString, hist::OnlineStats.HistogramStat;
-    step=nothing, normalize=false
+    logger::AbstractLogger,
+    name::AbstractString,
+    hist::OnlineStats.HistogramStat;
+    step=nothing,
+    normalize=false,
 )
     edges = OnlineStats.edges(hist)
     cnts = Float64.(OnlineStats.counts(hist))
@@ -210,7 +222,7 @@ struct TensorBoardCallback{L,F1,F2,F3}
 end
 
 function TensorBoardCallback(directory::String, args...; kwargs...)
-    TensorBoardCallback(args...; directory=directory, kwargs...)
+    return TensorBoardCallback(args...; directory=directory, kwargs...)
 end
 
 function TensorBoardCallback(args...; comment="", directory=nothing, kwargs...)
@@ -219,8 +231,8 @@ function TensorBoardCallback(args...; comment="", directory=nothing, kwargs...)
     else
         directory
     end
-    lg = TBLogger(log_dir, min_level=Info; step_increment=0)
-    TensorBoardCallback(lg, args...; kwargs...)
+    lg = TBLogger(log_dir; min_level=Info, step_increment=0)
+    return TensorBoardCallback(lg, args...; kwargs...)
 end
 
 function TensorBoardCallback(
@@ -240,14 +252,19 @@ function TensorBoardCallback(
     hyperparams_filter=nothing,
     param_prefix::String="",
     extras_prefix::String="extras/",
-    kwargs...
+    kwargs...,
 )
     variable_filter_f = maybe_filter(filter; include=include, exclude=exclude)
-    extras_filter_f = maybe_filter(extras_filter; include=extras_include, exclude=extras_exclude)
-    hyperparams_filter_f = maybe_filter(hyperparams_filter; include=hyperparams_include, exclude=hyperparams_exclude)
+    extras_filter_f = maybe_filter(
+        extras_filter; include=extras_include, exclude=extras_exclude
+    )
+    hyperparams_filter_f = maybe_filter(
+        hyperparams_filter; include=hyperparams_include, exclude=hyperparams_exclude
+    )
 
     stats_lookup = if stats isa OnlineStat
-        OnlineStats.nobs(stats) > 0 && @warn("using statistic with observations as a base: $(stats)")
+        OnlineStats.nobs(stats) > 0 &&
+            @warn("using statistic with observations as a base: $(stats)")
         let o = stats
             DefaultDict{String,typeof(o)}(() -> deepcopy(o))
         end
@@ -260,8 +277,15 @@ function TensorBoardCallback(
     end
 
     return TensorBoardCallback(
-        lg, stats_lookup, variable_filter_f, include_extras, extras_filter_f,
-        include_hyperparams, hyperparams_filter_f, param_prefix, extras_prefix
+        lg,
+        stats_lookup,
+        variable_filter_f,
+        include_extras,
+        extras_filter_f,
+        include_hyperparams,
+        hyperparams_filter_f,
+        param_prefix,
+        extras_prefix,
     )
 end
 
@@ -269,10 +293,10 @@ function filter_param_and_value(cb::TensorBoardCallback, param, value)
     return cb.variable_filter(param, value)
 end
 function filter_param_and_value(cb::TensorBoardCallback, param_and_value::Tuple)
-    filter_param_and_value(cb, param_and_value...)
+    return filter_param_and_value(cb, param_and_value...)
 end
 function filter_param_and_value(cb::TensorBoardCallback, param_and_value::Pair)
-    filter_param_and_value(cb, first(param_and_value), last(param_and_value))
+    return filter_param_and_value(cb, first(param_and_value), last(param_and_value))
 end
 
 function filter_extras_and_value(cb::TensorBoardCallback, name, value)
@@ -288,13 +312,17 @@ end
 function filter_hyperparams_and_value(cb::TensorBoardCallback, name, value)
     return cb.hyperparam_filter(name, value)
 end
-function filter_hyperparams_and_value(cb::TensorBoardCallback, name_and_value::Union{Pair,Tuple})
+function filter_hyperparams_and_value(
+    cb::TensorBoardCallback, name_and_value::Union{Pair,Tuple}
+)
     return filter_hyperparams_and_value(cb, name_and_value...)
 end
 
 increment_step!(lg::TBLogger, Δ_Step) = TensorBoardLogger.increment_step!(lg, Δ_Step)
 
-function (cb::TensorBoardCallback)(rng, model, sampler, transition, state, iteration; kwargs...)
+function (cb::TensorBoardCallback)(
+    rng, model, sampler, transition, state, iteration; kwargs...
+)
     stats = cb.stats
     lg = cb.logger
     variable_filter = Base.Fix1(filter_param_and_value, cb)
@@ -302,19 +330,23 @@ function (cb::TensorBoardCallback)(rng, model, sampler, transition, state, itera
     hyperparams_filter = Base.Fix1(filter_hyperparams_and_value, cb)
 
     if iteration == 1 && cb.include_hyperparams
-        hparams = Dict(Iterators.filter(
-            hyperparams_filter,
-            AbstractMCMC.hyperparams(model, sampler, state; kwargs...)
-        ))
+        hparams = Dict(
+            Iterators.filter(
+                hyperparams_filter,
+                AbstractMCMC.hyperparams(model, sampler, state; kwargs...),
+            ),
+        )
         if !isempty(hparams)
-            TensorBoardLogger.write_hparams!(lg, hparams, AbstractMCMC.hyperparam_metrics(model, sampler))
+            TensorBoardLogger.write_hparams!(
+                lg, hparams, AbstractMCMC.hyperparam_metrics(model, sampler)
+            )
         end
     end
 
     with_logger(lg) do
         for (k, val) in Iterators.filter(
             variable_filter,
-            AbstractMCMC.params_and_values(model, sampler, transition, state; kwargs...)
+            AbstractMCMC.params_and_values(model, sampler, transition, state; kwargs...),
         )
             stat = stats[k]
             @info "$(cb.param_prefix)$k" val
@@ -325,7 +357,7 @@ function (cb::TensorBoardCallback)(rng, model, sampler, transition, state, itera
         if cb.include_extras
             for (name, val) in Iterators.filter(
                 extras_filter,
-                AbstractMCMC.extras(model, sampler, transition, state; kwargs...)
+                AbstractMCMC.extras(model, sampler, transition, state; kwargs...),
             )
                 @info "$(cb.extras_prefix)$(name)" val
                 if val isa Real
