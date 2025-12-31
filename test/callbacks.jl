@@ -197,7 +197,7 @@ end
         end
         # Mean of 11, 12, 13, 14, 15 is 13.0
         @test OnlineStats.value(skip) ≈ 13.0
-        
+
         skip2 = AbstractMCMC.Skip(5, Variance())
         for i in 1:20
             OnlineStats.fit!(skip2, Float64(i))
@@ -243,7 +243,7 @@ end
         stat_result = OnlineStats.value(ws)
         @test stat_result isa Mean
         @test OnlineStats.value(stat_result) ≈ 8.0 # Mean(6..10) = 8.0
-        
+
         # Partially wrap window: 11, 12
         # Buffer should handle wrapping correctly.
         # Window: 8, 9, 10, 11, 12 (in some order internally, properly sorted by value())

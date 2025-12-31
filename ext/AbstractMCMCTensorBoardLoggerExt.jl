@@ -2,13 +2,19 @@ module AbstractMCMCTensorBoardLoggerExt
 
 using AbstractMCMC
 using AbstractMCMC:
-    NameFilter, params_and_values, extras, hyperparams, hyperparam_metrics, Skip, Thin, WindowStat
+    NameFilter,
+    params_and_values,
+    extras,
+    hyperparams,
+    hyperparam_metrics,
+    Skip,
+    Thin,
+    WindowStat
 using TensorBoardLogger
 using TensorBoardLogger: TBLogger
 using OnlineStats
-using OnlineStats:
-    OnlineStat, Mean, Variance, KHist, Series, AutoCov, fit!, value, nobs
-using DataStructures: DefaultDict  # Available via StatsBase dependency chain
+using OnlineStats: OnlineStat, Mean, Variance, KHist, Series, AutoCov, fit!, value, nobs
+using DataStructures: DefaultDict
 using Logging: AbstractLogger, with_logger, @info, Info
 using Dates: now, DateFormat, format
 
@@ -64,16 +70,16 @@ end
 function OnlineStats.value(o::WindowStat)
     # Re-fit a clean stat on the current window buffer
     stat_new = deepcopy(o.stat)
-    
+
     if o.n < o.b
         # Buffer not full yet, data is 1..n
-        for i in 1:o.n
+        for i in 1:(o.n)
             fit!(stat_new, o.buffer[i])
         end
     else
         # Buffer is full (circular).
         # We must fit in chronological order: from (n - b + 1) to n.
-        for i in (o.n - o.b + 1):o.n
+        for i in (o.n - o.b + 1):(o.n)
             idx = mod1(i, o.b)
             fit!(stat_new, o.buffer[idx])
         end
@@ -99,9 +105,9 @@ tb_name(s1::String, s2::String) = s1 * "/" * s2
 tb_name(arg1, arg2) = tb_name(arg1) * "/" * tb_name(arg2)
 tb_name(arg, args...) = tb_name(arg) * "/" * tb_name(args...)
 
-#########################################
-### TensorBoardLogger preprocess      ###
-#########################################
+####################################
+### TensorBoardLogger preprocess ###
+####################################
 
 function TBL.preprocess(name, stat::OnlineStat, data)
     return nobs(stat) > 0 && TBL.preprocess(tb_name(name, stat), value(stat), data)
@@ -157,9 +163,9 @@ function TBL.log_histogram(
     end
 end
 
-#########################################
-### TensorBoardCallback               ###
-#########################################
+###########################
+### TensorBoardCallback ###
+###########################
 
 maybe_filter(f; kwargs...) = f
 maybe_filter(::Nothing; exclude=nothing, include=nothing) = NameFilter(; exclude, include)
