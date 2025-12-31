@@ -1,6 +1,6 @@
 # Callbacks
 
-AbstractMCMC provides a comprehensive callback system that allows users to execute custom code after each sampling step. This is useful for monitoring, logging, visualization, and early stopping.
+AbstractMCMC provides a callback system that allows users to execute custom code after each sampling step. This is useful for monitoring, logging, visualization, and early stopping.
 
 ## Using Callbacks
 
@@ -412,6 +412,14 @@ end
 ```@docs
 AbstractMCMC.MultiCallback
 AbstractMCMC.NameFilter
+```
+
+### Statistics Wrappers
+
+```@docs
+AbstractMCMC.Skip
+AbstractMCMC.Thin
+AbstractMCMC.WindowStat
 ```
 
 ### Parameter Extraction Functions
