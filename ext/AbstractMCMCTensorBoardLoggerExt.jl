@@ -1,105 +1,88 @@
 module AbstractMCMCTensorBoardLoggerExt
 
 using AbstractMCMC
-using AbstractMCMC: NameFilter, params_and_values, extras, hyperparams, hyperparam_metrics
+using AbstractMCMC:
+    NameFilter, params_and_values, extras, hyperparams, hyperparam_metrics, Skip, Thin, WindowStat
 using TensorBoardLogger
 using TensorBoardLogger: TBLogger
 using OnlineStats
 using OnlineStats:
-    OnlineStat, Mean, Variance, KHist, Series, AutoCov, MovingWindow, fit!, value, nobs
+    OnlineStat, Mean, Variance, KHist, Series, AutoCov, fit!, value, nobs
 using DataStructures: DefaultDict  # Available via StatsBase dependency chain
 using Logging: AbstractLogger, with_logger, @info, Info
 using Dates: now, DateFormat, format
 
 const TBL = TensorBoardLogger
 
-###################
-### OnlineStats ###
-###################
+##########################################
+### OnlineStats Interface for Wrappers ###
+##########################################
 
-"""
-    Skip(b::Int, stat::OnlineStat)
-
-Skips the first `b` observations before passing them on to `stat`.
-"""
-mutable struct Skip{T,O<:OnlineStat{T}} <: OnlineStat{T}
-    b::Int
-    current_index::Int
-    stat::O
-end
-
-Skip(b::Int, stat) = Skip(b, 0, stat)
-
+# Skip
 OnlineStats.nobs(o::Skip) = OnlineStats.nobs(o.stat)
 OnlineStats.value(o::Skip) = OnlineStats.value(o.stat)
-function OnlineStats._fit!(o::Skip, x::Real)
-    if o.current_index > o.b
-        OnlineStats._fit!(o.stat, x)
+
+function OnlineStats.fit!(o::Skip, x)
+    if o.n >= o.b
+        OnlineStats.fit!(o.stat, x)
     end
-    o.current_index += length(x)
+    o.n += 1
     return o
 end
 
 function Base.show(io::IO, o::Skip)
-    return print(io, "Skip ($(o.b)): current_index=$(o.current_index) | stat=$(o.stat)`")
+    return print(io, "Skip ($(o.b)): n=$(o.n) | stat=$(o.stat)")
 end
 
-"""
-    Thin(b::Int, stat::OnlineStat)
-
-Thins `stat` with an interval `b`, i.e. only passes every b-th observation to `stat`.
-"""
-mutable struct Thin{T,O<:OnlineStat{T}} <: OnlineStat{T}
-    b::Int
-    current_index::Int
-    stat::O
-end
-
-Thin(b::Int, stat) = Thin(b, 0, stat)
-
+# Thin
 OnlineStats.nobs(o::Thin) = OnlineStats.nobs(o.stat)
 OnlineStats.value(o::Thin) = OnlineStats.value(o.stat)
-function OnlineStats._fit!(o::Thin, x::Real)
-    if (o.current_index % o.b) == 0
-        OnlineStats._fit!(o.stat, x)
+
+function OnlineStats.fit!(o::Thin, x)
+    if (o.n % o.b) == 0
+        OnlineStats.fit!(o.stat, x)
     end
-    o.current_index += length(x)
+    o.n += 1
     return o
 end
 
 function Base.show(io::IO, o::Thin)
-    return print(io, "Thin ($(o.b)): current_index=$(o.current_index) | stat=$(o.stat)`")
+    return print(io, "Thin ($(o.b)): n=$(o.n) | stat=$(o.stat)")
 end
 
-"""
-    WindowStat(b::Int, stat::OnlineStat)
+# WindowStat
+OnlineStats.nobs(o::WindowStat) = min(o.n, o.b)
 
-"Wraps" `stat` in a `MovingWindow` of length `b`.
-
-`value(o::WindowStat)` will then return an `OnlineStat` of the same type as 
-`stat`, which is *only* fitted on the batched data contained in the `MovingWindow`.
-"""
-struct WindowStat{T,O} <: OnlineStat{T}
-    window::MovingWindow{T}
-    stat::O
+function OnlineStats.fit!(o::WindowStat, x)
+    o.n += 1
+    # Circular buffer logic: insert at the correct position based on total count
+    idx = mod1(o.n, o.b)
+    o.buffer[idx] = x
+    return o
 end
 
-WindowStat(b::Int, T::Type, o) = WindowStat{T,typeof(o)}(MovingWindow(b, T), o)
-function WindowStat(b::Int, o::OnlineStat{T}) where {T}
-    return WindowStat{T,typeof(o)}(MovingWindow(b, T), o)
-end
-
-OnlineStats.nobs(o::WindowStat) = OnlineStats.nobs(o.window)
-OnlineStats._fit!(o::WindowStat, x) = OnlineStats._fit!(o.window, x)
-
-function OnlineStats.value(o::WindowStat{<:Any,<:OnlineStat})
+function OnlineStats.value(o::WindowStat)
+    # Re-fit a clean stat on the current window buffer
     stat_new = deepcopy(o.stat)
-    fit!(stat_new, OnlineStats.value(o.window))
+    
+    if o.n < o.b
+        # Buffer not full yet, data is 1..n
+        for i in 1:o.n
+            fit!(stat_new, o.buffer[i])
+        end
+    else
+        # Buffer is full (circular).
+        # We must fit in chronological order: from (n - b + 1) to n.
+        for i in (o.n - o.b + 1):o.n
+            idx = mod1(i, o.b)
+            fit!(stat_new, o.buffer[idx])
+        end
+    end
     return stat_new
 end
 
 function Base.show(io::IO, o::WindowStat)
-    return print(io, "WindowStat ($(o.window.b)): nobs=$(nobs(o)) | stat=$(o.stat)")
+    return print(io, "WindowStat ($(o.b)): n=$(o.n) | stat=$(o.stat)")
 end
 
 #########################################
@@ -110,7 +93,7 @@ tb_name(arg) = string(arg)
 tb_name(stat::OnlineStat) = string(nameof(typeof(stat)))
 tb_name(o::Skip) = "Skip($(o.b))"
 tb_name(o::Thin) = "Thin($(o.b))"
-tb_name(o::WindowStat) = "WindowStat($(o.window.b))"
+tb_name(o::WindowStat) = "WindowStat($(o.b))"
 tb_name(o::AutoCov, b::Int) = "AutoCov(lag=$b)/corr"
 tb_name(s1::String, s2::String) = s1 * "/" * s2
 tb_name(arg1, arg2) = tb_name(arg1) * "/" * tb_name(arg2)
@@ -370,8 +353,5 @@ function (cb::TensorBoardCallback)(
         increment_step!(lg, 1)
     end
 end
-
-# Export the types and functions
-export TensorBoardCallback, Skip, Thin, WindowStat
 
 end

@@ -186,60 +186,71 @@ end
     end
 
     @testset "Skip OnlineStat wrapper" begin
+        # Skip(b) skips the first b observations.
         skip = AbstractMCMC.Skip(10, Mean())
         @test skip.b == 10
         @test skip.stat isa Mean
 
+        # Fit 15 items. First 10 (1..10) should be skipped. 11..15 should be fitted.
         for i in 1:15
             OnlineStats.fit!(skip, Float64(i))
         end
-        @test OnlineStats.value(skip) ≈ mean(12:15)
-
+        # Mean of 11, 12, 13, 14, 15 is 13.0
+        @test OnlineStats.value(skip) ≈ 13.0
+        
         skip2 = AbstractMCMC.Skip(5, Variance())
         for i in 1:20
             OnlineStats.fit!(skip2, Float64(i))
         end
-        @test OnlineStats.nobs(skip2.stat) == 14
+        @test OnlineStats.nobs(skip2.stat) == 15
     end
 
     @testset "Thin OnlineStat wrapper" begin
+        # Thin(b) passes every b-th observation.
         thin = AbstractMCMC.Thin(5, Mean())
         @test thin.b == 5
         @test thin.stat isa Mean
 
+        # Fit 1..20. 
+        # i=1 (idx=0) -> 0%5==0 -> Fit 1
+        # i=6 (idx=5) -> 5%5==0 -> Fit 6
+        # i=11 (idx=10) -> 10%5==0 -> Fit 11
+        # i=16 (idx=15) -> 15%5==0 -> Fit 16
         for i in 1:20
             OnlineStats.fit!(thin, Float64(i))
         end
-        @test OnlineStats.value(thin) ≈ mean([1, 6, 11, 16])
+        # Mean of 1, 6, 11, 16 = 8.5
+        @test OnlineStats.value(thin) ≈ 8.5
     end
 
     @testset "WindowStat OnlineStat wrapper" begin
         ws = AbstractMCMC.WindowStat(5, Mean())
         @test OnlineStats.nobs(ws) == 0
 
-        for i in 1:10
+        # Fill window: 1, 2, 3, 4, 5
+        for i in 1:5
             OnlineStats.fit!(ws, Float64(i))
         end
-        @test OnlineStats.nobs(ws) == 10
+        @test OnlineStats.nobs(ws) == 5
+        @test OnlineStats.value(OnlineStats.value(ws)) ≈ 3.0 # Mean(1..5) = 3.0
+
+        # Slide window: 6, 7, 8, 9, 10
+        # Window should contain 6, 7, 8, 9, 10
+        for i in 6:10
+            OnlineStats.fit!(ws, Float64(i))
+        end
+        @test OnlineStats.nobs(ws) == 5
         stat_result = OnlineStats.value(ws)
         @test stat_result isa Mean
-        @test OnlineStats.value(stat_result) ≈ mean(6:10)
-    end
-
-    @testset "Skip basic behavior" begin
-        stat = AbstractMCMC.Skip(3, Mean())
-        for i in 1:5
-            OnlineStats.fit!(stat, Float64(i))
+        @test OnlineStats.value(stat_result) ≈ 8.0 # Mean(6..10) = 8.0
+        
+        # Partially wrap window: 11, 12
+        # Buffer should handle wrapping correctly.
+        # Window: 8, 9, 10, 11, 12 (in some order internally, properly sorted by value())
+        for i in 11:12
+            OnlineStats.fit!(ws, Float64(i))
         end
-        @test OnlineStats.value(stat) ≈ mean(5:5)
-    end
-
-    @testset "Thin basic behavior" begin
-        stat = AbstractMCMC.Thin(2, Mean())
-        for i in 1:6
-            OnlineStats.fit!(stat, Float64(i))
-        end
-        @test OnlineStats.value(stat) ≈ mean([1, 3, 5])
+        @test OnlineStats.value(OnlineStats.value(ws)) ≈ 10.0 # Mean(8..12) = 10.0
     end
 
     @testset "OnlineStat merging" begin

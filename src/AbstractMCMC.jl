@@ -30,8 +30,10 @@ export MCMCThreads, MCMCDistributed, MCMCSerial
 # Callbacks
 export MultiCallback, NameFilter
 
-# We do not export Skip, Thin, WindowStat dynamically to avoid world-age/namespace issues.
-# Users should access them via AbstractMCMC.Skip or using the extension module directly.
+# Statistics Wrappers
+export Skip, Thin, WindowStat
+
+# TensorBoardCallback wrapper
 export TensorBoardCallback
 
 """
@@ -76,14 +78,6 @@ function TensorBoardCallback(args...; kwargs...)
             "TensorBoardCallback requires TensorBoardLogger and OnlineStats to be loaded.\n" *
             "Please run `using TensorBoardLogger, OnlineStats`."
         error(msg)
-    end
-
-    # We dynamically define the constants in this module so AbstractMCMC.Skip works.
-    # We skip the `export` because it won't affect existing `using` sessions.
-    if !isdefined(@__MODULE__, :Skip)
-        Core.eval(@__MODULE__, :(const Skip = $(ext.Skip)))
-        Core.eval(@__MODULE__, :(const Thin = $(ext.Thin)))
-        Core.eval(@__MODULE__, :(const WindowStat = $(ext.WindowStat)))
     end
 
     return ext.TensorBoardCallback(args...; kwargs...)
