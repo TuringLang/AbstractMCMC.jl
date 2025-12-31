@@ -56,14 +56,20 @@ default_param_names_for_values(x) = ("θ[$i]" for i in 1:length(x))
 
 Return an iterator over parameter names and values from a `state` or `transition`.
 
-Default implementation uses `AbstractMCMC.getparams(state)` to extract parameters
-and returns an iterator with names `θ[i]` for each parameter.
+The default 2-argument generic implementation attempts to call `AbstractMCMC.getparams(state)`.
+If you pass a `transition` as the second argument, it will attempt `getparams(transition)`.
 
-The 3-argument and 4-argument versions provide fallbacks for transition-based extraction
-(used by some samplers like Turing).
+To support a specific sampler/model, you should overload:
+- `params_and_values(model, ::MyTransitionType)`
+- `params_and_values(model, ::MyStateType)`
+
+The 3-argument version `params_and_values(model, transition, state)` attempts to extract
+from the `transition` first, and falls back to `state` if the transition yields no parameters.
 """
 function params_and_values(model, state; kwargs...)
     try
+        # This generic method works for both 'state' and 'transition' objects
+        # as long as getparams is defined for them.
         params = getparams(state)
         return zip(default_param_names_for_values(params), params)
     catch
@@ -76,7 +82,16 @@ function params_and_values(model, sampler::AbstractSampler, state; kwargs...)
 end
 
 function params_and_values(model, transition, state; kwargs...)
-    return params_and_values(model, state; kwargs...)
+    # Prioritize transition-based extraction.
+    # This calls the generic 2-arg method with the transition object.
+    vals = params_and_values(model, transition; kwargs...)
+
+    # If transition extraction returns nothing/empty (e.g., getparams not defined for it),
+    # fallback to state-based extraction.
+    if isempty(vals)
+        return params_and_values(model, state; kwargs...)
+    end
+    return vals
 end
 
 function params_and_values(model, sampler::AbstractSampler, transition, state; kwargs...)

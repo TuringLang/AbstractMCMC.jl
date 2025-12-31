@@ -14,7 +14,6 @@ using TensorBoardLogger
 using TensorBoardLogger: TBLogger
 using OnlineStats
 using OnlineStats: OnlineStat, Mean, Variance, KHist, Series, AutoCov, fit!, value, nobs
-using DataStructures: DefaultDict
 using Logging: AbstractLogger, with_logger, @info, Info
 using Dates: now, DateFormat, format
 
@@ -198,9 +197,10 @@ provided instead of `lg`.
 - `include_extras::Bool = true`: Include extra statistics from transitions.
 - `include_hyperparams::Bool = true`: Include hyperparameters.
 """
-struct TensorBoardCallback{L,F1,F2,F3}
+struct TensorBoardCallback{L,P,F1,F2,F3}
     logger::AbstractLogger
     stats::L
+    stat_prototype::P
     variable_filter::F1
     include_extras::Bool
     extras_filter::F2
@@ -251,23 +251,21 @@ function TensorBoardCallback(
         hyperparams_filter; include=hyperparams_include, exclude=hyperparams_exclude
     )
 
-    stats_lookup = if stats isa OnlineStat
+    stats_dict, prototype = if stats isa OnlineStat
         OnlineStats.nobs(stats) > 0 &&
             @warn("using statistic with observations as a base: $(stats)")
-        let o = stats
-            DefaultDict{String,typeof(o)}(() -> deepcopy(o))
-        end
+        (Dict{String,typeof(stats)}(), deepcopy(stats))
     elseif !isnothing(stats)
-        stats
+        (stats, nothing)
     else
-        let o = OnlineStats.Series(Mean(), Variance(), KHist(num_bins))
-            DefaultDict{String,typeof(o)}(() -> deepcopy(o))
-        end
+        o = OnlineStats.Series(Mean(), Variance(), KHist(num_bins))
+        (Dict{String,typeof(o)}(), deepcopy(o))
     end
 
     return TensorBoardCallback(
         lg,
-        stats_lookup,
+        stats_dict,
+        prototype,
         variable_filter_f,
         include_extras,
         extras_filter_f,
@@ -337,10 +335,21 @@ function (cb::TensorBoardCallback)(
             variable_filter,
             AbstractMCMC.params_and_values(model, sampler, transition, state; kwargs...),
         )
-            stat = stats[k]
+            stat = if stats isa AbstractDict && cb.stat_prototype !== nothing
+                get!(stats, k) do
+                    deepcopy(cb.stat_prototype)
+                end
+            elseif stats isa AbstractDict
+                get(stats, k, nothing)
+            else
+                nothing
+            end
+
             @info "$(cb.param_prefix)$k" val
-            OnlineStats.fit!(stat, val)
-            @info "$(cb.param_prefix)$k" stat
+            if stat !== nothing
+                OnlineStats.fit!(stat, val)
+                @info "$(cb.param_prefix)$k" stat
+            end
         end
 
         if cb.include_extras
@@ -350,9 +359,22 @@ function (cb::TensorBoardCallback)(
             )
                 @info "$(cb.extras_prefix)$(name)" val
                 if val isa Real
-                    stat = stats["$(cb.extras_prefix)$(name)"]
-                    fit!(stat, float(val))
-                    @info ("$(cb.extras_prefix)$(name)") stat
+                    # Extras often don't have a pre-defined list, so we might need to create stats on the fly.
+                    # We reuse the prototype if available.
+                    stat = if stats isa AbstractDict && cb.stat_prototype !== nothing
+                        get!(stats, "$(cb.extras_prefix)$(name)") do
+                            deepcopy(cb.stat_prototype)
+                        end
+                    elseif stats isa AbstractDict
+                        get(stats, "$(cb.extras_prefix)$(name)", nothing)
+                    else
+                        nothing
+                    end
+
+                    if stat !== nothing
+                        fit!(stat, float(val))
+                        @info ("$(cb.extras_prefix)$(name)") stat
+                    end
                 end
             end
         end

@@ -43,10 +43,10 @@ end
 Thin(b::Int, stat) = Thin(b, 0, stat)
 
 """
-    WindowStat(b::Int, stat; T=Any)
+    WindowStat(b::Int, stat; T=Float64)
 
 Wrapper that calculates `stat` over a sliding window of size `b`.
-Internal buffer stores elements of type `T` (defaults to `Any`).
+Internal buffer stores elements of type `T` (defaults to `Float64`).
 Does not require `OnlineStats` to be loaded, but implements the interface if available.
 
 Note: This reimplements the logic of `OnlineStats.MovingWindow` to avoid a hard dependency.
@@ -58,6 +58,6 @@ mutable struct WindowStat{T,S}
     buffer::Vector{T}
 end
 
-function WindowStat(b::Int, stat::S; T::Type=Any) where {S}
+function WindowStat(b::Int, stat::S; T::Type=Float64) where {S}
     return WindowStat{T,S}(b, 0, stat, Vector{T}(undef, b))
 end
