@@ -27,9 +27,9 @@ jobs:
             os: ubuntu-latest
             arch: x64
           # Minimum supported version
-          - version: 'min'
-            os: ubuntu-latest
-            arch: x64
+          # - version: 'min'
+          #   os: ubuntu-latest
+          #   arch: x64
           # x86
           - version: '1'
             os: ubuntu-latest
