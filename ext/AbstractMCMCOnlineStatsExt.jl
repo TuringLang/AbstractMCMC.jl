@@ -96,7 +96,7 @@ function OnlineStats.value(o::WindowStat)
 end
 
 function Base.show(io::IO, o::WindowStat)
-    print(io, "WindowStat ($(o.window.b)): nobs=$(nobs(o)) | stat=$(o.stat)")
+    return print(io, "WindowStat ($(o.window.b)): nobs=$(nobs(o)) | stat=$(o.stat)")
 end
 
 end

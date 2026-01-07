@@ -151,19 +151,19 @@ using TensorBoardLogger
 @testset "TensorBoard Extension" begin
     @testset "mcmc_callback with logger=:TBLogger" begin
         logdir = mktempdir()
-        cb = mcmc_callback(logger=:TBLogger, logdir=logdir)
+        cb = mcmc_callback(; logger=:TBLogger, logdir=logdir)
         @test cb isa AbstractMCMC.Callback
     end
 
     @testset "mcmc_callback with logdir only (infers TBLogger)" begin
         logdir = mktempdir()
-        cb = mcmc_callback(logdir=logdir)
+        cb = mcmc_callback(; logdir=logdir)
         @test cb isa AbstractMCMC.Callback
     end
 
     @testset "mcmc_callback with stats" begin
         logdir = mktempdir()
-        cb = mcmc_callback(logdir=logdir, stats=(Mean(), Variance()))
+        cb = mcmc_callback(; logdir=logdir, stats=(Mean(), Variance()))
         @test cb isa AbstractMCMC.Callback
     end
 
@@ -171,11 +171,11 @@ using TensorBoardLogger
         logdir = mktempdir()
 
         # Test partial stats_options (merges with defaults)
-        cb = mcmc_callback(logdir=logdir, stats_options=(thin=5,))
+        cb = mcmc_callback(; logdir=logdir, stats_options=(thin=5,))
         @test cb isa AbstractMCMC.Callback
 
         # Test full stats_options
-        cb = mcmc_callback(logdir=logdir, stats_options=(thin=5, skip=100, window=1000))
+        cb = mcmc_callback(; logdir=logdir, stats_options=(thin=5, skip=100, window=1000))
         @test cb isa AbstractMCMC.Callback
     end
 
@@ -183,11 +183,11 @@ using TensorBoardLogger
         logdir = mktempdir()
 
         # Test partial name_filter
-        cb = mcmc_callback(logdir=logdir, name_filter=(include=["mu", "sigma"],))
+        cb = mcmc_callback(; logdir=logdir, name_filter=(include=["mu", "sigma"],))
         @test cb isa AbstractMCMC.Callback
 
         # Test full name_filter
-        cb = mcmc_callback(
+        cb = mcmc_callback(;
             logdir=logdir,
             name_filter=(
                 include=["mu", "sigma"], exclude=["internal"], extras=true, hyperparams=true
@@ -198,7 +198,7 @@ using TensorBoardLogger
 
     @testset "mcmc_callback with all options" begin
         logdir = mktempdir()
-        cb = mcmc_callback(
+        cb = mcmc_callback(;
             logdir=logdir,
             stats=(Mean(), Variance(), KHist(50)),
             stats_options=(skip=100, thin=5),
@@ -209,7 +209,7 @@ using TensorBoardLogger
 
     @testset "TensorBoard callback with sample" begin
         logdir = mktempdir()
-        cb = mcmc_callback(logdir=logdir)
+        cb = mcmc_callback(; logdir=logdir)
 
         # Should complete without error
         chain = sample(MyModel(), MySampler(), 20; callback=cb)
@@ -252,7 +252,7 @@ end
         count = Ref(0)
         custom = (args...; kwargs...) -> count[] += 1
 
-        tb_cb = mcmc_callback(logdir=logdir)
+        tb_cb = mcmc_callback(; logdir=logdir)
         combined = mcmc_callback(tb_cb, custom)
 
         @test length(combined.multi.callbacks) == 2

@@ -27,8 +27,7 @@
             LogDensityProblems.logdensity(model, ones(10))
         catch exc
             @test exc isa MethodError
-            # register_error_hint was introduced in Julia 1.7
-            if VERSION >= v"1.7" && isdefined(Base.Experimental, :register_error_hint)
+            if isdefined(Base.Experimental, :register_error_hint)
                 @test occursin("is a wrapper", sprint(showerror, exc))
             end
         end

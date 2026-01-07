@@ -114,16 +114,16 @@ function params_and_values(model, state; kwargs...)
 end
 
 function params_and_values(model, sampler::AbstractSampler, state; kwargs...)
-    params_and_values(model, state; kwargs...)
+    return params_and_values(model, state; kwargs...)
 end
 
 function params_and_values(model, transition, state; kwargs...)
     vals = params_and_values(model, transition; kwargs...)
-    isempty(vals) ? params_and_values(model, state; kwargs...) : vals
+    return isempty(vals) ? params_and_values(model, state; kwargs...) : vals
 end
 
 function params_and_values(model, sampler::AbstractSampler, transition, state; kwargs...)
-    params_and_values(model, transition, state; kwargs...)
+    return params_and_values(model, transition, state; kwargs...)
 end
 
 """
@@ -143,7 +143,7 @@ end
 extras(model, sampler::AbstractSampler, state; kwargs...) = extras(model, state; kwargs...)
 extras(model, transition, state; kwargs...) = extras(model, state; kwargs...)
 function extras(model, sampler::AbstractSampler, transition, state; kwargs...)
-    extras(model, transition, state; kwargs...)
+    return extras(model, transition, state; kwargs...)
 end
 
 """
@@ -161,7 +161,7 @@ Return a Vector{String} of metrics for hyperparameters.
 """
 hyperparam_metrics(model, sampler; kwargs...) = String[]
 function hyperparam_metrics(model, sampler, state; kwargs...)
-    hyperparam_metrics(model, sampler; kwargs...)
+    return hyperparam_metrics(model, sampler; kwargs...)
 end
 
 #################################
