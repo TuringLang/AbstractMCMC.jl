@@ -1,3 +1,10 @@
+# Callbacks for AbstractMCMC
+# This module provides the unified callback API and supporting types.
+
+###########################
+### Core Callback Types ###
+###########################
+
 """
     MultiCallback
 
@@ -42,6 +49,47 @@ function (f::NameFilter)(name)
 end
 
 """
+    Callback{Cs}
+
+A wrapper type that holds a `MultiCallback` internally for type stability.
+All callbacks created via `mcmc_callback` are wrapped in this type.
+"""
+struct Callback{Cs}
+    multi::MultiCallback{Cs}
+end
+
+(c::Callback)(args...; kwargs...) = c.multi(args...; kwargs...)
+
+function BangBang.push!!(c::Callback, callback)
+    new_multi = BangBang.push!!(c.multi, callback)
+    return Callback(new_multi)
+end
+
+##############################
+### Defaults and Utilities ###
+##############################
+
+const DEFAULT_STATS_OPTIONS = (; thin=0, skip=0, window=typemax(Int))
+
+const DEFAULT_NAME_FILTER = (;
+    include=String[], exclude=String[], extras=false, hyperparams=false
+)
+
+"""
+    merge_with_defaults(user_options::NamedTuple, defaults::NamedTuple)
+
+Merge user-provided options with defaults, where user options take precedence.
+"""
+function merge_with_defaults(user_options::NamedTuple, defaults::NamedTuple)
+    return merge(defaults, user_options)
+end
+merge_with_defaults(::Nothing, defaults::NamedTuple) = defaults
+
+################################
+### Parameter Extraction API ###
+################################
+
+"""
     default_param_names_for_values(x)
 
 Return an iterator of `θ[i]` for each element in `x`.
@@ -54,22 +102,10 @@ default_param_names_for_values(x) = ("θ[$i]" for i in 1:length(x))
     params_and_values(model, transition, state; kwargs...)
     params_and_values(model, sampler, transition, state; kwargs...)
 
-Return an iterator over parameter names and values from a `state` or `transition`.
-
-The default 2-argument generic implementation attempts to call `AbstractMCMC.getparams(state)`.
-If you pass a `transition` as the second argument, it will attempt `getparams(transition)`.
-
-To support a specific sampler/model, you should overload:
-- `params_and_values(model, ::MyTransitionType)`
-- `params_and_values(model, ::MyStateType)`
-
-The 3-argument version `params_and_values(model, transition, state)` attempts to extract
-from the `transition` first, and falls back to `state` if the transition yields no parameters.
+Return an iterator over parameter names and values.
 """
 function params_and_values(model, state; kwargs...)
     try
-        # This generic method works for both 'state' and 'transition' objects
-        # as long as getparams is defined for them.
         params = getparams(state)
         return zip(default_param_names_for_values(params), params)
     catch
@@ -78,66 +114,42 @@ function params_and_values(model, state; kwargs...)
 end
 
 function params_and_values(model, sampler::AbstractSampler, state; kwargs...)
-    return params_and_values(model, state; kwargs...)
+    params_and_values(model, state; kwargs...)
 end
 
 function params_and_values(model, transition, state; kwargs...)
-    # Prioritize transition-based extraction.
-    # This calls the generic 2-arg method with the transition object.
     vals = params_and_values(model, transition; kwargs...)
-
-    # If transition extraction returns nothing/empty (e.g., getparams not defined for it),
-    # fallback to state-based extraction.
-    if isempty(vals)
-        return params_and_values(model, state; kwargs...)
-    end
-    return vals
+    isempty(vals) ? params_and_values(model, state; kwargs...) : vals
 end
 
 function params_and_values(model, sampler::AbstractSampler, transition, state; kwargs...)
-    return params_and_values(model, transition, state; kwargs...)
+    params_and_values(model, transition, state; kwargs...)
 end
 
 """
     extras(model, state; kwargs...)
-    extras(model, sampler, state; kwargs...)
-    extras(model, transition, state; kwargs...)
-    extras(model, sampler, transition, state; kwargs...)
 
-Return an iterator with elements of the form `(name, value)` for additional statistics in `state`.
-
-Default implementation uses `AbstractMCMC.getstats(state)` if available and returns
-an iterator over the named tuple fields. Returns empty iterator if getstats is not implemented.
+Return an iterator of (name, value) pairs for additional statistics.
 """
 function extras(model, state; kwargs...)
     try
         stats = getstats(state)
-        if stats isa NamedTuple
-            return pairs(stats)
-        else
-            return ()
-        end
+        stats isa NamedTuple ? pairs(stats) : ()
     catch
         return ()
     end
 end
 
-function extras(model, sampler::AbstractSampler, state; kwargs...)
-    return extras(model, state; kwargs...)
-end
-
+extras(model, sampler::AbstractSampler, state; kwargs...) = extras(model, state; kwargs...)
 extras(model, transition, state; kwargs...) = extras(model, state; kwargs...)
-
 function extras(model, sampler::AbstractSampler, transition, state; kwargs...)
-    return extras(model, transition, state; kwargs...)
+    extras(model, transition, state; kwargs...)
 end
 
 """
     hyperparams(model, sampler[, state]; kwargs...)
 
-Return an iterator with elements of the form `(name, value)` for hyperparameters in `model`.
-
-Default returns an empty iterator. Override for specific model/sampler combinations.
+Return an iterator of (name, value) pairs for hyperparameters.
 """
 hyperparams(model, sampler; kwargs...) = Pair{String,Any}[]
 hyperparams(model, sampler, state; kwargs...) = hyperparams(model, sampler; kwargs...)
@@ -145,11 +157,120 @@ hyperparams(model, sampler, state; kwargs...) = hyperparams(model, sampler; kwar
 """
     hyperparam_metrics(model, sampler[, state]; kwargs...)
 
-Return a `Vector{String}` of metrics for hyperparameters in `model`.
-
-Default returns an empty vector. Override for specific model/sampler combinations.
+Return a Vector{String} of metrics for hyperparameters.
 """
 hyperparam_metrics(model, sampler; kwargs...) = String[]
 function hyperparam_metrics(model, sampler, state; kwargs...)
-    return hyperparam_metrics(model, sampler; kwargs...)
+    hyperparam_metrics(model, sampler; kwargs...)
+end
+
+#################################
+### Unified mcmc_callback API ###
+#################################
+
+"""
+    mcmc_callback(f::Function)
+
+Create a callback from a function with signature:
+`f(rng, model, sampler, transition, state, iteration; kwargs...)`
+
+# Example
+```julia
+cb = mcmc_callback() do rng, model, sampler, transition, state, iteration
+    println("Iteration: \$iteration")
+end
+```
+"""
+mcmc_callback(f::Function) = Callback(MultiCallback((f,)))
+
+"""
+    mcmc_callback(callbacks...)
+
+Combine multiple callbacks into one.
+"""
+mcmc_callback(callbacks::Vararg{Any,N}) where {N} = Callback(MultiCallback(callbacks))
+
+"""
+    mcmc_callback(;
+        logger = nothing,
+        logdir = nothing,
+        stats = nothing,
+        stats_options = nothing,
+        name_filter = nothing,
+    )
+
+Create a callback using keyword arguments.
+
+# Arguments
+- `logger`: Logger type (`:TBLogger` for TensorBoard)
+- `logdir`: Directory for logs
+- `stats`: Statistics to collect (OnlineStat or tuple of OnlineStats)
+- `stats_options`: NamedTuple with `thin`, `skip`, `window`
+- `name_filter`: NamedTuple with `include`, `exclude`, `extras`, `hyperparams`
+
+# Examples
+```julia
+cb = mcmc_callback(logdir="runs/exp")
+cb = mcmc_callback(logdir="runs/exp", stats=(Mean(), Variance()))
+cb = mcmc_callback(logdir="runs/exp", stats_options=(skip=100, thin=5))
+cb = mcmc_callback(logdir="runs/exp", name_filter=(extras=true, hyperparams=true))
+```
+"""
+function mcmc_callback(;
+    logger=nothing,
+    logdir=nothing,
+    stats=nothing,
+    stats_options=nothing,
+    name_filter=nothing,
+)
+    logger === nothing && logdir !== nothing && (logger = :TBLogger)
+
+    logger === nothing && throw(
+        ArgumentError(
+            "At least one callback type must be specified. " *
+            "Use `logger=:TBLogger` for TensorBoard logging, or pass a function to `mcmc_callback`.",
+        ),
+    )
+
+    merged_stats_options = merge_with_defaults(stats_options, DEFAULT_STATS_OPTIONS)
+    merged_name_filter = merge_with_defaults(name_filter, DEFAULT_NAME_FILTER)
+
+    callbacks = if logger === :TBLogger
+        (
+            _make_tensorboard_callback(
+                logdir;
+                stats,
+                stats_options=merged_stats_options,
+                name_filter=merged_name_filter,
+            ),
+        )
+    else
+        throw(ArgumentError("Unknown logger type: $logger. Supported: :TBLogger"))
+    end
+
+    return Callback(MultiCallback(callbacks))
+end
+
+function _make_tensorboard_callback(logdir; stats, stats_options, name_filter)
+    ext = Base.get_extension(@__MODULE__, :AbstractMCMCTensorBoardLoggerExt)
+    if ext === nothing
+        error(
+            "TensorBoard logging requires both TensorBoardLogger and OnlineStats. " *
+            "Please run: `using TensorBoardLogger, OnlineStats`",
+        )
+    end
+    return ext.create_tensorboard_callback(logdir; stats, stats_options, name_filter)
+end
+
+"""
+    mcmc_callback(existing::Callback, new_callbacks...)
+
+Add callbacks to an existing Callback.
+"""
+function mcmc_callback(existing::Callback, new_callbacks...)
+    result = existing
+    for cb in new_callbacks
+        result = BangBang.push!!(result, cb)
+    end
+    return result
 end

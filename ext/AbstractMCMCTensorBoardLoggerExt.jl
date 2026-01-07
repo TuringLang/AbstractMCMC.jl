@@ -1,94 +1,33 @@
 module AbstractMCMCTensorBoardLoggerExt
 
 using AbstractMCMC
-using AbstractMCMC:
-    NameFilter,
-    params_and_values,
-    extras,
-    hyperparams,
-    hyperparam_metrics,
-    Skip,
-    Thin,
-    WindowStat
+using AbstractMCMC: NameFilter, params_and_values, extras, hyperparams, hyperparam_metrics
 using TensorBoardLogger
 using TensorBoardLogger: TBLogger
 using OnlineStats
-using OnlineStats: OnlineStat, Mean, Variance, KHist, Series, AutoCov, fit!, value, nobs
+using OnlineStats:
+    OnlineStats,
+    OnlineStat,
+    Mean,
+    Variance,
+    KHist,
+    Series,
+    AutoCov,
+    MovingWindow,
+    fit!,
+    value,
+    nobs
 using Logging: AbstractLogger, with_logger, @info, Info
 using Dates: now, DateFormat, format
 
 const TBL = TensorBoardLogger
 
-##########################################
-### OnlineStats Interface for Wrappers ###
-##########################################
-
-# Skip
-OnlineStats.nobs(o::Skip) = OnlineStats.nobs(o.stat)
-OnlineStats.value(o::Skip) = OnlineStats.value(o.stat)
-
-function OnlineStats.fit!(o::Skip, x)
-    if o.n >= o.b
-        OnlineStats.fit!(o.stat, x)
-    end
-    o.n += 1
-    return o
-end
-
-function Base.show(io::IO, o::Skip)
-    return print(io, "Skip ($(o.b)): n=$(o.n) | stat=$(o.stat)")
-end
-
-# Thin
-OnlineStats.nobs(o::Thin) = OnlineStats.nobs(o.stat)
-OnlineStats.value(o::Thin) = OnlineStats.value(o.stat)
-
-function OnlineStats.fit!(o::Thin, x)
-    if (o.n % o.b) == 0
-        OnlineStats.fit!(o.stat, x)
-    end
-    o.n += 1
-    return o
-end
-
-function Base.show(io::IO, o::Thin)
-    return print(io, "Thin ($(o.b)): n=$(o.n) | stat=$(o.stat)")
-end
-
-# WindowStat
-OnlineStats.nobs(o::WindowStat) = min(o.n, o.b)
-
-function OnlineStats.fit!(o::WindowStat, x)
-    o.n += 1
-    # Circular buffer logic: insert at the correct position based on total count
-    idx = mod1(o.n, o.b)
-    o.buffer[idx] = x
-    return o
-end
-
-function OnlineStats.value(o::WindowStat)
-    # Re-fit a clean stat on the current window buffer
-    stat_new = deepcopy(o.stat)
-
-    if o.n < o.b
-        # Buffer not full yet, data is 1..n
-        for i in 1:(o.n)
-            fit!(stat_new, o.buffer[i])
-        end
-    else
-        # Buffer is full (circular).
-        # We must fit in chronological order: from (n - b + 1) to n.
-        for i in (o.n - o.b + 1):(o.n)
-            idx = mod1(i, o.b)
-            fit!(stat_new, o.buffer[idx])
-        end
-    end
-    return stat_new
-end
-
-function Base.show(io::IO, o::WindowStat)
-    return print(io, "WindowStat ($(o.b)): n=$(o.n) | stat=$(o.stat)")
-end
+# Import Skip/Thin/WindowStat from OnlineStatsExt (loaded when OnlineStats loaded)
+# Since this extension requires both TBL AND OnlineStats, OnlineStatsExt is already loaded
+const OnlineStatsExt = Base.get_extension(AbstractMCMC, :AbstractMCMCOnlineStatsExt)
+const Skip = OnlineStatsExt.Skip
+const Thin = OnlineStatsExt.Thin
+const WindowStat = OnlineStatsExt.WindowStat
 
 #########################################
 ### TensorBoardLogger name formatting ###
@@ -98,7 +37,7 @@ tb_name(arg) = string(arg)
 tb_name(stat::OnlineStat) = string(nameof(typeof(stat)))
 tb_name(o::Skip) = "Skip($(o.b))"
 tb_name(o::Thin) = "Thin($(o.b))"
-tb_name(o::WindowStat) = "WindowStat($(o.b))"
+tb_name(o::WindowStat) = "WindowStat($(o.window.b))"
 tb_name(o::AutoCov, b::Int) = "AutoCov(lag=$b)/corr"
 tb_name(s1::String, s2::String) = s1 * "/" * s2
 tb_name(arg1, arg2) = tb_name(arg1) * "/" * tb_name(arg2)
@@ -127,12 +66,14 @@ end
 function TBL.preprocess(name, stat::AutoCov, data)
     autocor = OnlineStats.autocor(stat)
     for b in 1:(stat.lag.b - 1)
+        # `autocor[i]` corresponds to the lag of size `i - 1` and `autocor[1] = 1.0`
         bname = tb_name(stat, b)
         TBL.preprocess(tb_name(name, bname), autocor[b + 1], data)
     end
 end
 
 function TBL.preprocess(name, stat::Series, data)
+    # Iterate through the stats and process those independently
     for s in stat.stats
         TBL.preprocess(name, s, data)
     end
@@ -166,37 +107,6 @@ end
 ### TensorBoardCallback ###
 ###########################
 
-maybe_filter(f; kwargs...) = f
-maybe_filter(::Nothing; exclude=nothing, include=nothing) = NameFilter(; exclude, include)
-
-"""
-    TensorBoardCallback
-
-Wraps a `CoreLogging.AbstractLogger` to construct a callback to be
-passed to `AbstractMCMC.step`.
-
-# Usage
-
-    TensorBoardCallback(; kwargs...)
-    TensorBoardCallback(directory::String[, stats]; kwargs...)
-    TensorBoardCallback(lg::AbstractLogger[, stats]; kwargs...)
-
-Constructs an instance of a `TensorBoardCallback`, creating a `TBLogger` if `directory` is
-provided instead of `lg`.
-
-## Arguments
-- `lg`: an instance of an `AbstractLogger` which implements `increment_step!`.
-- `stats = nothing`: `OnlineStat` or lookup for variable name to statistic estimator.
-
-## Keyword arguments
-- `num_bins::Int = 100`: Number of bins to use in the histograms.
-- `filter = nothing`: Filter determining whether or not we should log stats for a
-  particular variable and value.
-- `exclude = String[]`: If non-empty, these variables will not be logged.
-- `include = String[]`: If non-empty, only these variables will be logged.
-- `include_extras::Bool = true`: Include extra statistics from transitions.
-- `include_hyperparams::Bool = true`: Include hyperparameters.
-"""
 struct TensorBoardCallback{L,P,F1,F2,F3}
     logger::AbstractLogger
     stats::L
@@ -210,6 +120,107 @@ struct TensorBoardCallback{L,P,F1,F2,F3}
     extras_prefix::String
 end
 
+"""
+    create_tensorboard_callback(logdir; stats, stats_options, name_filter)
+
+Create a TensorBoardCallback from the new unified API arguments.
+Called from AbstractMCMC.mcmc_callback.
+"""
+function create_tensorboard_callback(
+    logdir; stats, stats_options, name_filter, num_bins::Int=100
+)
+    # Create logger
+    log_dir = if isnothing(logdir)
+        "runs/$(format(now(), DateFormat("Y-m-d_H-M-S")))-$(gethostname())"
+    else
+        logdir
+    end
+    lg = TBLogger(log_dir; min_level=Info, step_increment=0)
+
+    # Create variable filter from name_filter
+    variable_filter = NameFilter(;
+        include=isempty(name_filter.include) ? nothing : name_filter.include,
+        exclude=isempty(name_filter.exclude) ? nothing : name_filter.exclude,
+    )
+
+    # Extras and hyperparams filters
+    extras_filter = NameFilter()
+    hyperparams_filter = NameFilter()
+
+    # Process stats with stats_options wrappers
+    processed_stats = create_stats_with_options(stats, stats_options, num_bins)
+    stats_dict, prototype = processed_stats
+
+    return TensorBoardCallback(
+        lg,
+        stats_dict,
+        prototype,
+        variable_filter,
+        name_filter.extras,
+        extras_filter,
+        name_filter.hyperparams,
+        hyperparams_filter,
+        "",  # param_prefix
+        "extras/",  # extras_prefix
+    )
+end
+
+"""
+    create_stats_with_options(stats, stats_options, num_bins)
+
+Create stats dictionary and prototype, applying Skip/Thin/WindowStat wrappers.
+"""
+function create_stats_with_options(stats, stats_options, num_bins)
+    # Get base stat prototype
+    base_stat = if stats isa OnlineStat
+        stats
+    elseif stats isa Tuple
+        Series(stats...)
+    elseif stats === nothing
+        Series(Mean(), Variance(), KHist(num_bins))
+    else
+        stats
+    end
+
+    # Apply wrappers based on stats_options
+    wrapped_stat = wrap_stat(base_stat, stats_options)
+
+    if wrapped_stat isa OnlineStat
+        nobs(wrapped_stat) > 0 &&
+            @warn("using statistic with observations as a base: $(wrapped_stat)")
+        return (Dict{String,typeof(wrapped_stat)}(), deepcopy(wrapped_stat))
+    else
+        return (wrapped_stat, nothing)
+    end
+end
+
+"""
+    wrap_stat(stat, stats_options)
+
+Apply Skip, Thin, and WindowStat wrappers to a statistic based on options.
+"""
+function wrap_stat(stat, stats_options)
+    result = stat
+
+    # Apply window first (innermost)
+    if stats_options.window < typemax(Int)
+        result = WindowStat(stats_options.window, result)
+    end
+
+    # Apply skip
+    if stats_options.skip > 0
+        result = Skip(stats_options.skip, result)
+    end
+
+    # Apply thin (outermost)
+    if stats_options.thin > 0
+        result = Thin(stats_options.thin, result)
+    end
+
+    return result
+end
+
+# Legacy constructors
 function TensorBoardCallback(directory::String, args...; kwargs...)
     return TensorBoardCallback(args...; directory=directory, kwargs...)
 end
@@ -223,6 +234,9 @@ function TensorBoardCallback(args...; comment="", directory=nothing, kwargs...)
     lg = TBLogger(log_dir; min_level=Info, step_increment=0)
     return TensorBoardCallback(lg, args...; kwargs...)
 end
+
+maybe_filter(f; kwargs...) = f
+maybe_filter(::Nothing; exclude=nothing, include=nothing) = NameFilter(; exclude, include)
 
 function TensorBoardCallback(
     lg::AbstractLogger,
@@ -275,6 +289,10 @@ function TensorBoardCallback(
         extras_prefix,
     )
 end
+
+###############################
+### Callback implementation ###
+###############################
 
 function filter_param_and_value(cb::TensorBoardCallback, param, value)
     return cb.variable_filter(param, value)
@@ -359,8 +377,6 @@ function (cb::TensorBoardCallback)(
             )
                 @info "$(cb.extras_prefix)$(name)" val
                 if val isa Real
-                    # Extras often don't have a pre-defined list, so we might need to create stats on the fly.
-                    # We reuse the prototype if available.
                     stat = if stats isa AbstractDict && cb.stat_prototype !== nothing
                         get!(stats, "$(cb.extras_prefix)$(name)") do
                             deepcopy(cb.stat_prototype)

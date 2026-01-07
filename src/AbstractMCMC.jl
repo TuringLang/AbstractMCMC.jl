@@ -15,11 +15,6 @@ using Logging: Logging
 using Random: Random
 using UUIDs: UUIDs
 
-# Support for extensions on Julia < 1.9
-@static if !isdefined(Base, :get_extension)
-    using Requires
-end
-
 # Reexport sample
 using StatsBase: sample
 export sample
@@ -27,61 +22,8 @@ export sample
 # Parallel sampling types
 export MCMCThreads, MCMCDistributed, MCMCSerial
 
-# Callbacks
-export MultiCallback, NameFilter
-
-# Statistics Wrappers
-export Skip, Thin, WindowStat
-
-# TensorBoardCallback wrapper
-export TensorBoardCallback
-
-"""
-    TensorBoardCallback(directory::String; kwargs...)
-    TensorBoardCallback(logger; kwargs...)
-
-Wrapper function to create a `TensorBoardCallback`. 
-Requires `TensorBoardLogger` and `OnlineStats` to be loaded.
-
-Returns an object that acts as a callback for `AbstractMCMC.step`.
-
-# Keyword arguments
-- `stats = nothing`: `OnlineStat` or Dict for custom statistics.
-- `num_bins::Int = 100`: Number of bins for histograms.
-- `filter = nothing`: Custom filter function `(varname, value) -> Bool`.
-- `include = nothing`: Only log these parameter names.
-- `exclude = nothing`: Don't log these parameter names.
-- `include_extras::Bool = true`: Include extra statistics (log density, acceptance rate, etc.).
-- `extras_filter = nothing`: Custom filter function for extras.
-- `extras_include = nothing`: Only log these extra statistics.
-- `extras_exclude = nothing`: Don't log these extra statistics.
-- `include_hyperparams::Bool = false`: Include hyperparameters (logged once at start).
-- `hyperparams_filter = nothing`: Custom filter function for hyperparameters.
-- `hyperparams_include = nothing`: Only log these hyperparameters.
-- `hyperparams_exclude = nothing`: Don't log these hyperparameters.
-- `param_prefix::String = ""`: Prefix for logged parameter values.
-- `extras_prefix::String = "extras/"`: Prefix for logged extra values.
-"""
-function TensorBoardCallback(args...; kwargs...)
-    ext = if isdefined(Base, :get_extension)
-        Base.get_extension(@__MODULE__, :AbstractMCMCTensorBoardLoggerExt)
-    else
-        if isdefined(@__MODULE__, :AbstractMCMCTensorBoardLoggerExt)
-            AbstractMCMCTensorBoardLoggerExt
-        else
-            nothing
-        end
-    end
-
-    if ext === nothing
-        msg =
-            "TensorBoardCallback requires TensorBoardLogger and OnlineStats to be loaded.\n" *
-            "Please run `using TensorBoardLogger, OnlineStats`."
-        error(msg)
-    end
-
-    return ext.TensorBoardCallback(args...; kwargs...)
-end
+# Callback API
+export mcmc_callback
 
 """
     AbstractChains
@@ -264,17 +206,6 @@ if isdefined(Base.Experimental, :register_error_hint)
                     io,
                     "\n`AbstractMCMC.LogDensityModel` is a wrapper and does not itself implement the LogDensityProblems.jl interface. To use LogDensityProblems.jl methods, access the inner type with (e.g.) `logdensity(model.logdensity, params)` instead of `logdensity(model, params)`.",
                 )
-            end
-        end
-    end
-end
-
-# Backward compatibility for extensions on Julia < 1.9
-@static if !isdefined(Base, :get_extension)
-    function __init__()
-        @require TensorBoardLogger = "899adc3e-224a-11e9-021f-63837185c80f" begin
-            @require OnlineStats = "a15396b6-48d5-5d58-9928-6d29437db91e" begin
-                include("../ext/AbstractMCMCTensorBoardLoggerExt.jl")
             end
         end
     end

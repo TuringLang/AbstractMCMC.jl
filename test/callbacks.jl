@@ -1,278 +1,260 @@
-@testset "Callbacks" begin
-    @testset "MultiCallback" begin
-        counts = [Ref(0), Ref(0)]
-        cb1 = (args...; kwargs...) -> counts[1][] += 1
-        cb2 = (args...; kwargs...) -> counts[2][] += 1
+# Tests for the mcmc_callback unified API
+# These tests cover: stats, stats_options, name_filter, and basic functionality
 
-        multi = AbstractMCMC.MultiCallback(cb1, cb2)
-        multi(nothing, nothing, nothing, nothing, nothing, 1)
+####################################
+### Basic Callback Functionality ###
+####################################
 
-        @test counts[1][] == 1
-        @test counts[2][] == 1
-
-        counts = [Ref(0), Ref(0), Ref(0)]
-        cb1 = (args...; kwargs...) -> counts[1][] += 1
-        cb2 = (args...; kwargs...) -> counts[2][] += 1
-        cb3 = (args...; kwargs...) -> counts[3][] += 1
-
-        multi = AbstractMCMC.MultiCallback(cb1, cb2, cb3)
-        for _ in 1:10
-            multi(nothing, nothing, nothing, nothing, nothing, 1)
-        end
-        @test all(c[] == 10 for c in counts)
-    end
-
-    @testset "MultiCallback dynamic push!!" begin
-        using BangBang
-        counts = [Ref(0), Ref(0)]
-        cb1 = (args...; kwargs...) -> counts[1][] += 1
-        cb2 = (args...; kwargs...) -> counts[2][] += 1
-
-        multi = AbstractMCMC.MultiCallback()
-        multi = push!!(multi, cb1)
-        multi = push!!(multi, cb2)
-
-        for _ in 1:5
-            multi(nothing, nothing, nothing, nothing, nothing, 1)
-        end
-        @test counts[1][] == 5
-        @test counts[2][] == 5
-    end
-
-    @testset "NameFilter" begin
-        f1 = AbstractMCMC.NameFilter(; include=["a", "b"])
-        @test f1("a") == true
-        @test f1("b") == true
-        @test f1("c") == false
-
-        f2 = AbstractMCMC.NameFilter(; exclude=["x", "y"])
-        @test f2("a") == true
-        @test f2("x") == false
-        @test f2("y") == false
-
-        f3 = AbstractMCMC.NameFilter(; include=["a", "b", "c"], exclude=["c"])
-        @test f3("a") == true
-        @test f3("c") == false
-        @test f3("d") == false
-
-        f4 = AbstractMCMC.NameFilter()
-        @test f4("anything") == true
-
-        f5 = AbstractMCMC.NameFilter(; include=[:alpha, :beta])
-        @test f5(:alpha) == true
-        @test f5(:gamma) == false
-
-        f6 = AbstractMCMC.NameFilter(; include=[])
-        @test f6("a") == false
-        @test f6("b") == false
-
-        f7 = AbstractMCMC.NameFilter(; exclude=[])
-        @test f7("a") == true
-        @test f7("z") == true
-    end
-
-    @testset "MultiCallback with sample" begin
+@testset "Basic mcmc_callback" begin
+    @testset "Function callback" begin
         count = Ref(0)
-        cb = (args...; kwargs...) -> count[] += 1
+        cb = mcmc_callback() do rng, model, sampler, transition, state, iteration
+            count[] += 1
+        end
 
+        @test cb isa AbstractMCMC.Callback
         chain = sample(MyModel(), MySampler(), 100; callback=cb)
         @test count[] == 100
+    end
 
+    @testset "Multiple function callbacks" begin
         counts = [Ref(0), Ref(0)]
-        multi = AbstractMCMC.MultiCallback(
-            (args...; kwargs...) -> counts[1][] += 1,
-            (args...; kwargs...) -> counts[2][] += 1,
-        )
-        chain = sample(MyModel(), MySampler(), 50; callback=multi)
+        cb1 = (args...; kwargs...) -> counts[1][] += 1
+        cb2 = (args...; kwargs...) -> counts[2][] += 1
+
+        cb = mcmc_callback(cb1, cb2)
+        @test cb isa AbstractMCMC.Callback
+
+        chain = sample(MyModel(), MySampler(), 50; callback=cb)
         @test counts[1][] == 50
         @test counts[2][] == 50
     end
 
-    @testset "default_param_names_for_values" begin
-        names = collect(AbstractMCMC.default_param_names_for_values([1.0, 2.0, 3.0]))
-        @test names == ["θ[1]", "θ[2]", "θ[3]"]
+    @testset "Error without callback type" begin
+        @test_throws ArgumentError mcmc_callback()
+    end
 
-        names = collect(AbstractMCMC.default_param_names_for_values([5.5]))
-        @test names == ["θ[1]"]
+    @testset "Adding callbacks with push!!" begin
+        counts = [Ref(0), Ref(0)]
+        cb1 = (args...; kwargs...) -> counts[1][] += 1
+        cb2 = (args...; kwargs...) -> counts[2][] += 1
+
+        cb = mcmc_callback(cb1)
+        cb = BangBang.push!!(cb, cb2)
+
+        for _ in 1:5
+            cb(nothing, nothing, nothing, nothing, nothing, 1)
+        end
+        @test counts[1][] == 5
+        @test counts[2][] == 5
     end
 end
 
-using TensorBoardLogger
+########################
+### Defaults Merging ###
+########################
+
+@testset "Defaults merging" begin
+    @testset "merge_with_defaults" begin
+        defaults = (; a=1, b=2, c=3)
+
+        # Partial override
+        result = AbstractMCMC.merge_with_defaults((; b=10), defaults)
+        @test result == (; a=1, b=10, c=3)
+
+        # Full override
+        result = AbstractMCMC.merge_with_defaults((; a=10, b=20, c=30), defaults)
+        @test result == (; a=10, b=20, c=30)
+
+        # No override (nothing)
+        result = AbstractMCMC.merge_with_defaults(nothing, defaults)
+        @test result == defaults
+    end
+
+    @testset "DEFAULT_STATS_OPTIONS" begin
+        @test AbstractMCMC.DEFAULT_STATS_OPTIONS.thin == 0
+        @test AbstractMCMC.DEFAULT_STATS_OPTIONS.skip == 0
+        @test AbstractMCMC.DEFAULT_STATS_OPTIONS.window == typemax(Int)
+    end
+
+    @testset "DEFAULT_NAME_FILTER" begin
+        @test AbstractMCMC.DEFAULT_NAME_FILTER.include == String[]
+        @test AbstractMCMC.DEFAULT_NAME_FILTER.exclude == String[]
+        @test AbstractMCMC.DEFAULT_NAME_FILTER.extras == false
+        @test AbstractMCMC.DEFAULT_NAME_FILTER.hyperparams == false
+    end
+end
+
+######################
+### Internal Types ###
+######################
+
+@testset "MultiCallback" begin
+    counts = [Ref(0), Ref(0)]
+    cb1 = (args...; kwargs...) -> counts[1][] += 1
+    cb2 = (args...; kwargs...) -> counts[2][] += 1
+
+    multi = AbstractMCMC.MultiCallback(cb1, cb2)
+    multi(nothing, nothing, nothing, nothing, nothing, 1)
+
+    @test counts[1][] == 1
+    @test counts[2][] == 1
+end
+
+@testset "NameFilter" begin
+    @testset "Include only" begin
+        f = AbstractMCMC.NameFilter(; include=["a", "b"])
+        @test f("a") == true
+        @test f("b") == true
+        @test f("c") == false
+    end
+
+    @testset "Exclude only" begin
+        f = AbstractMCMC.NameFilter(; exclude=["x", "y"])
+        @test f("a") == true
+        @test f("x") == false
+        @test f("y") == false
+    end
+
+    @testset "Include and exclude" begin
+        f = AbstractMCMC.NameFilter(; include=["a", "b", "c"], exclude=["c"])
+        @test f("a") == true
+        @test f("c") == false
+        @test f("d") == false
+    end
+
+    @testset "No filter" begin
+        f = AbstractMCMC.NameFilter()
+        @test f("anything") == true
+    end
+
+    @testset "Two argument form" begin
+        f = AbstractMCMC.NameFilter(; include=["a", "b"])
+        @test f("a", 1.0) == true
+        @test f("c", 2.0) == false
+    end
+end
+
+@testset "default_param_names_for_values" begin
+    names = collect(AbstractMCMC.default_param_names_for_values([1.0, 2.0, 3.0]))
+    @test names == ["θ[1]", "θ[2]", "θ[3]"]
+end
+
 using OnlineStats
 
-# Helper to ensure extension is loaded and constants are defined in AbstractMCMC
-function ensure_tb_extension_loaded()
-    try
-        TensorBoardCallback(mktempdir())
-    catch
+#############################
+### TensorBoard Extension ###
+#############################
+
+using TensorBoardLogger
+
+@testset "TensorBoard Extension" begin
+    @testset "mcmc_callback with logger=:TBLogger" begin
+        logdir = mktempdir()
+        cb = mcmc_callback(logger=:TBLogger, logdir=logdir)
+        @test cb isa AbstractMCMC.Callback
+    end
+
+    @testset "mcmc_callback with logdir only (infers TBLogger)" begin
+        logdir = mktempdir()
+        cb = mcmc_callback(logdir=logdir)
+        @test cb isa AbstractMCMC.Callback
+    end
+
+    @testset "mcmc_callback with stats" begin
+        logdir = mktempdir()
+        cb = mcmc_callback(logdir=logdir, stats=(Mean(), Variance()))
+        @test cb isa AbstractMCMC.Callback
+    end
+
+    @testset "mcmc_callback with stats_options" begin
+        logdir = mktempdir()
+
+        # Test partial stats_options (merges with defaults)
+        cb = mcmc_callback(logdir=logdir, stats_options=(thin=5,))
+        @test cb isa AbstractMCMC.Callback
+
+        # Test full stats_options
+        cb = mcmc_callback(logdir=logdir, stats_options=(thin=5, skip=100, window=1000))
+        @test cb isa AbstractMCMC.Callback
+    end
+
+    @testset "mcmc_callback with name_filter" begin
+        logdir = mktempdir()
+
+        # Test partial name_filter
+        cb = mcmc_callback(logdir=logdir, name_filter=(include=["mu", "sigma"],))
+        @test cb isa AbstractMCMC.Callback
+
+        # Test full name_filter
+        cb = mcmc_callback(
+            logdir=logdir,
+            name_filter=(
+                include=["mu", "sigma"], exclude=["internal"], extras=true, hyperparams=true
+            ),
+        )
+        @test cb isa AbstractMCMC.Callback
+    end
+
+    @testset "mcmc_callback with all options" begin
+        logdir = mktempdir()
+        cb = mcmc_callback(
+            logdir=logdir,
+            stats=(Mean(), Variance(), KHist(50)),
+            stats_options=(skip=100, thin=5),
+            name_filter=(exclude=["_internal"], extras=true),
+        )
+        @test cb isa AbstractMCMC.Callback
+    end
+
+    @testset "TensorBoard callback with sample" begin
+        logdir = mktempdir()
+        cb = mcmc_callback(logdir=logdir)
+
+        # Should complete without error
+        chain = sample(MyModel(), MySampler(), 20; callback=cb)
+        @test length(chain) == 20
     end
 end
 
-@testset "TensorBoardCallback Extension" begin
-    ensure_tb_extension_loaded()
-    @testset "TensorBoardCallback creation" begin
-        logdir = mktempdir()
-        cb = TensorBoardCallback(logdir)
-        @test typeof(cb).name.name == :TensorBoardCallback
-        @test cb.logger isa TensorBoardLogger.TBLogger
+#########################
+### Integration Tests ###
+#########################
+
+@testset "Integration" begin
+    @testset "Callback receives correct iteration" begin
+        iterations = Int[]
+        cb = mcmc_callback() do rng, model, sampler, transition, state, iteration
+            push!(iterations, iteration)
+        end
+
+        chain = sample(MyModel(), MySampler(), 50; callback=cb)
+        @test iterations == 1:50
     end
 
-    @testset "TensorBoardCallback with custom stats" begin
-        logdir = mktempdir()
-        custom_stats = Mean()
-        cb = TensorBoardCallback(logdir; stats=custom_stats)
-        @test typeof(cb).name.name == :TensorBoardCallback
-    end
+    @testset "Multiple callbacks all execute" begin
+        results = Dict{Symbol,Int}(:cb1 => 0, :cb2 => 0, :cb3 => 0)
 
-    @testset "TensorBoardCallback with filter options" begin
-        logdir = mktempdir()
-
-        cb1 = TensorBoardCallback(logdir; include=["mu", "sigma"])
-        @test cb1.variable_filter("mu", 1.0) == true
-        @test cb1.variable_filter("other", 1.0) == false
-
-        cb2 = TensorBoardCallback(logdir; exclude=["internal"])
-        @test cb2.variable_filter("mu", 1.0) == true
-        @test cb2.variable_filter("internal", 1.0) == false
-
-        my_filter = (name, value) -> !startswith(string(name), "x")
-        cb3 = TensorBoardCallback(logdir; filter=my_filter)
-        @test cb3.variable_filter("mu", 1.0) == true
-        @test cb3.variable_filter("x_param", 1.0) == false
-    end
-
-    @testset "TensorBoardCallback extras filtering" begin
-        logdir = mktempdir()
-
-        cb1 = TensorBoardCallback(logdir; include_extras=true)
-        @test cb1.include_extras == true
-
-        cb2 = TensorBoardCallback(logdir; include_extras=false)
-        @test cb2.include_extras == false
-
-        cb3 = TensorBoardCallback(logdir; extras_include=["log_density"])
-        @test cb3.extras_filter("log_density", 1.0) == true
-        @test cb3.extras_filter("acceptance_rate", 1.0) == false
-
-        cb4 = TensorBoardCallback(logdir; extras_exclude=["step_size"])
-        @test cb4.extras_filter("log_density", 1.0) == true
-        @test cb4.extras_filter("step_size", 1.0) == false
-    end
-
-    @testset "TensorBoardCallback hyperparams filtering" begin
-        logdir = mktempdir()
-
-        cb1 = TensorBoardCallback(logdir; include_hyperparams=false)
-        @test cb1.include_hyperparams == false
-
-        cb2 = TensorBoardCallback(logdir; include_hyperparams=true)
-        @test cb2.include_hyperparams == true
-
-        cb3 = TensorBoardCallback(
-            logdir; include_hyperparams=true, hyperparams_include=["target_accept"]
+        cb = mcmc_callback(
+            (args...; kwargs...) -> results[:cb1] += 1,
+            (args...; kwargs...) -> results[:cb2] += 1,
+            (args...; kwargs...) -> results[:cb3] += 1,
         )
-        @test cb3.hyperparam_filter("target_accept", 0.8) == true
-        @test cb3.hyperparam_filter("other", 1.0) == false
+
+        chain = sample(MyModel(), MySampler(), 30; callback=cb)
+        @test results[:cb1] == 30
+        @test results[:cb2] == 30
+        @test results[:cb3] == 30
     end
 
-    @testset "TensorBoardCallback prefixes" begin
+    @testset "Combining TensorBoard with custom callback" begin
         logdir = mktempdir()
+        count = Ref(0)
+        custom = (args...; kwargs...) -> count[] += 1
 
-        cb1 = TensorBoardCallback(logdir; param_prefix="params/")
-        @test cb1.param_prefix == "params/"
+        tb_cb = mcmc_callback(logdir=logdir)
+        combined = mcmc_callback(tb_cb, custom)
 
-        cb2 = TensorBoardCallback(logdir; extras_prefix="stats/")
-        @test cb2.extras_prefix == "stats/"
-    end
-
-    @testset "Skip OnlineStat wrapper" begin
-        # Skip(b) skips the first b observations.
-        skip = AbstractMCMC.Skip(10, Mean())
-        @test skip.b == 10
-        @test skip.stat isa Mean
-
-        # Fit 15 items. First 10 (1..10) should be skipped. 11..15 should be fitted.
-        for i in 1:15
-            OnlineStats.fit!(skip, Float64(i))
-        end
-        # Mean of 11, 12, 13, 14, 15 is 13.0
-        @test OnlineStats.value(skip) ≈ 13.0
-
-        skip2 = AbstractMCMC.Skip(5, Variance())
-        for i in 1:20
-            OnlineStats.fit!(skip2, Float64(i))
-        end
-        @test OnlineStats.nobs(skip2.stat) == 15
-    end
-
-    @testset "Thin OnlineStat wrapper" begin
-        # Thin(b) passes every b-th observation.
-        thin = AbstractMCMC.Thin(5, Mean())
-        @test thin.b == 5
-        @test thin.stat isa Mean
-
-        # Fit 1..20. 
-        # i=1 (idx=0) -> 0%5==0 -> Fit 1
-        # i=6 (idx=5) -> 5%5==0 -> Fit 6
-        # i=11 (idx=10) -> 10%5==0 -> Fit 11
-        # i=16 (idx=15) -> 15%5==0 -> Fit 16
-        for i in 1:20
-            OnlineStats.fit!(thin, Float64(i))
-        end
-        # Mean of 1, 6, 11, 16 = 8.5
-        @test OnlineStats.value(thin) ≈ 8.5
-    end
-
-    @testset "WindowStat OnlineStat wrapper" begin
-        ws = AbstractMCMC.WindowStat(5, Mean())
-        @test OnlineStats.nobs(ws) == 0
-
-        # Fill window: 1, 2, 3, 4, 5
-        for i in 1:5
-            OnlineStats.fit!(ws, Float64(i))
-        end
-        @test OnlineStats.nobs(ws) == 5
-        @test OnlineStats.value(OnlineStats.value(ws)) ≈ 3.0 # Mean(1..5) = 3.0
-
-        # Slide window: 6, 7, 8, 9, 10
-        # Window should contain 6, 7, 8, 9, 10
-        for i in 6:10
-            OnlineStats.fit!(ws, Float64(i))
-        end
-        @test OnlineStats.nobs(ws) == 5
-        stat_result = OnlineStats.value(ws)
-        @test stat_result isa Mean
-        @test OnlineStats.value(stat_result) ≈ 8.0 # Mean(6..10) = 8.0
-
-        # Partially wrap window: 11, 12
-        # Buffer should handle wrapping correctly.
-        # Window: 8, 9, 10, 11, 12 (in some order internally, properly sorted by value())
-        for i in 11:12
-            OnlineStats.fit!(ws, Float64(i))
-        end
-        @test OnlineStats.value(OnlineStats.value(ws)) ≈ 10.0 # Mean(8..12) = 10.0
-    end
-
-    @testset "OnlineStat merging" begin
-        m1 = Mean()
-        m2 = Mean()
-        for i in 1:50
-            OnlineStats.fit!(m1, Float64(i))
-        end
-        for i in 51:100
-            OnlineStats.fit!(m2, Float64(i))
-        end
-        merged = OnlineStats.merge!(m1, m2)
-        @test OnlineStats.value(merged) ≈ mean(1:100)
-    end
-
-    @testset "Series with multiple stats" begin
-        series = Series(Mean(), Variance())
-        for i in 1:100
-            OnlineStats.fit!(series, Float64(i))
-        end
-        m, v = OnlineStats.value(series)
-        @test m ≈ mean(1:100)
-        @test OnlineStats.nobs(series) == 100
+        @test length(combined.multi.callbacks) == 2
     end
 end

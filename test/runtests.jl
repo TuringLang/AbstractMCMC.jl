@@ -1,4 +1,5 @@
 using AbstractMCMC
+using BangBang
 using ConsoleProgressMonitor: ProgressLogger
 using IJulia
 using LogDensityProblems
