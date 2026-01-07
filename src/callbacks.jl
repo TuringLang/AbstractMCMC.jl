@@ -202,18 +202,23 @@ mcmc_callback(callbacks::Vararg{Any,N}) where {N} = Callback(MultiCallback(callb
 Create a callback using keyword arguments.
 
 # Arguments
-- `logger`: Logger type (`:TBLogger` for TensorBoard)
-- `logdir`: Directory for logs
+- `logger`: Logger - can be `:TBLogger` for TensorBoard, or an `AbstractLogger` instance
+- `logdir`: Directory for logs (creates TBLogger if logger not specified)
 - `stats`: Statistics to collect (OnlineStat or tuple of OnlineStats)
 - `stats_options`: NamedTuple with `thin`, `skip`, `window`
 - `name_filter`: NamedTuple with `include`, `exclude`, `extras`, `hyperparams`
 
 # Examples
 ```julia
+# With logdir (creates TBLogger automatically)
 cb = mcmc_callback(logdir="runs/exp")
+
+# With custom logger
+cb = mcmc_callback(logger=my_custom_logger)
+
+# With stats and options
 cb = mcmc_callback(logdir="runs/exp", stats=(Mean(), Variance()))
 cb = mcmc_callback(logdir="runs/exp", stats_options=(skip=100, thin=5))
-cb = mcmc_callback(logdir="runs/exp", name_filter=(extras=true, hyperparams=true))
 ```
 """
 function mcmc_callback(;
@@ -223,35 +228,58 @@ function mcmc_callback(;
     stats_options=nothing,
     name_filter=nothing,
 )
-    logger === nothing && logdir !== nothing && (logger = :TBLogger)
+    # Infer logger type from arguments
+    if logger === nothing && logdir !== nothing
+        logger = :TBLogger
+    end
 
-    logger === nothing && throw(
-        ArgumentError(
-            "At least one callback type must be specified. " *
-            "Use `logger=:TBLogger` for TensorBoard logging, or pass a function to `mcmc_callback`.",
-        ),
-    )
+    # Validate that we have something to create
+    if logger === nothing
+        throw(
+            ArgumentError(
+                "At least one callback type must be specified. " *
+                "Use `logger=:TBLogger`, `logdir=...`, or pass an AbstractLogger to `logger`.",
+            ),
+        )
+    end
 
     merged_stats_options = merge_with_defaults(stats_options, DEFAULT_STATS_OPTIONS)
     merged_name_filter = merge_with_defaults(name_filter, DEFAULT_NAME_FILTER)
 
+    # Create callback based on logger type
     callbacks = if logger === :TBLogger
         (
             _make_tensorboard_callback(
                 logdir;
+                logger=nothing,
+                stats,
+                stats_options=merged_stats_options,
+                name_filter=merged_name_filter,
+            ),
+        )
+    elseif logger isa Logging.AbstractLogger
+        # Custom logger instance passed directly
+        (
+            _make_tensorboard_callback(
+                nothing;
+                logger,
                 stats,
                 stats_options=merged_stats_options,
                 name_filter=merged_name_filter,
             ),
         )
     else
-        throw(ArgumentError("Unknown logger type: $logger. Supported: :TBLogger"))
+        throw(
+            ArgumentError(
+                "Unknown logger type: $(typeof(logger)). Use :TBLogger or pass an AbstractLogger.",
+            ),
+        )
     end
 
     return Callback(MultiCallback(callbacks))
 end
 
-function _make_tensorboard_callback(logdir; stats, stats_options, name_filter)
+function _make_tensorboard_callback(logdir; logger, stats, stats_options, name_filter)
     ext = Base.get_extension(@__MODULE__, :AbstractMCMCTensorBoardLoggerExt)
     if ext === nothing
         error(
@@ -259,7 +287,9 @@ function _make_tensorboard_callback(logdir; stats, stats_options, name_filter)
             "Please run: `using TensorBoardLogger, OnlineStats`",
         )
     end
-    return ext.create_tensorboard_callback(logdir; stats, stats_options, name_filter)
+    return ext.create_tensorboard_callback(
+        logdir; logger, stats, stats_options, name_filter
+    )
 end
 
 """

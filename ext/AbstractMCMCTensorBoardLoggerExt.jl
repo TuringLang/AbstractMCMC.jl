@@ -121,21 +121,27 @@ struct TensorBoardCallback{L,P,F1,F2,F3}
 end
 
 """
-    create_tensorboard_callback(logdir; stats, stats_options, name_filter)
+    create_tensorboard_callback(logdir; logger, stats, stats_options, name_filter)
 
 Create a TensorBoardCallback from the new unified API arguments.
 Called from AbstractMCMC.mcmc_callback.
+
+If `logger` is provided, uses it directly. Otherwise creates a TBLogger from `logdir`.
 """
 function create_tensorboard_callback(
-    logdir; stats, stats_options, name_filter, num_bins::Int=100
+    logdir; logger=nothing, stats, stats_options, name_filter, num_bins::Int=100
 )
-    # Create logger
-    log_dir = if isnothing(logdir)
-        "runs/$(format(now(), DateFormat("Y-m-d_H-M-S")))-$(gethostname())"
+    # Use provided logger or create TBLogger from logdir
+    lg = if logger !== nothing
+        logger
     else
-        logdir
+        log_dir = if isnothing(logdir)
+            "runs/$(format(now(), DateFormat("Y-m-d_H-M-S")))-$(gethostname())"
+        else
+            logdir
+        end
+        TBLogger(log_dir; min_level=Info, step_increment=0)
     end
-    lg = TBLogger(log_dir; min_level=Info, step_increment=0)
 
     # Create variable filter from name_filter
     variable_filter = NameFilter(;

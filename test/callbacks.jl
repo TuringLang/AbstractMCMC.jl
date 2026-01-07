@@ -215,6 +215,19 @@ using TensorBoardLogger
         chain = sample(MyModel(), MySampler(), 20; callback=cb)
         @test length(chain) == 20
     end
+
+    @testset "mcmc_callback with custom AbstractLogger" begin
+        # Use TBLogger as our custom logger (could be any AbstractLogger)
+        logdir = mktempdir()
+        custom_logger = TensorBoardLogger.TBLogger(logdir; min_level=Logging.Info)
+
+        cb = mcmc_callback(; logger=custom_logger)
+        @test cb isa AbstractMCMC.Callback
+
+        # Should work with sampling
+        chain = sample(MyModel(), MySampler(), 20; callback=cb)
+        @test length(chain) == 20
+    end
 end
 
 #########################

@@ -37,11 +37,12 @@ using AbstractMCMC
 using TensorBoardLogger
 using OnlineStats
 
-# Basic TensorBoard logging
-cb = mcmc_callback(logger=:TBLogger, logdir="runs/experiment1")
-
-# Or just provide logdir (defaults to TBLogger)
+# Basic TensorBoard logging with logdir
 cb = mcmc_callback(logdir="runs/experiment1")
+
+# Or with custom AbstractLogger
+custom_logger = TBLogger("runs/custom"; min_level=Logging.Info)
+cb = mcmc_callback(logger=custom_logger)
 ```
 
 !!! note
