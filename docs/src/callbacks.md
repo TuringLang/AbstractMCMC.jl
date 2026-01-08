@@ -129,20 +129,6 @@ chain = sample(model, sampler, 10000; callback=cb)
 mcmc_callback
 ```
 
-### Internal Types
-
-These types are used internally but can be accessed via `AbstractMCMC.TypeName`:
-
-```@docs
-AbstractMCMC.Callback
-AbstractMCMC.MultiCallback
-AbstractMCMC.NameFilter
-```
-
-!!! note
-    `Skip`, `Thin`, and `WindowStat` are defined in the OnlineStats extension and are applied
-    automatically based on `stats_options`. Users don't interact with them directly.
-
 ## Default Values
 
 ### stats_options defaults
@@ -172,7 +158,21 @@ function my_callback(rng, model, sampler, transition, state, iteration; kwargs..
 end
 ```
 
-### Extracting Information
+## Internals
+
+!!! note
+    These types and methods are used internally. They are not part of the public API and 
+    may change or break at any time without notice.
+
+### Types
+
+```@docs
+AbstractMCMC.Callback
+AbstractMCMC.MultiCallback
+AbstractMCMC.NameFilter
+```    
+
+### Tools for Extracting Information
 
 AbstractMCMC provides functions to extract information from samplers:
 
