@@ -48,23 +48,6 @@ function (f::NameFilter)(name)
            (include === nothing || name ∈ include)
 end
 
-"""
-    Callback{Cs}
-
-A wrapper type that holds a `MultiCallback` internally for type stability.
-All callbacks created via `mcmc_callback` are wrapped in this type.
-"""
-struct Callback{Cs}
-    multi::MultiCallback{Cs}
-end
-
-(c::Callback)(args...; kwargs...) = c.multi(args...; kwargs...)
-
-function BangBang.push!!(c::Callback, callback)
-    new_multi = BangBang.push!!(c.multi, callback)
-    return Callback(new_multi)
-end
-
 ##############################
 ### Defaults and Utilities ###
 ##############################
@@ -86,6 +69,41 @@ end
 merge_with_defaults(::Nothing, defaults::NamedTuple) = defaults
 
 ################################
+### Statistics Creation API  ###
+################################
+
+"""
+    create_stats_with_options(stats, stats_options, num_bins)
+
+Internal constructor for statistics handlers.
+
+If `stats === nothing`, no statistics are collected and `nothing` is returned.
+If `stats` is provided, this function requires the OnlineStats extension to be
+loaded; otherwise, an error is thrown.
+
+Supports special values:
+- `stats=true` or `stats=:default`: Use default statistics (Mean, Variance, KHist)
+- `stats=<OnlineStat>`: Use the provided OnlineStat (requires OnlineStats to be loaded)
+- `stats=<Tuple of OnlineStats>`: Use multiple stats
+
+This function is not part of the public API and may change or break at any time.
+"""
+create_stats_with_options(::Nothing, stats_options, num_bins) = nothing
+
+function create_stats_with_options(stats, stats_options, num_bins)
+    ext = Base.get_extension(@__MODULE__, :AbstractMCMCOnlineStatsExt)
+    if ext === nothing
+        error(
+            "Statistics collection requires OnlineStats.jl. " *
+            "Please load OnlineStats before enabling statistics: `using OnlineStats`",
+        )
+    end
+
+    # Delegate to OnlineStatsExt for actual creation
+    return ext.create_stats_with_options_impl(stats, stats_options, num_bins)
+end
+
+################################
 ### Parameter Extraction API ###
 ################################
 
@@ -97,67 +115,79 @@ Return an iterator of `θ[i]` for each element in `x`.
 default_param_names_for_values(x) = ("θ[$i]" for i in 1:length(x))
 
 """
-    params_and_values(model, state; kwargs...)
-    params_and_values(model, sampler, state; kwargs...)
-    params_and_values(model, transition, state; kwargs...)
-    params_and_values(model, sampler, transition, state; kwargs...)
+    _names_and_values(
+        model,
+        sampler,
+        transition,
+        state;
+        params::Bool = true,
+        hyperparams::Bool = false,
+        extra::Bool = false,
+        kwargs...
+    )
 
 Return an iterator over parameter names and values.
+
+This function is not part of the public API and may change or break at any time.
+
+## Keywords
+- `params`: include model parameters.
+- `hyperparams`: include sampler hyperparameters
+- `extra`: include additional statistics.
+- `kwargs...`: reserved for internal extensibility.
 """
-function params_and_values(model, state; kwargs...)
-    try
-        params = getparams(state)
-        return zip(default_param_names_for_values(params), params)
-    catch
-        return ()
+function _names_and_values(
+    model,
+    sampler,
+    transition,
+    state;
+    params::Bool=true,
+    hyperparams::Bool=false,
+    extra::Bool=false,
+    kwargs...,
+)
+    iters = []
+
+    if params
+        try
+            p = getparams(state)
+            push!(iters, zip(default_param_names_for_values(p), p))
+        catch
+            # No params available
+        end
     end
-end
 
-function params_and_values(model, sampler::AbstractSampler, state; kwargs...)
-    return params_and_values(model, state; kwargs...)
-end
-
-function params_and_values(model, transition, state; kwargs...)
-    vals = params_and_values(model, transition; kwargs...)
-    return isempty(vals) ? params_and_values(model, state; kwargs...) : vals
-end
-
-function params_and_values(model, sampler::AbstractSampler, transition, state; kwargs...)
-    return params_and_values(model, transition, state; kwargs...)
-end
-
-"""
-    extras(model, state; kwargs...)
-
-Return an iterator of (name, value) pairs for additional statistics.
-"""
-function extras(model, state; kwargs...)
-    try
-        stats = getstats(state)
-        stats isa NamedTuple ? pairs(stats) : ()
-    catch
-        return ()
+    if hyperparams
+        hp = _hyperparams_impl(model, sampler, state; kwargs...)
+        if !isempty(hp)
+            push!(iters, hp)
+        end
     end
+
+    if extra
+        try
+            stats = getstats(state)
+            if stats isa NamedTuple
+                push!(iters, pairs(stats))
+            end
+        catch
+            # No extras available
+        end
+    end
+
+    return Iterators.flatten(iters)
 end
 
-extras(model, sampler::AbstractSampler, state; kwargs...) = extras(model, state; kwargs...)
-extras(model, transition, state; kwargs...) = extras(model, state; kwargs...)
-function extras(model, sampler::AbstractSampler, transition, state; kwargs...)
-    return extras(model, transition, state; kwargs...)
+# Internal helper for hyperparams extraction
+function _hyperparams_impl(model, sampler, state; kwargs...)
+    return Pair{String,Any}[]
 end
-
-"""
-    hyperparams(model, sampler[, state]; kwargs...)
-
-Return an iterator of (name, value) pairs for hyperparameters.
-"""
-hyperparams(model, sampler; kwargs...) = Pair{String,Any}[]
-hyperparams(model, sampler, state; kwargs...) = hyperparams(model, sampler; kwargs...)
 
 """
     hyperparam_metrics(model, sampler[, state]; kwargs...)
 
 Return a Vector{String} of metrics for hyperparameters.
+Override this to specify which logged values should be used as hyperparam metrics in TensorBoard.
 """
 hyperparam_metrics(model, sampler; kwargs...) = String[]
 function hyperparam_metrics(model, sampler, state; kwargs...)
@@ -181,19 +211,18 @@ cb = mcmc_callback() do rng, model, sampler, transition, state, iteration
 end
 ```
 """
-mcmc_callback(f::Function) = Callback(MultiCallback((f,)))
+mcmc_callback(f::Function) = MultiCallback((f,))
 
 """
     mcmc_callback(callbacks...)
 
 Combine multiple callbacks into one.
 """
-mcmc_callback(callbacks::Vararg{Any,N}) where {N} = Callback(MultiCallback(callbacks))
+mcmc_callback(callbacks::Vararg{Any,N}) where {N} = MultiCallback(callbacks)
 
 """
     mcmc_callback(;
         logger = nothing,
-        logdir = nothing,
         stats = nothing,
         stats_options = nothing,
         name_filter = nothing,
@@ -202,43 +231,52 @@ mcmc_callback(callbacks::Vararg{Any,N}) where {N} = Callback(MultiCallback(callb
 Create a callback using keyword arguments.
 
 # Arguments
-- `logger`: Logger - can be `:TBLogger` for TensorBoard, or an `AbstractLogger` instance
-- `logdir`: Directory for logs (creates TBLogger if logger not specified)
-- `stats`: Statistics to collect (OnlineStat or tuple of OnlineStats)
+- `logger`: An `AbstractLogger` instance (e.g., `TBLogger` from TensorBoardLogger.jl)
+- `stats`: Statistics to collect. Can be:
+  - `nothing`: No statistics (default)
+  - `true` or `:default`: Use default statistics (Mean, Variance, KHist) - requires OnlineStats
+  - An OnlineStat or tuple of OnlineStats - requires OnlineStats
 - `stats_options`: NamedTuple with `thin`, `skip`, `window`
 - `name_filter`: NamedTuple with `include`, `exclude`, `extras`, `hyperparams`
 
 # Examples
 ```julia
-# With logdir (creates TBLogger automatically)
-cb = mcmc_callback(logdir="runs/exp")
+# Basic logging (no statistics)
+using TensorBoardLogger
+lg = TBLogger("runs/exp")
+cb = mcmc_callback(logger=lg)
 
-# With custom logger
-cb = mcmc_callback(logger=my_custom_logger)
+# With default stats (requires OnlineStats)
+using TensorBoardLogger, OnlineStats
+lg = TBLogger("runs/exp")
+cb = mcmc_callback(logger=lg, stats=true)  # or stats=:default
 
-# With stats and options
-cb = mcmc_callback(logdir="runs/exp", stats=(Mean(), Variance()))
-cb = mcmc_callback(logdir="runs/exp", stats_options=(skip=100, thin=5))
+# With custom stats
+cb = mcmc_callback(logger=lg, stats=(Mean(), Variance()))
 ```
 """
 function mcmc_callback(;
     logger=nothing,
-    logdir=nothing,
     stats=nothing,
     stats_options=nothing,
     name_filter=nothing,
+    num_bins::Int=100,
 )
-    # Infer logger type from arguments
-    if logger === nothing && logdir !== nothing
-        logger = :TBLogger
-    end
-
-    # Validate that we have something to create
+    # Validate that logger is provided
     if logger === nothing
         throw(
             ArgumentError(
-                "At least one callback type must be specified. " *
-                "Use `logger=:TBLogger`, `logdir=...`, or pass an AbstractLogger to `logger`.",
+                "A logger must be specified. Pass an AbstractLogger instance to `logger`. " *
+                "For TensorBoard logging: `using TensorBoardLogger; mcmc_callback(logger=TBLogger(\"runs/exp\"))`",
+            ),
+        )
+    end
+
+    if !(logger isa Logging.AbstractLogger)
+        throw(
+            ArgumentError(
+                "Expected an AbstractLogger instance, got $(typeof(logger)). " *
+                "For TensorBoard: `using TensorBoardLogger; mcmc_callback(logger=TBLogger(\"runs/exp\"))`",
             ),
         )
     end
@@ -246,58 +284,33 @@ function mcmc_callback(;
     merged_stats_options = merge_with_defaults(stats_options, DEFAULT_STATS_OPTIONS)
     merged_name_filter = merge_with_defaults(name_filter, DEFAULT_NAME_FILTER)
 
-    # Create callback based on logger type
-    callbacks = if logger === :TBLogger
-        (
-            _make_tensorboard_callback(
-                logdir;
-                logger=nothing,
-                stats,
-                stats_options=merged_stats_options,
-                name_filter=merged_name_filter,
-            ),
-        )
-    elseif logger isa Logging.AbstractLogger
-        # Custom logger instance passed directly
-        (
-            _make_tensorboard_callback(
-                nothing;
-                logger,
-                stats,
-                stats_options=merged_stats_options,
-                name_filter=merged_name_filter,
-            ),
-        )
-    else
-        throw(
-            ArgumentError(
-                "Unknown logger type: $(typeof(logger)). Use :TBLogger or pass an AbstractLogger.",
-            ),
-        )
-    end
+    # Process stats in main package - this provides helpful error if OnlineStats not loaded
+    processed_stats = create_stats_with_options(stats, merged_stats_options, num_bins)
 
-    return Callback(MultiCallback(callbacks))
+    callback = _make_logger_callback(
+        logger; stats=processed_stats, name_filter=merged_name_filter
+    )
+
+    return MultiCallback((callback,))
 end
 
-function _make_tensorboard_callback(logdir; logger, stats, stats_options, name_filter)
+function _make_logger_callback(logger; stats, name_filter)
     ext = Base.get_extension(@__MODULE__, :AbstractMCMCTensorBoardLoggerExt)
     if ext === nothing
         error(
-            "TensorBoard logging requires both TensorBoardLogger and OnlineStats. " *
-            "Please run: `using TensorBoardLogger, OnlineStats`",
+            "TensorBoard logging requires TensorBoardLogger.jl to be loaded. " *
+            "Please run: `using TensorBoardLogger`",
         )
     end
-    return ext.create_tensorboard_callback(
-        logdir; logger, stats, stats_options, name_filter
-    )
+    return ext.create_tensorboard_callback(logger; stats, name_filter)
 end
 
 """
-    mcmc_callback(existing::Callback, new_callbacks...)
+    mcmc_callback(existing::MultiCallback, new_callbacks...)
 
-Add callbacks to an existing Callback.
+Add callbacks to an existing MultiCallback.
 """
-function mcmc_callback(existing::Callback, new_callbacks...)
+function mcmc_callback(existing::MultiCallback, new_callbacks...)
     result = existing
     for cb in new_callbacks
         result = BangBang.push!!(result, cb)

@@ -1,6 +1,3 @@
-# Tests for the mcmc_callback unified API
-# These tests cover: stats, stats_options, name_filter, and basic functionality
-
 ####################################
 ### Basic Callback Functionality ###
 ####################################
@@ -12,7 +9,7 @@
             count[] += 1
         end
 
-        @test cb isa AbstractMCMC.Callback
+        @test cb isa AbstractMCMC.MultiCallback
         chain = sample(MyModel(), MySampler(), 100; callback=cb)
         @test count[] == 100
     end
@@ -23,7 +20,7 @@
         cb2 = (args...; kwargs...) -> counts[2][] += 1
 
         cb = mcmc_callback(cb1, cb2)
-        @test cb isa AbstractMCMC.Callback
+        @test cb isa AbstractMCMC.MultiCallback
 
         chain = sample(MyModel(), MySampler(), 50; callback=cb)
         @test counts[1][] == 50
@@ -140,6 +137,11 @@ end
     @test names == ["θ[1]", "θ[2]", "θ[3]"]
 end
 
+@testset "_names_and_values" begin
+    # Test that the internal unified function exists and has expected signature
+    @test hasmethod(AbstractMCMC._names_and_values, Tuple{Any,Any,Any,Any})
+end
+
 using OnlineStats
 
 #############################
@@ -149,67 +151,88 @@ using OnlineStats
 using TensorBoardLogger
 
 @testset "TensorBoard Extension" begin
-    @testset "mcmc_callback with logger=:TBLogger" begin
+    @testset "mcmc_callback with explicit TBLogger" begin
         logdir = mktempdir()
-        cb = mcmc_callback(; logger=:TBLogger, logdir=logdir)
-        @test cb isa AbstractMCMC.Callback
+        logger = TBLogger(logdir)
+        cb = mcmc_callback(; logger=logger)
+        @test cb isa AbstractMCMC.MultiCallback
     end
 
-    @testset "mcmc_callback with logdir only (infers TBLogger)" begin
-        logdir = mktempdir()
-        cb = mcmc_callback(; logdir=logdir)
-        @test cb isa AbstractMCMC.Callback
+    @testset "mcmc_callback requires logger argument" begin
+        # Should fail if no logger provided
+        @test_throws ArgumentError mcmc_callback()
     end
 
-    @testset "mcmc_callback with stats" begin
+    @testset "mcmc_callback with stats=true" begin
         logdir = mktempdir()
-        cb = mcmc_callback(; logdir=logdir, stats=(Mean(), Variance()))
-        @test cb isa AbstractMCMC.Callback
+        logger = TBLogger(logdir)
+        cb = mcmc_callback(; logger=logger, stats=true)
+        @test cb isa AbstractMCMC.MultiCallback
+    end
+
+    @testset "mcmc_callback with stats=:default" begin
+        logdir = mktempdir()
+        logger = TBLogger(logdir)
+        cb = mcmc_callback(; logger=logger, stats=:default)
+        @test cb isa AbstractMCMC.MultiCallback
+    end
+
+    @testset "mcmc_callback with explicit OnlineStats" begin
+        logdir = mktempdir()
+        logger = TBLogger(logdir)
+        cb = mcmc_callback(; logger=logger, stats=(Mean(), Variance()))
+        @test cb isa AbstractMCMC.MultiCallback
     end
 
     @testset "mcmc_callback with stats_options" begin
         logdir = mktempdir()
+        logger = TBLogger(logdir)
 
         # Test partial stats_options (merges with defaults)
-        cb = mcmc_callback(; logdir=logdir, stats_options=(thin=5,))
-        @test cb isa AbstractMCMC.Callback
+        cb = mcmc_callback(; logger=logger, stats=true, stats_options=(thin=5,))
+        @test cb isa AbstractMCMC.MultiCallback
 
         # Test full stats_options
-        cb = mcmc_callback(; logdir=logdir, stats_options=(thin=5, skip=100, window=1000))
-        @test cb isa AbstractMCMC.Callback
+        cb = mcmc_callback(;
+            logger=logger, stats=true, stats_options=(thin=5, skip=100, window=1000)
+        )
+        @test cb isa AbstractMCMC.MultiCallback
     end
 
     @testset "mcmc_callback with name_filter" begin
         logdir = mktempdir()
+        logger = TBLogger(logdir)
 
         # Test partial name_filter
-        cb = mcmc_callback(; logdir=logdir, name_filter=(include=["mu", "sigma"],))
-        @test cb isa AbstractMCMC.Callback
+        cb = mcmc_callback(; logger=logger, name_filter=(include=["mu", "sigma"],))
+        @test cb isa AbstractMCMC.MultiCallback
 
         # Test full name_filter
         cb = mcmc_callback(;
-            logdir=logdir,
+            logger=logger,
             name_filter=(
                 include=["mu", "sigma"], exclude=["internal"], extras=true, hyperparams=true
             ),
         )
-        @test cb isa AbstractMCMC.Callback
+        @test cb isa AbstractMCMC.MultiCallback
     end
 
     @testset "mcmc_callback with all options" begin
         logdir = mktempdir()
+        logger = TBLogger(logdir)
         cb = mcmc_callback(;
-            logdir=logdir,
-            stats=(Mean(), Variance(), KHist(50)),
+            logger=logger,
+            stats=true,
             stats_options=(skip=100, thin=5),
             name_filter=(exclude=["_internal"], extras=true),
         )
-        @test cb isa AbstractMCMC.Callback
+        @test cb isa AbstractMCMC.MultiCallback
     end
 
     @testset "TensorBoard callback with sample" begin
         logdir = mktempdir()
-        cb = mcmc_callback(; logdir=logdir)
+        logger = TBLogger(logdir)
+        cb = mcmc_callback(; logger=logger)
 
         # Should complete without error
         chain = sample(MyModel(), MySampler(), 20; callback=cb)
@@ -222,11 +245,23 @@ using TensorBoardLogger
         custom_logger = TensorBoardLogger.TBLogger(logdir; min_level=Logging.Info)
 
         cb = mcmc_callback(; logger=custom_logger)
-        @test cb isa AbstractMCMC.Callback
+        @test cb isa AbstractMCMC.MultiCallback
 
         # Should work with sampling
         chain = sample(MyModel(), MySampler(), 20; callback=cb)
         @test length(chain) == 20
+    end
+
+    @testset "Stats with stats=true works when OnlineStats loaded" begin
+        logdir = mktempdir()
+        logger = TBLogger(logdir)
+        # OnlineStats is already loaded, so this should work
+        cb = mcmc_callback(; logger=logger, stats=true)
+        @test cb isa AbstractMCMC.MultiCallback
+
+        # Also works with explicit OnlineStat
+        cb = mcmc_callback(; logger=logger, stats=Mean())
+        @test cb isa AbstractMCMC.MultiCallback
     end
 end
 
@@ -262,12 +297,13 @@ end
 
     @testset "Combining TensorBoard with custom callback" begin
         logdir = mktempdir()
+        logger = TBLogger(logdir)
         count = Ref(0)
         custom = (args...; kwargs...) -> count[] += 1
 
-        tb_cb = mcmc_callback(; logdir=logdir)
+        tb_cb = mcmc_callback(; logger=logger)
         combined = mcmc_callback(tb_cb, custom)
 
-        @test length(combined.multi.callbacks) == 2
+        @test length(combined.callbacks) == 2
     end
 end

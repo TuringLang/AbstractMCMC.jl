@@ -27,7 +27,7 @@ TensorBoardLogger = "899adc3e-224a-11e9-021f-63837185c80f"
 
 [extensions]
 AbstractMCMCOnlineStatsExt = "OnlineStats"
-AbstractMCMCTensorBoardLoggerExt = ["TensorBoardLogger", "OnlineStats"]
+AbstractMCMCTensorBoardLoggerExt = "TensorBoardLogger"
 
 [compat]
 BangBang = "0.3.19, 0.4"

@@ -28,39 +28,55 @@ cb2 = (args...; kwargs...) -> println("Callback 2")
 cb = mcmc_callback(cb1, cb2)
 ```
 
+You can also add callbacks dynamically using `BangBang.push!!`:
+
+```julia
+using BangBang
+
+cb = mcmc_callback(cb1)
+cb = push!!(cb, cb2)
+```
+
 ## TensorBoard Logging
 
-TensorBoard logging requires **both** `TensorBoardLogger` and `OnlineStats`:
+TensorBoard logging requires `TensorBoardLogger`. Statistics collection also requires `OnlineStats`.
+
+### Basic Logging (No Statistics)
+
+```julia
+using AbstractMCMC
+using TensorBoardLogger
+
+logger = TBLogger("runs/experiment1")
+cb = mcmc_callback(logger=logger)
+
+chain = sample(model, sampler, 1000; callback=cb)
+```
+
+### Logging with Statistics
+
+To collect running statistics (mean, variance, histograms), load `OnlineStats` and use the `stats` argument:
 
 ```julia
 using AbstractMCMC
 using TensorBoardLogger
 using OnlineStats
 
-# Basic TensorBoard logging with logdir
-cb = mcmc_callback(logdir="runs/experiment1")
+logger = TBLogger("runs/experiment1")
 
-# Or with custom AbstractLogger
-custom_logger = TBLogger("runs/custom"; min_level=Logging.Info)
-cb = mcmc_callback(logger=custom_logger)
-```
+# Use default statistics (Mean, Variance, KHist)
+cb = mcmc_callback(logger=logger, stats=true)
 
-!!! note
-    If you use TensorBoard logging without loading `OnlineStats`, you will see:
-    `"TensorBoard logging requires both TensorBoardLogger and OnlineStats."`
-
-### Custom Statistics
-
-Use the `stats` argument to specify which statistics to collect. Statistics must be from `OnlineStats`:
-
-```julia
-using OnlineStats
-
+# Or specify custom statistics
 cb = mcmc_callback(
-    logdir="runs/custom_stats",
+    logger=logger,
     stats=(Mean(), Variance(), KHist(50)),
 )
 ```
+
+!!! note
+    If you request statistics without loading `OnlineStats`, you will get a helpful error:
+    `"Statistics collection requires OnlineStats.jl. Please load OnlineStats before enabling statistics."`
 
 ### Stats Processing Options
 
@@ -68,7 +84,8 @@ Control how samples are processed before computing statistics with `stats_option
 
 ```julia
 cb = mcmc_callback(
-    logdir="runs/processed",
+    logger=logger,
+    stats=true,
     stats_options=(
         skip=100,    # Skip first 100 samples (burn-in)
         thin=5,      # Use every 5th sample
@@ -81,7 +98,7 @@ Options merge with defaults, so you only need to specify what you want to change
 
 ```julia
 # Only change thin, skip and window use defaults (0 and typemax(Int))
-cb = mcmc_callback(logdir="runs/exp", stats_options=(thin=10,))
+cb = mcmc_callback(logger=logger, stats=true, stats_options=(thin=10,))
 ```
 
 ### Name Filtering
@@ -90,12 +107,12 @@ Use `name_filter` to control which parameters and statistics are logged:
 
 ```julia
 cb = mcmc_callback(
-    logdir="runs/filtered",
+    logger=logger,
     name_filter=(
         include=["mu", "sigma"],  # Only log these parameters
         exclude=["_internal"],     # Exclude matching names
         extras=true,               # Include extra stats (log density, etc.)
-        hyperparams=true,          # Include hyperparameters
+        hyperparams=true,          # Include hyperparameters (logged once)
     ),
 )
 ```
@@ -107,9 +124,11 @@ using AbstractMCMC
 using TensorBoardLogger
 using OnlineStats
 
+logger = TBLogger("runs/full_example")
+
 cb = mcmc_callback(
-    logdir="runs/full_example",
-    stats=(Mean(), Variance(), KHist(100)),
+    logger=logger,
+    stats=true,
     stats_options=(skip=50, thin=2),
     name_filter=(
         exclude=["_internal"],
@@ -120,6 +139,41 @@ cb = mcmc_callback(
 
 chain = sample(model, sampler, 10000; callback=cb)
 ```
+
+Then view in TensorBoard:
+```bash
+tensorboard --logdir=runs/full_example
+```
+
+Navigate to `localhost:6006` in your browser to see the dashboard. You'll see real-time plots of your parameter distributions, histograms, and other statistics as sampling progresses.
+
+![TensorBoard Time Series Tab](assets/tensorboard_demo_time-series_screen.png)
+
+*The Time Series tab provides detailed traces of parameter values throughout the sampling process.*
+
+![TensorBoard Scalars Tab](assets/tensorboard_demo_scalars_screen.png)
+
+*The Scalars tab shows time series of parameter values and statistics over the sampling iterations.*
+
+![TensorBoard Distributions Tab](assets/tensorboard_demo_distributions_screen.png)
+
+*The Distributions tab displays the marginal distributions of each parameter.*
+
+![TensorBoard Histograms Tab](assets/tensorboard_demo_histograms_screen.png)
+
+*The Histograms tab shows the evolution of parameter distributions over time.*
+
+## OnlineStats Wrappers
+
+When using statistics, AbstractMCMC provides wrappers that modify how samples are processed:
+
+| Wrapper | Description |
+|---------|-------------|
+| `Skip(n, stat)` | Skip first `n` observations before fitting `stat` |
+| `Thin(n, stat)` | Only fit every `n`-th observation to `stat` |
+| `WindowStat(n, stat)` | Use a rolling window of `n` observations |
+
+These are applied automatically via `stats_options`, but can also be used directly if needed.
 
 ## API Reference
 
@@ -167,30 +221,23 @@ end
 ### Types
 
 ```@docs
-AbstractMCMC.Callback
 AbstractMCMC.MultiCallback
 AbstractMCMC.NameFilter
 ```    
 
-### Tools for Extracting Information
+### Internal Functions
 
-AbstractMCMC provides functions to extract information from samplers:
+The unified `_names_and_values` function extracts all relevant data from a sampler state:
 
 ```julia
-# Get parameter names and values
-for (name, value) in AbstractMCMC.params_and_values(model, sampler, transition, state)
-    println("$name = $value")
-end
-
-# Get extra statistics (log density, etc.)
-for (name, value) in AbstractMCMC.extras(model, sampler, transition, state)
-    println("$name = $value")
-end
-
-# Get hyperparameters (for first iteration)
-for (name, value) in AbstractMCMC.hyperparams(model, sampler, state)
+for (name, value) in AbstractMCMC._names_and_values(
+    model, sampler, transition, state;
+    params=true,
+    hyperparams=false,
+    extra=false,
+)
     println("$name = $value")
 end
 ```
 
-Samplers can override these methods to provide custom information extraction.
+Samplers can override `AbstractMCMC.getparams(state)` and `AbstractMCMC.getstats(state)` to provide custom information extraction.

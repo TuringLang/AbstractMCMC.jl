@@ -2,11 +2,9 @@ module AbstractMCMCOnlineStatsExt
 
 using AbstractMCMC
 using OnlineStats
-using OnlineStats: OnlineStats, OnlineStat, fit!, value, nobs, MovingWindow
-
-##########################
-### Skip <: OnlineStat ###
-##########################
+using OnlineStats:
+    OnlineStat, fit!, value, nobs, MovingWindow, Series, Mean, Variance, KHist
+using Logging: @info
 
 """
     Skip(b::Int, stat::OnlineStat)
@@ -32,11 +30,7 @@ function OnlineStats._fit!(o::Skip, x)
     return o
 end
 
-Base.show(io::IO, o::Skip) = print(io, "Skip ($(o.b)): n=$(o.n) | stat=$(o.stat)")
-
-##########################
-### Thin <: OnlineStat ###
-##########################
+Base.show(io::IO, o::Skip) = print(io, "Skip($(o.b)): n=$(o.n) | $(o.stat)")
 
 """
     Thin(b::Int, stat::OnlineStat)
@@ -62,16 +56,12 @@ function OnlineStats._fit!(o::Thin, x)
     return o
 end
 
-Base.show(io::IO, o::Thin) = print(io, "Thin ($(o.b)): n=$(o.n) | stat=$(o.stat)")
-
-################################
-### WindowStat <: OnlineStat ###
-################################
+Base.show(io::IO, o::Thin) = print(io, "Thin($(o.b)): n=$(o.n) | $(o.stat)")
 
 """
     WindowStat(b::Int, stat::OnlineStat)
 
-"Wraps" `stat` in a `MovingWindow` of length `b`.
+Wraps `stat` in a `MovingWindow` of length `b`.
 """
 struct WindowStat{T,O} <: OnlineStat{T}
     window::MovingWindow{T}
@@ -96,7 +86,89 @@ function OnlineStats.value(o::WindowStat)
 end
 
 function Base.show(io::IO, o::WindowStat)
-    return print(io, "WindowStat ($(o.window.b)): nobs=$(nobs(o)) | stat=$(o.stat)")
+    return print(io, "WindowStat($(o.window.b)): nobs=$(nobs(o)) | $(o.stat)")
 end
+
+"""
+    create_stats_with_options_impl(stats, stats_options, num_bins)
+
+Create stats dictionary and prototype, applying Skip/Thin/WindowStat wrappers.
+"""
+function create_stats_with_options_impl(stats, stats_options, num_bins)
+    base_stat = if stats === true || stats === :default
+        Series(Mean(), Variance(), KHist(num_bins))
+    elseif stats isa OnlineStat
+        stats
+    elseif stats isa Tuple
+        Series(stats...)
+    else
+        Series(Mean(), Variance(), KHist(num_bins))
+    end
+
+    wrapped_stat = wrap_stat(base_stat, stats_options)
+
+    if wrapped_stat isa OnlineStat
+        nobs(wrapped_stat) > 0 &&
+            @warn("using statistic with observations as a base: $(wrapped_stat)")
+        return (Dict{String,typeof(wrapped_stat)}(), deepcopy(wrapped_stat))
+    else
+        return (wrapped_stat, nothing)
+    end
+end
+
+"""
+    wrap_stat(stat, stats_options)
+
+Apply Skip, Thin, and WindowStat wrappers to a statistic based on options.
+"""
+function wrap_stat(stat, stats_options)
+    result = stat
+
+    if stats_options.window < typemax(Int)
+        result = WindowStat(stats_options.window, result)
+    end
+
+    if stats_options.skip > 0
+        result = Skip(stats_options.skip, result)
+    end
+
+    if stats_options.thin > 0
+        result = Thin(stats_options.thin, result)
+    end
+
+    return result
+end
+
+"""
+    log_stat_impl!(stats, prototype, key, val, prefix)
+
+Update and log statistics. Called from TensorBoard callback.
+"""
+function log_stat_impl!(stats::AbstractDict, prototype, key, val, prefix)
+    stat = if prototype !== nothing
+        get!(stats, key) do
+            deepcopy(prototype)
+        end
+    else
+        get(stats, key, nothing)
+    end
+
+    if stat !== nothing
+        fit!(stat, val)
+        @info "$(prefix)$key" stat
+    end
+end
+
+log_stat_impl!(::Nothing, prototype, key, val, prefix) = nothing
+
+# tb_name helpers for formatting stat names in TensorBoard
+tb_name(arg) = string(arg)
+tb_name(stat::OnlineStat) = string(nameof(typeof(stat)))
+tb_name(o::Skip) = "Skip($(o.b))"
+tb_name(o::Thin) = "Thin($(o.b))"
+tb_name(o::WindowStat) = "WindowStat($(o.window.b))"
+tb_name(s1::String, s2::String) = s1 * "/" * s2
+tb_name(arg1, arg2) = tb_name(arg1) * "/" * tb_name(arg2)
+tb_name(arg, args...) = tb_name(arg) * "/" * tb_name(args...)
 
 end
