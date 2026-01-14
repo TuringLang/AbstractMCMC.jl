@@ -163,18 +163,6 @@ Navigate to `localhost:6006` in your browser to see the dashboard. You'll see re
 
 *The Histograms tab shows the evolution of parameter distributions over time.*
 
-## OnlineStats Wrappers
-
-When using statistics, AbstractMCMC provides wrappers that modify how samples are processed:
-
-| Wrapper | Description |
-|---------|-------------|
-| `Skip(n, stat)` | Skip first `n` observations before fitting `stat` |
-| `Thin(n, stat)` | Only fit every `n`-th observation to `stat` |
-| `WindowStat(n, stat)` | Use a rolling window of `n` observations |
-
-These are applied automatically via `stats_options`, but can also be used directly if needed.
-
 ## API Reference
 
 ### Main Functions
@@ -223,7 +211,19 @@ end
 ```@docs
 AbstractMCMC.MultiCallback
 AbstractMCMC.NameFilter
-```    
+```
+
+### OnlineStats Wrappers
+
+When using statistics, AbstractMCMC provides wrappers that modify how samples are processed:
+
+| Wrapper | Description |
+|---------|-------------|
+| `Skip(n, stat)` | Skip first `n` observations before fitting `stat` |
+| `Thin(n, stat)` | Only fit every `n`-th observation to `stat` |
+| `WindowStat(n, stat)` | Use a rolling window of `n` observations |
+
+These are applied automatically via `stats_options`, but can also be used directly if needed.
 
 ### Internal Functions
 
