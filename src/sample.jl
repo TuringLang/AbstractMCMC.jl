@@ -27,7 +27,7 @@ end
 
 """
     sample(
-        rng::Random.AbatractRNG=Random.default_rng(),
+        rng::Random.AbstractRNG=Random.default_rng(),
         model::AbstractModel,
         sampler::AbstractSampler,
         N_or_isdone;

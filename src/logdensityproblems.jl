@@ -1,10 +1,10 @@
 """
     LogDensityModel <: AbstractMCMC.AbstractModel
 
-Wrapper around something that implements the LogDensityProblem.jl interface.
+Wrapper around something that implements the LogDensityProblems.jl interface.
 
 Note that this does _not_ implement the LogDensityProblems.jl interface itself,
-but it simply useful for indicating to the `sample` and other `AbstractMCMC` methods
+but it is simply useful for indicating to the `sample` and other `AbstractMCMC` methods
 that the wrapped object implements the LogDensityProblems.jl interface.
 
 # Fields

@@ -72,13 +72,13 @@ AbstractMCMC.MCMCSerial
 
 Common keyword arguments for regular and parallel sampling are:
 - `progress` (default: `AbstractMCMC.PROGRESS[]` which is `true` initially): toggles progress logging. See the section on [Progress logging](#progress-logging) below for more details.
-- `chain_type` (default: `Any`): determines the type of the returned chain
+- `chain_type` (default: `Any`): determines the type of the returned chain.
 - `callback` (default: `nothing`): if `callback !== nothing`, then
   `callback(rng, model, sampler, sample, iteration; kwargs...)` is called after every sampling step,
-  where `sample` is the most recent sample of the Markov chain and `iteration` is the current iteration
+  where `sample` is the most recent sample of the Markov chain and `iteration` is the current iteration.
    - Keyword arguments `kwargs...` are passed down from the call to `sample(...)`. If you are performing multiple-chain sampling, then `kwargs` _additionally_ contains a `chain_number` keyword argument, which runs from 1 to the number of chains. This is not present when performing single-chain sampling.
-- `num_warmup` (default: `0`): number of "warm-up" steps to take before the first "regular" step, 
-   i.e. number of times to call [`AbstractMCMC.step_warmup`](@ref) before the first call to 
+- `num_warmup` (default: `0`): number of "warm-up" steps to take before the first "regular" step,
+   i.e. number of times to call [`AbstractMCMC.step_warmup`](@ref) before the first call to
    [`AbstractMCMC.step`](@ref).
 - `discard_initial` (default: `num_warmup`): number of initial samples that are discarded. Note that
   if `discard_initial < num_warmup`, warm-up samples will also be included in the resulting samples.
@@ -151,7 +151,7 @@ AbstractMCMC.to_samples
 AbstractMCMC.from_samples
 ```
 
-For chains of this type, AbstractMCMC defines the following two methods.
+For chains of this type, AbstractMCMC defines the following methods.
 
 ```@docs
 AbstractMCMC.chainscat
