@@ -89,21 +89,21 @@ In each step, the sample is saved in the container by `AbstractMCMC.save!!`. The
 follows the convention of the package [BangBang.jl](https://github.com/JuliaFolds/BangBang.jl)
 which is used in the default implementation of `AbstractMCMC.save!!`. It indicates that the
 sample is pushed to the container but a "widening" fallback is used if the container type
-does not allow to save the sample. Therefore `AbstractMCMC.save!!` *always has* to return the container.
+does not allow saving the sample. Therefore `AbstractMCMC.save!!` *always has* to return the container.
 
 ```@docs
 AbstractMCMC.save!!
 ```
 
 For most use cases the default implementation of `AbstractMCMC.samples` and `AbstractMCMC.save!!`
-should work out of the box and hence need not to be overloaded in downstream code.
+should work out of the box and hence need not be overloaded in downstream code.
 
 ## Creating chains
 
 !!! note
     This section does not apply to the iterator and transducer interface.
 
-At the end of the sampling procedure for regular and paralle sampling we transform
+At the end of the sampling procedure for regular and parallel sampling we transform
 the collection of samples to the desired output type by calling `AbstractMCMC.bundle_samples`.
 
 ```@docs

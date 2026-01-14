@@ -164,9 +164,9 @@ function getstats end
 """
     setparams!!([model::AbstractModel, ]state, params)
 
-Set the values of parameters in the sampler's `state` from a `Vector{<:Real}`. 
+Set the values of parameters in the sampler's `state` from a `Vector{<:Real}`.
 
-This function should follow the `BangBang` interface: mutate `state` in-place if possible and 
+This function should follow the `BangBang` interface: mutate `state` in-place if possible and
 return the mutated `state`. Otherwise, it should return a new `state` containing the updated parameters.
 
 Although not enforced, it should hold that `setparams!!(state, getparams(state)) == state`. In other
