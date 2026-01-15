@@ -71,8 +71,7 @@ function AbstractMCMC.mcmc_callback(;
     processed_stats = create_stats_with_options(stats, merged_stats_options, num_bins)
 
     variable_filter = NameFilter(;
-        include=merged_name_filter.include,
-        exclude=merged_name_filter.exclude,
+        include=merged_name_filter.include, exclude=merged_name_filter.exclude
     )
 
     stats_dict, prototype = if processed_stats === nothing

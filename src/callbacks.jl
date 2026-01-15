@@ -229,7 +229,6 @@ function mcmc_callback(cb1, callbacks...)
     return MultiCallback((cb1, callbacks...))
 end
 
-
 """
     mcmc_callback(;
         logger,
@@ -275,5 +274,3 @@ Add callbacks to an existing MultiCallback.
 function mcmc_callback(existing::MultiCallback, new_callbacks...)
     return MultiCallback((existing.callbacks..., new_callbacks...))
 end
-
-
