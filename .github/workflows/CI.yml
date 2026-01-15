@@ -23,13 +23,10 @@ jobs:
       fail-fast: false
       matrix:
         runner:
+          # x64
           - version: '1'
             os: ubuntu-latest
             arch: x64
-          # Minimum supported version
-          # - version: 'min'
-          #   os: ubuntu-latest
-          #   arch: x64
           # x86
           - version: '1'
             os: ubuntu-latest

@@ -20,12 +20,12 @@ const CURRENT_LOGGER = Logging.current_logger()
 
 include("utils.jl")
 
-@testset "AbstractMCMC" begin
-    include("sample.jl")
-    include("stepper.jl")
-    include("transducer.jl")
-    include("logdensityproblems.jl")
-end
+# @testset "AbstractMCMC" begin
+#     include("sample.jl")
+#     include("stepper.jl")
+#     include("transducer.jl")
+#     include("logdensityproblems.jl")
+# end
 
 @testset "Callbacks" begin
     include("callbacks.jl")

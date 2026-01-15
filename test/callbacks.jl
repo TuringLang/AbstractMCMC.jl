@@ -45,6 +45,22 @@
         @test counts[1][] == 5
         @test counts[2][] == 5
     end
+
+    @testset "Callable struct callback" begin
+        struct CountingCallback
+            count::Ref{Int}
+        end
+        function (cb::CountingCallback)(args...; kwargs...)
+            return cb.count[] += 1
+        end
+
+        counter = CountingCallback(Ref(0))
+        cb = mcmc_callback(counter)
+
+        @test cb isa AbstractMCMC.MultiCallback
+        chain = sample(MyModel(), MySampler(), 25; callback=cb)
+        @test counter.count[] == 25
+    end
 end
 
 ########################

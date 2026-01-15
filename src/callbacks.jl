@@ -206,10 +206,13 @@ end
 #################################
 
 """
-    mcmc_callback(f::Function)
+    mcmc_callback(callback)
+    mcmc_callback(callbacks...)
 
-Create a callback from a function with signature:
-`f(rng, model, sampler, transition, state, iteration; kwargs...)`
+Create a callback or combine multiple callbacks into one.
+
+Any callable (function or callable struct) with the signature
+`(rng, model, sampler, transition, state, iteration; kwargs...)` can be used.
 
 # Example
 ```julia
@@ -217,13 +220,6 @@ cb = mcmc_callback() do rng, model, sampler, transition, state, iteration
     println("Iteration: \$iteration")
 end
 ```
-"""
-mcmc_callback(f::Function) = MultiCallback((f,))
-
-"""
-    mcmc_callback(callbacks...)
-
-Combine multiple callbacks into one. Requires at least one callback.
 """
 function mcmc_callback(cb1, callbacks...)
     return MultiCallback((cb1, callbacks...))
