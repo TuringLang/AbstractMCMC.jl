@@ -22,6 +22,9 @@ export sample
 # Parallel sampling types
 export MCMCThreads, MCMCDistributed, MCMCSerial
 
+# Callback API
+export mcmc_callback
+
 """
     AbstractChains
 
@@ -189,6 +192,7 @@ include("sample.jl")
 include("stepper.jl")
 include("transducer.jl")
 include("logdensityproblems.jl")
+include("callbacks.jl")
 
 if isdefined(Base.Experimental, :register_error_hint)
     function __init__()
@@ -201,6 +205,18 @@ if isdefined(Base.Experimental, :register_error_hint)
                 print(
                     io,
                     "\n`AbstractMCMC.LogDensityModel` is a wrapper and does not itself implement the LogDensityProblems.jl interface. To use LogDensityProblems.jl methods, access the inner type with (e.g.) `logdensity(model.logdensity, params)` instead of `logdensity(model, params)`.",
+                )
+            end
+        end
+
+        Base.Experimental.register_error_hint(MethodError) do io, exc, argtypes, _
+            if exc.f === mcmc_callback && length(argtypes) == 0
+                printstyled(
+                    io,
+                    "\n\n`mcmc_callback(logger=...)` requires TensorBoardLogger.jl to be loaded.\n" *
+                    "Please run `using TensorBoardLogger` before creating a logger callback.\n";
+                    color=:cyan,
+                    bold=true,
                 )
             end
         end
