@@ -208,6 +208,18 @@ if isdefined(Base.Experimental, :register_error_hint)
                 )
             end
         end
+
+        Base.Experimental.register_error_hint(MethodError) do io, exc, argtypes, _
+            if exc.f === mcmc_callback && length(argtypes) == 0
+                printstyled(
+                    io,
+                    "\n\n`mcmc_callback(logger=...)` requires TensorBoardLogger.jl to be loaded.\n" *
+                    "Please run `using TensorBoardLogger` before creating a logger callback.\n";
+                    color=:cyan,
+                    bold=true,
+                )
+            end
+        end
     end
 end
 

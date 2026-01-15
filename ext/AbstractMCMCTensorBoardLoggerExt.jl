@@ -1,7 +1,15 @@
 module AbstractMCMCTensorBoardLoggerExt
 
 using AbstractMCMC
-using AbstractMCMC: NameFilter, _names_and_values, hyperparam_metrics
+using AbstractMCMC:
+    MultiCallback,
+    NameFilter,
+    _names_and_values,
+    hyperparam_metrics,
+    merge_with_defaults,
+    create_stats_with_options,
+    DEFAULT_STATS_OPTIONS,
+    DEFAULT_NAME_FILTER
 using TensorBoardLogger
 using TensorBoardLogger: TBLogger
 using Logging: AbstractLogger, with_logger, @info
@@ -24,32 +32,67 @@ struct TensorBoardCallback{L,S,P,F}
 end
 
 """
-    create_tensorboard_callback(logger; stats, name_filter)
+    mcmc_callback(; logger, stats=nothing, stats_options=nothing, name_filter=nothing, num_bins=100)
 
-Create a TensorBoardCallback. Called from `AbstractMCMC.mcmc_callback`.
+Create a TensorBoard logging callback.
+
+# Arguments
+- `logger`: An `AbstractLogger` instance (e.g., `TBLogger` from TensorBoardLogger.jl)
+- `stats`: Statistics to collect. Can be:
+  - `nothing`: No statistics (default)
+  - `true` or `:default`: Use default statistics (Mean, Variance, KHist) - requires OnlineStats
+  - An OnlineStat or tuple of OnlineStats - requires OnlineStats
+- `stats_options`: NamedTuple with `thin`, `skip`, `window`
+- `name_filter`: NamedTuple with `include`, `exclude`, `extras`, `hyperparams`
+- `num_bins`: Number of histogram bins (default: 100)
+
+# Examples
+```julia
+using TensorBoardLogger
+lg = TBLogger("runs/exp")
+cb = mcmc_callback(logger=lg)
+
+# With default stats (requires OnlineStats)
+using TensorBoardLogger, OnlineStats
+lg = TBLogger("runs/exp")
+cb = mcmc_callback(logger=lg, stats=true)
+```
 """
-function create_tensorboard_callback(logger::AbstractLogger; stats, name_filter)
+function AbstractMCMC.mcmc_callback(;
+    logger::AbstractLogger,
+    stats=nothing,
+    stats_options=nothing,
+    name_filter=nothing,
+    num_bins::Int=100,
+)
+    merged_stats_options = merge_with_defaults(stats_options, DEFAULT_STATS_OPTIONS)
+    merged_name_filter = merge_with_defaults(name_filter, DEFAULT_NAME_FILTER)
+
+    processed_stats = create_stats_with_options(stats, merged_stats_options, num_bins)
+
     variable_filter = NameFilter(;
-        include=isempty(name_filter.include) ? nothing : name_filter.include,
-        exclude=isempty(name_filter.exclude) ? nothing : name_filter.exclude,
+        include=merged_name_filter.include,
+        exclude=merged_name_filter.exclude,
     )
 
-    stats_dict, prototype = if stats === nothing
+    stats_dict, prototype = if processed_stats === nothing
         (nothing, nothing)
     else
-        stats
+        processed_stats
     end
 
-    return TensorBoardCallback(
+    callback = TensorBoardCallback(
         logger,
         stats_dict,
         prototype,
         variable_filter,
-        name_filter.extras,
-        name_filter.hyperparams,
+        merged_name_filter.extras,
+        merged_name_filter.hyperparams,
         "",
         "extras/",
     )
+
+    return MultiCallback((callback,))
 end
 
 function filter_name_and_value(cb::TensorBoardCallback, name_and_value)

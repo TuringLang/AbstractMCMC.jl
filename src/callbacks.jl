@@ -10,9 +10,10 @@
 
 A callback that combines multiple callbacks into one.
 
-Implements `push!!` from [BangBang.jl](https://github.com/JuliaFolds/BangBang.jl) to add callbacks to the list.
+Supports `push!!` from [BangBang.jl](https://github.com/JuliaFolds/BangBang.jl) to add callbacks,
+returning a new `MultiCallback` with the added callback.
 """
-struct MultiCallback{Cs}
+struct MultiCallback{Cs<:Tuple}
     callbacks::Cs
 end
 
@@ -21,31 +22,37 @@ MultiCallback(callbacks...) = MultiCallback(callbacks)
 
 (c::MultiCallback)(args...; kwargs...) = foreach(c -> c(args...; kwargs...), c.callbacks)
 
-function BangBang.push!!(c::MultiCallback{<:Tuple}, callback)
+function BangBang.push!!(c::MultiCallback, callback)
     return MultiCallback((c.callbacks..., callback))
-end
-function BangBang.push!!(c::MultiCallback{<:AbstractArray}, callback)
-    (push!(c.callbacks, callback); return c)
 end
 
 """
-    NameFilter(; include=nothing, exclude=nothing)
+    NameFilter(; include=Set{String}(), exclude=Set{String}())
 
 A filter for variable names.
 
-- If `include` is not `nothing`, only names in `include` will pass the filter.
-- If `exclude` is not `nothing`, names in `exclude` will be excluded.
+- If `include` is non-empty, only names in `include` will pass the filter.
+- Names in `exclude` will be excluded.
+- Throws an error if `include` and `exclude` have overlapping elements.
 """
-Base.@kwdef struct NameFilter{A,B}
-    include::A = nothing
-    exclude::B = nothing
+struct NameFilter
+    include::Set{String}
+    exclude::Set{String}
+
+    function NameFilter(; include=Set{String}(), exclude=Set{String}())
+        inc_set = include isa Set ? include : Set{String}(include)
+        exc_set = exclude isa Set ? exclude : Set{String}(exclude)
+        overlap = intersect(inc_set, exc_set)
+        if !isempty(overlap)
+            error("NameFilter: include and exclude have overlapping elements: $overlap")
+        end
+        return new(inc_set, exc_set)
+    end
 end
 
 (f::NameFilter)(name, value) = f(name)
 function (f::NameFilter)(name)
-    include, exclude = f.include, f.exclude
-    return (exclude === nothing || name ∉ exclude) &&
-           (include === nothing || name ∈ include)
+    return name ∉ f.exclude && (isempty(f.include) || name ∈ f.include)
 end
 
 ##############################
@@ -216,19 +223,22 @@ mcmc_callback(f::Function) = MultiCallback((f,))
 """
     mcmc_callback(callbacks...)
 
-Combine multiple callbacks into one.
+Combine multiple callbacks into one. Requires at least one callback.
 """
-mcmc_callback(callbacks::Vararg{Any,N}) where {N} = MultiCallback(callbacks)
+function mcmc_callback(cb1, callbacks...)
+    return MultiCallback((cb1, callbacks...))
+end
+
 
 """
     mcmc_callback(;
-        logger = nothing,
+        logger,
         stats = nothing,
         stats_options = nothing,
         name_filter = nothing,
     )
 
-Create a callback using keyword arguments.
+Create a TensorBoard logging callback. **Requires TensorBoardLogger.jl to be loaded.**
 
 # Arguments
 - `logger`: An `AbstractLogger` instance (e.g., `TBLogger` from TensorBoardLogger.jl)
@@ -241,7 +251,6 @@ Create a callback using keyword arguments.
 
 # Examples
 ```julia
-# Basic logging (no statistics)
 using TensorBoardLogger
 lg = TBLogger("runs/exp")
 cb = mcmc_callback(logger=lg)
@@ -249,61 +258,14 @@ cb = mcmc_callback(logger=lg)
 # With default stats (requires OnlineStats)
 using TensorBoardLogger, OnlineStats
 lg = TBLogger("runs/exp")
-cb = mcmc_callback(logger=lg, stats=true)  # or stats=:default
-
-# With custom stats
-cb = mcmc_callback(logger=lg, stats=(Mean(), Variance()))
+cb = mcmc_callback(logger=lg, stats=true)
 ```
+
+!!! note
+    This method is defined in the TensorBoardLogger extension. You must load
+    TensorBoardLogger before using it: `using TensorBoardLogger`
 """
-function mcmc_callback(;
-    logger=nothing,
-    stats=nothing,
-    stats_options=nothing,
-    name_filter=nothing,
-    num_bins::Int=100,
-)
-    # Validate that logger is provided
-    if logger === nothing
-        throw(
-            ArgumentError(
-                "A logger must be specified. Pass an AbstractLogger instance to `logger`. " *
-                "For TensorBoard logging: `using TensorBoardLogger; mcmc_callback(logger=TBLogger(\"runs/exp\"))`",
-            ),
-        )
-    end
-
-    if !(logger isa Logging.AbstractLogger)
-        throw(
-            ArgumentError(
-                "Expected an AbstractLogger instance, got $(typeof(logger)). " *
-                "For TensorBoard: `using TensorBoardLogger; mcmc_callback(logger=TBLogger(\"runs/exp\"))`",
-            ),
-        )
-    end
-
-    merged_stats_options = merge_with_defaults(stats_options, DEFAULT_STATS_OPTIONS)
-    merged_name_filter = merge_with_defaults(name_filter, DEFAULT_NAME_FILTER)
-
-    # Process stats in main package - this provides helpful error if OnlineStats not loaded
-    processed_stats = create_stats_with_options(stats, merged_stats_options, num_bins)
-
-    callback = _make_logger_callback(
-        logger; stats=processed_stats, name_filter=merged_name_filter
-    )
-
-    return MultiCallback((callback,))
-end
-
-function _make_logger_callback(logger; stats, name_filter)
-    ext = Base.get_extension(@__MODULE__, :AbstractMCMCTensorBoardLoggerExt)
-    if ext === nothing
-        error(
-            "TensorBoard logging requires TensorBoardLogger.jl to be loaded. " *
-            "Please run: `using TensorBoardLogger`",
-        )
-    end
-    return ext.create_tensorboard_callback(logger; stats, name_filter)
-end
+function mcmc_callback end
 
 """
     mcmc_callback(existing::MultiCallback, new_callbacks...)
@@ -311,9 +273,7 @@ end
 Add callbacks to an existing MultiCallback.
 """
 function mcmc_callback(existing::MultiCallback, new_callbacks...)
-    result = existing
-    for cb in new_callbacks
-        result = BangBang.push!!(result, cb)
-    end
-    return result
+    return MultiCallback((existing.callbacks..., new_callbacks...))
 end
+
+

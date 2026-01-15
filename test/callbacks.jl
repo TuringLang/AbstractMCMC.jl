@@ -28,7 +28,7 @@
     end
 
     @testset "Error without callback type" begin
-        @test_throws ArgumentError mcmc_callback()
+        @test_throws MethodError mcmc_callback()
     end
 
     @testset "Adding callbacks with push!!" begin
@@ -113,11 +113,19 @@ end
         @test f("y") == false
     end
 
-    @testset "Include and exclude" begin
-        f = AbstractMCMC.NameFilter(; include=["a", "b", "c"], exclude=["c"])
+    @testset "Include and exclude (non-overlapping)" begin
+        f = AbstractMCMC.NameFilter(; include=["a", "b"], exclude=["x", "y"])
         @test f("a") == true
+        @test f("b") == true
+        @test f("x") == false
+        @test f("y") == false
         @test f("c") == false
-        @test f("d") == false
+    end
+
+    @testset "Include and exclude (overlapping errors)" begin
+        @test_throws ErrorException AbstractMCMC.NameFilter(;
+            include=["a", "b", "c"], exclude=["c"]
+        )
     end
 
     @testset "No filter" begin
@@ -159,8 +167,7 @@ using TensorBoardLogger
     end
 
     @testset "mcmc_callback requires logger argument" begin
-        # Should fail if no logger provided
-        @test_throws ArgumentError mcmc_callback()
+        @test_throws UndefKeywordError mcmc_callback()
     end
 
     @testset "mcmc_callback with stats=true" begin
