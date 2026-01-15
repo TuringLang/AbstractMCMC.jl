@@ -25,7 +25,7 @@ cb = mcmc_callback() do rng, model, sampler, transition, state, iteration
     println("Iteration: $iteration")
 end
 
-chain = sample(model, sampler, 1000; callback=cb)
+chain = sample(model, sampler, 10; callback=cb)
 ```
 
 ## Combining Multiple Callbacks
