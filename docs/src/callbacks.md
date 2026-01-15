@@ -9,6 +9,17 @@ The `mcmc_callback` function is the main entry point for creating callbacks:
 ```julia
 using AbstractMCMC
 
+struct MyModel <: AbstractMCMC.AbstractModel end
+
+struct MySampler <: AbstractMCMC.AbstractSampler end
+
+function AbstractMCMC.step(rng, ::MyModel, ::MySampler, state=nothing; kwargs...)
+   # all samples are zero
+   return 0.0, state
+end
+
+model, sampler = MyModel(), MySampler()
+
 # Simple callback with a function
 cb = mcmc_callback() do rng, model, sampler, transition, state, iteration
     println("Iteration: $iteration")
