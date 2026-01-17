@@ -145,6 +145,7 @@ end
 Update and log statistics. Called from TensorBoard callback.
 """
 function log_stat_impl!(stats::AbstractDict, prototype, key, val, prefix)
+    # Safety: extract value if val is a Pair (can happen with nested iteration)
     actual_val = val isa Pair ? last(val) : val
 
     if !(actual_val isa Real)
