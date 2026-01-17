@@ -158,7 +158,11 @@ function _names_and_values(
     if params
         try
             p = getparams(state)
-            push!(iters, zip(default_param_names_for_values(p), p))
+            if !isempty(p) && first(p) isa Pair
+                push!(iters, p)
+            else
+                push!(iters, zip(default_param_names_for_values(p), p))
+            end
         catch
             # No params available
         end
@@ -175,7 +179,7 @@ function _names_and_values(
         try
             stats = getstats(state)
             if stats isa NamedTuple
-                push!(iters, pairs(stats))
+                push!(iters, (string(k) => v for (k, v) in pairs(stats)))
             end
         catch
             # No extras available

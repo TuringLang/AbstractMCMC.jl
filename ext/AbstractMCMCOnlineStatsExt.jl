@@ -145,17 +145,26 @@ end
 Update and log statistics. Called from TensorBoard callback.
 """
 function log_stat_impl!(stats::AbstractDict, prototype, key, val, prefix)
+    actual_val = val isa Pair ? last(val) : val
+
+    if !(actual_val isa Real)
+        return nothing
+    end
+    float_val = Float64(actual_val)
+
+    str_key = string(key)
+
     stat = if prototype !== nothing
-        get!(stats, key) do
+        get!(stats, str_key) do
             deepcopy(prototype)
         end
     else
-        get(stats, key, nothing)
+        get(stats, str_key, nothing)
     end
 
     if stat !== nothing
-        fit!(stat, val)
-        @info "$(prefix)$key" stat
+        fit!(stat, float_val)
+        @info "$(prefix)$str_key" stat
     end
 end
 
