@@ -93,7 +93,7 @@ end
     @testset "DEFAULT_NAME_FILTER" begin
         @test AbstractMCMC.DEFAULT_NAME_FILTER.include == String[]
         @test AbstractMCMC.DEFAULT_NAME_FILTER.exclude == String[]
-        @test AbstractMCMC.DEFAULT_NAME_FILTER.extras == false
+        @test AbstractMCMC.DEFAULT_NAME_FILTER.stats == false
         @test AbstractMCMC.DEFAULT_NAME_FILTER.hyperparams == false
     end
 end
@@ -159,11 +159,6 @@ end
 @testset "default_param_names_for_values" begin
     names = collect(AbstractMCMC.default_param_names_for_values([1.0, 2.0, 3.0]))
     @test names == ["θ[1]", "θ[2]", "θ[3]"]
-end
-
-@testset "_names_and_values" begin
-    # Test that the internal unified function exists and has expected signature
-    @test hasmethod(AbstractMCMC._names_and_values, Tuple{Any,Any,Any,Any})
 end
 
 using OnlineStats
@@ -285,6 +280,20 @@ using TensorBoardLogger
         # Also works with explicit OnlineStat
         cb = mcmc_callback(; logger=logger, stats=Mean())
         @test cb isa AbstractMCMC.MultiCallback
+    end
+
+    @testset "names_and_values default implementation" begin
+        struct MockState
+            params::Vector{Float64}
+        end
+        AbstractMCMC.getparams(s::MockState) = s.params
+
+        state = MockState([10.0, 20.0])
+        result = collect(AbstractMCMC.names_and_values(nothing, nothing, nothing, state))
+
+        @test length(result) == 2
+        @test result[1] == ("θ[1]", 10.0)
+        @test result[2] == ("θ[2]", 20.0)
     end
 end
 

@@ -211,6 +211,67 @@ function my_callback(rng, model, sampler, transition, state, iteration; kwargs..
 end
 ```
 
+## names_and_values - Public API
+
+The `names_and_values` function is the **public API** for extracting named values from MCMC states.
+Override this in downstream packages to provide meaningful variable names for logging and visualization.
+
+### Signature
+
+```julia
+names_and_values(model, sampler, transition, state;
+    params=true, stats=false, hyperparams=false, extras=false)
+```
+
+Returns an iterator of `(name, value)` pairs.
+
+### Default Behavior
+
+- Uses `getparams(state)` for parameter values with `θ[1], θ[2], ...` naming
+- Uses `getstats(state)` for extra statistics when `stats=true`
+- Returns empty for hyperparameters (samplers should override)
+- Returns empty for extras (samplers should override)
+
+### Overriding for Your Package
+
+```julia
+function AbstractMCMC.names_and_values(
+    model::MyPackage.MyModel, sampler, transition, state;
+    params=true, stats=false, hyperparams=false
+)
+    iters = []
+    
+    if params
+        # Return actual variable names
+        push!(iters, [
+            "μ" => state.mu,
+            "σ" => state.sigma,
+        ])
+    end
+    
+    if stats
+        s = getstats(state)
+        push!(iters, (string(k) => v for (k, v) in pairs(s)))
+    end
+    
+    if hyperparams
+        push!(iters, ["step_size" => sampler.step_size])
+    end
+    
+    return Iterators.flatten(iters)
+end
+```
+
+### Usage in TensorBoard Callback
+
+The TensorBoard callback uses `names_and_values` internally:
+
+```julia
+for (k, val) in names_and_values(model, sampler, t, state; params=true, stats=true)
+    @info "$k" val
+end
+```
+
 ## Internals
 
 !!! note
@@ -236,19 +297,3 @@ When using statistics, AbstractMCMC provides wrappers that modify how samples ar
 
 These are applied automatically via `stats_options`, but can also be used directly if needed.
 
-### Internal Functions
-
-The unified `_names_and_values` function extracts all relevant data from a sampler state:
-
-```julia
-for (name, value) in AbstractMCMC._names_and_values(
-    model, sampler, transition, state;
-    params=true,
-    hyperparams=false,
-    extra=false,
-)
-    println("$name = $value")
-end
-```
-
-Samplers can override `AbstractMCMC.getparams(state)` and `AbstractMCMC.getstats(state)` to provide custom information extraction.

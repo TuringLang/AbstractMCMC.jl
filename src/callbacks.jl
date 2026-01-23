@@ -62,7 +62,7 @@ end
 const DEFAULT_STATS_OPTIONS = (; thin=0, skip=0, window=typemax(Int))
 
 const DEFAULT_NAME_FILTER = (;
-    include=String[], exclude=String[], extras=false, hyperparams=false
+    include=String[], exclude=String[], stats=false, hyperparams=false
 )
 
 """
@@ -122,36 +122,37 @@ Return an iterator of `θ[i]` for each element in `x`.
 default_param_names_for_values(x) = ("θ[$i]" for i in 1:length(x))
 
 """
-    _names_and_values(
-        model,
-        sampler,
-        transition,
-        state;
-        params::Bool = true,
-        hyperparams::Bool = false,
-        extra::Bool = false,
-        kwargs...
-    )
+    names_and_values(model, sampler, transition, state; params=true, stats=false, hyperparams=false, extras=false)
 
-Return an iterator over parameter names and values.
+Return an iterator of `(name, value)` pairs for MCMC logging and visualization.
 
-This function is not part of the public API and may change or break at any time.
+This is the **public API** for extracting named values from MCMC states.
+Downstream packages should override this to provide meaningful variable names.
+If not overridden, it defaults to:
+- `params=true`: `θ[1], θ[2], ...` from `getparams(state)`
+- `stats=true`: `lp`, etc. from `getstats(state)`
+- `hyperparams=true`: empty (unless overridden)
+- `extras=true`: empty (unless overridden)
 
-## Keywords
-- `params`: include model parameters.
-- `hyperparams`: include sampler hyperparameters
-- `extra`: include additional statistics.
-- `kwargs...`: reserved for internal extensibility.
+# Arguments
+- `model`: The probabilistic model being sampled
+- `sampler`: The MCMC sampler
+- `transition`: The current transition
+- `state`: The current sampler state
+- `params::Bool=true`: Include model parameters
+- `stats::Bool=false`: Include extra statistics (e.g., log probability)
+- `hyperparams::Bool=false`: Include sampler hyperparameters
+- `extras::Bool=false`: Include extra transition information
 """
-function _names_and_values(
+function names_and_values(
     model,
     sampler,
     transition,
     state;
     params::Bool=true,
+    stats::Bool=false,
     hyperparams::Bool=false,
-    extra::Bool=false,
-    kwargs...,
+    extras::Bool=false,
 )
     iters = []
 
@@ -159,8 +160,10 @@ function _names_and_values(
         try
             p = getparams(state)
             if !isempty(p) && first(p) isa Pair
+                # Already named pairs - use directly
                 push!(iters, p)
             else
+                # Raw values - add default θ[i] names
                 push!(iters, zip(default_param_names_for_values(p), p))
             end
         catch
@@ -168,41 +171,21 @@ function _names_and_values(
         end
     end
 
-    if hyperparams
-        hp = _hyperparams_impl(model, sampler, state; kwargs...)
-        if !isempty(hp)
-            push!(iters, hp)
-        end
-    end
-
-    if extra
+    if stats
         try
-            stats = getstats(state)
-            if stats isa NamedTuple
-                push!(iters, (string(k) => v for (k, v) in pairs(stats)))
+            s = getstats(state)
+            if s isa NamedTuple && !isempty(s)
+                push!(iters, (string(k) => v for (k, v) in pairs(s)))
             end
         catch
-            # No extras available
+            # No stats available
         end
     end
 
+    # hyperparams and extras: default returns empty
+    # samplers should override names_and_values to provide these
+
     return Iterators.flatten(iters)
-end
-
-# Internal helper for hyperparams extraction
-function _hyperparams_impl(model, sampler, state; kwargs...)
-    return Pair{String,Any}[]
-end
-
-"""
-    hyperparam_metrics(model, sampler[, state]; kwargs...)
-
-Return a Vector{String} of metrics for hyperparameters.
-Override this to specify which logged values should be used as hyperparam metrics in TensorBoard.
-"""
-hyperparam_metrics(model, sampler; kwargs...) = String[]
-function hyperparam_metrics(model, sampler, state; kwargs...)
-    return hyperparam_metrics(model, sampler; kwargs...)
 end
 
 #################################
@@ -246,7 +229,7 @@ Create a TensorBoard logging callback. **Requires TensorBoardLogger.jl to be loa
   - `true` or `:default`: Use default statistics (Mean, Variance, KHist) - requires OnlineStats
   - An OnlineStat or tuple of OnlineStats - requires OnlineStats
 - `stats_options`: NamedTuple with `thin`, `skip`, `window`
-- `name_filter`: NamedTuple with `include`, `exclude`, `extras`, `hyperparams`
+- `name_filter`: NamedTuple with `include`, `exclude`, `stats`, `hyperparams`
 
 # Examples
 ```julia
