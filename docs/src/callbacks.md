@@ -213,31 +213,16 @@ end
 
 ## names_and_values - Public API
 
-The `names_and_values` function is the **public API** for extracting named values from MCMC states.
-Override this in downstream packages to provide meaningful variable names for logging and visualization.
-
-### Signature
-
-```julia
-names_and_values(model, sampler, transition, state;
-    params=true, stats=false, hyperparams=false, extras=false)
+```@docs
+AbstractMCMC.names_and_values
 ```
-
-Returns an iterator of `(name, value)` pairs.
-
-### Default Behavior
-
-- Uses `getparams(state)` for parameter values with `θ[1], θ[2], ...` naming
-- Uses `getstats(state)` for extra statistics when `stats=true`
-- Returns empty for hyperparameters (samplers should override)
-- Returns empty for extras (samplers should override)
 
 ### Overriding for Your Package
 
 ```julia
 function AbstractMCMC.names_and_values(
     model::MyPackage.MyModel, sampler, transition, state;
-    params=true, stats=false, hyperparams=false
+    params=true, stats=false, hyperparams=false, extras=false
 )
     iters = []
     
@@ -296,4 +281,3 @@ When using statistics, AbstractMCMC provides wrappers that modify how samples ar
 | `WindowStat(n, stat)` | Use a rolling window of `n` observations |
 
 These are applied automatically via `stats_options`, but can also be used directly if needed.
-
