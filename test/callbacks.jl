@@ -348,8 +348,8 @@ using TensorBoardLogger
         result = collect(Base.pairs(pws))
 
         @test length(result) == 2
-        @test result[1] == ("θ[1]", 10.0)
-        @test result[2] == ("θ[2]", 20.0)
+        @test result[1] == ("θ[1]" => 10.0)
+        @test result[2] == ("θ[2]" => 20.0)
     end
 end
 
