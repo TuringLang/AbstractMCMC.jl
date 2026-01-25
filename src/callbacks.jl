@@ -156,9 +156,9 @@ end
 
 Construct a `ParamsWithStats` by extracting values from the MCMC state.
 
-- `params=true`: Include model parameters via `getparams(state)`
-- `stats=true`: Include statistics via `getstats(state)`
-- `extras=true`: Include extras (empty by default; samplers override to provide)
+- `params=true`: Include model parameters via `getparams(state)`.
+- `stats=true`: Include step-level statistics via `getstats(state)`.
+- `extras=true`: Include constant or iteration-level metadata (e.g. hyperparams).
 """
 function ParamsWithStats(
     model,
@@ -217,7 +217,7 @@ function Base.pairs(pws::ParamsWithStats)
             push!(iters, pws.params)
         else
             # Raw values - add default θ[i] names
-            push!(iters, zip(default_param_names_for_values(pws.params), pws.params))
+            push!(iters, (n => v for (n, v) in zip(default_param_names_for_values(pws.params), pws.params)))
         end
     end
 
