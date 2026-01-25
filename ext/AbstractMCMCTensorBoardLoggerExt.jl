@@ -4,7 +4,7 @@ using AbstractMCMC
 using AbstractMCMC:
     MultiCallback,
     NameFilter,
-    names_and_values,
+    ParamsWithStats,
     merge_with_defaults,
     create_stats_with_options,
     DEFAULT_STATS_OPTIONS,
@@ -29,7 +29,7 @@ struct TensorBoardCallback{L,S,P,F}
     stat_prototype::P
     variable_filter::F
     include_stats::Bool
-    include_hyperparams::Bool
+    include_extras::Bool
     param_prefix::String
     extras_prefix::String
 end
@@ -46,7 +46,7 @@ Create a TensorBoard logging callback.
   - `true` or `:default`: Use default statistics (Mean, Variance, KHist) - requires OnlineStats
   - An OnlineStat or tuple of OnlineStats - requires OnlineStats
 - `stats_options`: NamedTuple with `thin`, `skip`, `window`
-- `name_filter`: NamedTuple with `include`, `exclude`, `stats`, `hyperparams`
+- `name_filter`: NamedTuple with `include`, `exclude`, `stats`, `extras`
 - `num_bins`: Number of histogram bins (default: 100)
 
 # Examples
@@ -89,7 +89,7 @@ function AbstractMCMC.mcmc_callback(;
         prototype,
         variable_filter,
         merged_name_filter.stats,
-        merged_name_filter.hyperparams,
+        merged_name_filter.extras,
         "",
         "extras/",
     )
@@ -109,17 +109,18 @@ function (cb::TensorBoardCallback)(
     filter_fn = Base.Fix1(filter_name_and_value, cb)
 
     with_logger(lg) do
-        all_values = names_and_values(
+        # Use ParamsWithStats container with Base.pairs iteration
+        pws = ParamsWithStats(
             model,
             sampler,
             transition,
             state;
             params=true,
             stats=cb.include_stats,
-            hyperparams=(iteration == 1 && cb.include_hyperparams),
+            extras=(iteration == 1 && cb.include_extras),
         )
 
-        for (k, val) in Iterators.filter(filter_fn, all_values)
+        for (k, val) in Iterators.filter(filter_fn, Base.pairs(pws))
             @info "$(cb.param_prefix)$k" val
 
             if stats !== nothing

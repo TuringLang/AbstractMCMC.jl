@@ -94,7 +94,7 @@ end
         @test AbstractMCMC.DEFAULT_NAME_FILTER.include == String[]
         @test AbstractMCMC.DEFAULT_NAME_FILTER.exclude == String[]
         @test AbstractMCMC.DEFAULT_NAME_FILTER.stats == false
-        @test AbstractMCMC.DEFAULT_NAME_FILTER.hyperparams == false
+        @test AbstractMCMC.DEFAULT_NAME_FILTER.extras == false
     end
 end
 
@@ -159,6 +159,61 @@ end
 @testset "default_param_names_for_values" begin
     names = collect(AbstractMCMC.default_param_names_for_values([1.0, 2.0, 3.0]))
     @test names == ["θ[1]", "θ[2]", "θ[3]"]
+end
+
+#########################
+### ParamsWithStats   ###
+#########################
+
+@testset "ParamsWithStats" begin
+    @testset "Constructor from state" begin
+        # Use a simple Integer state (has getparams/getstats in utils.jl)
+        state = 5
+        pws = AbstractMCMC.ParamsWithStats(
+            MyModel(), MySampler(), nothing, state; params=true, stats=true
+        )
+        @test pws isa AbstractMCMC.ParamsWithStats
+        @test pws.params == Float64[]  # Our Integer state returns empty params
+        @test pws.stats == (iteration=5,)  # Our Integer state returns iteration
+        @test pws.extras == NamedTuple()
+    end
+
+    @testset "Copy constructor with selection" begin
+        state = 5
+        pws = AbstractMCMC.ParamsWithStats(
+            MyModel(), MySampler(), nothing, state; params=true, stats=true
+        )
+
+        # Select only params
+        pws_params = AbstractMCMC.ParamsWithStats(pws; params=true, stats=false)
+        @test pws_params.params == Float64[]
+        @test pws_params.stats == NamedTuple()
+
+        # Select only stats
+        pws_stats = AbstractMCMC.ParamsWithStats(pws; params=false, stats=true)
+        @test pws_stats.params === nothing
+        @test pws_stats.stats == (iteration=5,)
+    end
+
+    @testset "Base.pairs iteration" begin
+        state = 5
+        pws = AbstractMCMC.ParamsWithStats(
+            MyModel(), MySampler(), nothing, state; params=true, stats=true
+        )
+
+        # Collect pairs
+        pairs_list = collect(Base.pairs(pws))
+        @test length(pairs_list) == 1  # Only stats (iteration), no params
+        @test ("iteration" => 5) in pairs_list
+    end
+
+    @testset "Base.isempty" begin
+        state = 5
+        pws_full = AbstractMCMC.ParamsWithStats(
+            MyModel(), MySampler(), nothing, state; params=true, stats=true
+        )
+        @test !isempty(pws_full)
+    end
 end
 
 using OnlineStats
@@ -282,14 +337,15 @@ using TensorBoardLogger
         @test cb isa AbstractMCMC.MultiCallback
     end
 
-    @testset "names_and_values default implementation" begin
+    @testset "ParamsWithStats default implementation" begin
         struct MockState
             params::Vector{Float64}
         end
         AbstractMCMC.getparams(s::MockState) = s.params
 
         state = MockState([10.0, 20.0])
-        result = collect(AbstractMCMC.names_and_values(nothing, nothing, nothing, state))
+        pws = AbstractMCMC.ParamsWithStats(nothing, nothing, nothing, state; params=true)
+        result = collect(Base.pairs(pws))
 
         @test length(result) == 2
         @test result[1] == ("θ[1]", 10.0)

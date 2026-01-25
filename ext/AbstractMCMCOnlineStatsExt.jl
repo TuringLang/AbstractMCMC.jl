@@ -144,14 +144,12 @@ end
 
 Update and log statistics. Called from TensorBoard callback.
 """
-function log_stat_impl!(stats::AbstractDict, prototype, key, val, prefix)
-    # Safety: extract value if val is a Pair (can happen with nested iteration)
-    actual_val = val isa Pair ? last(val) : val
-
-    if !(actual_val isa Real)
+function log_stat_impl!(stats::AbstractDict, prototype, key, val::Real, prefix)
+    float_val = try
+        Float64(val)
+    catch
         return nothing
     end
-    float_val = Float64(actual_val)
 
     str_key = string(key)
 
@@ -167,6 +165,16 @@ function log_stat_impl!(stats::AbstractDict, prototype, key, val, prefix)
         fit!(stat, float_val)
         @info "$(prefix)$str_key" stat
     end
+end
+
+function log_stat_impl!(
+    stats::AbstractDict, prototype, key, val::Pair{<:Any,T}, prefix
+) where {T<:Real}
+    return log_stat_impl!(stats, prototype, key, last(val), prefix)
+end
+
+function log_stat_impl!(stats::AbstractDict, prototype, key, val, prefix)
+    return nothing
 end
 
 log_stat_impl!(::Nothing, prototype, key, val, prefix) = nothing

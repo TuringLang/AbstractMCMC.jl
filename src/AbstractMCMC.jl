@@ -23,7 +23,7 @@ export sample
 export MCMCThreads, MCMCDistributed, MCMCSerial
 
 # Callback API
-export mcmc_callback, names_and_values
+export mcmc_callback, ParamsWithStats
 
 """
     AbstractChains

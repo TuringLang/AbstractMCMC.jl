@@ -198,8 +198,7 @@ mcmc_callback
 |--------------|------------|----------------------------------|
 | `include`    | `String[]` | Only log these (empty=all)       |
 | `exclude`    | `String[]` | Don't log these                  |
-| `extras`     | `false`    | Include extra stats              |
-| `hyperparams`| `false`    | Include hyperparameters          |
+| `extras`     | `false`    | Include extra diagnostics        |
 
 ## Implementing Custom Callbacks
 
@@ -211,48 +210,52 @@ function my_callback(rng, model, sampler, transition, state, iteration; kwargs..
 end
 ```
 
-## names_and_values - Public API
+## ParamsWithStats - Public API
+
+`ParamsWithStats` is the first-class container for extracting and iterating over MCMC parameters, statistics, and extras.
 
 ```@docs
-AbstractMCMC.names_and_values
+AbstractMCMC.ParamsWithStats
+```
+
+### Basic Usage
+
+```julia
+# Extract params and stats from state
+pws = ParamsWithStats(model, sampler, transition, state; params=true, stats=true)
+
+# Iterate using Base.pairs
+for (name, value) in Base.pairs(pws)
+    @info name value
+end
+
+# Re-select to get only params
+pws_params = ParamsWithStats(pws; params=true, stats=false, extras=false)
 ```
 
 ### Overriding for Your Package
 
+To provide meaningful variable names, override the extraction hooks:
+
 ```julia
-function AbstractMCMC.names_and_values(
-    model::MyPackage.MyModel, sampler, transition, state;
-    params=true, stats=false, hyperparams=false, extras=false
-)
-    iters = []
-    
-    if params
-        # Return actual variable names
-        push!(iters, [
-            "μ" => state.mu,
-            "σ" => state.sigma,
-        ])
-    end
-    
-    if stats
-        s = getstats(state)
-        push!(iters, (string(k) => v for (k, v) in pairs(s)))
-    end
-    
-    if hyperparams
-        push!(iters, ["step_size" => sampler.step_size])
-    end
-    
-    return Iterators.flatten(iters)
+# Override getparams to return named pairs
+function AbstractMCMC.getparams(state::MyState)
+    return ["μ" => state.mu, "σ" => state.sigma]
+end
+
+# Override getstats to return statistics
+function AbstractMCMC.getstats(state::MyState)
+    return (lp=state.logp, acceptance_rate=state.accept_rate)
 end
 ```
 
 ### Usage in TensorBoard Callback
 
-The TensorBoard callback uses `names_and_values` internally:
+The TensorBoard callback uses `ParamsWithStats` with `Base.pairs`:
 
 ```julia
-for (k, val) in names_and_values(model, sampler, t, state; params=true, stats=true)
+pws = ParamsWithStats(model, sampler, t, state; params=true, stats=true)
+for (k, val) in Base.pairs(pws)
     @info "$k" val
 end
 ```

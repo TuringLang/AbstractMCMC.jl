@@ -62,7 +62,7 @@ end
 const DEFAULT_STATS_OPTIONS = (; thin=0, skip=0, window=typemax(Int))
 
 const DEFAULT_NAME_FILTER = (;
-    include=String[], exclude=String[], stats=false, hyperparams=false
+    include=String[], exclude=String[], stats=false, extras=false
 )
 
 """
@@ -122,70 +122,124 @@ Return an iterator of `θ[i]` for each element in `x`.
 default_param_names_for_values(x) = ("θ[$i]" for i in 1:length(x))
 
 """
-    names_and_values(model, sampler, transition, state; params=true, stats=false, hyperparams=false, extras=false)
+    ParamsWithStats{P,S,E}
 
-Return an iterator of `(name, value)` pairs for MCMC logging and visualization.
+A container for MCMC parameters, statistics, and extras.
 
 This is the **public API** for extracting named values from MCMC states.
-Downstream packages should override this to provide meaningful variable names.
-If not overridden, it defaults to:
-- `params=true`: `θ[1], θ[2], ...` from `getparams(state)`
-- `stats=true`: `lp`, etc. from `getstats(state)`
-- `hyperparams=true`: empty (unless overridden)
-- `extras=true`: empty (unless overridden)
+Use `Base.pairs(pws)` to iterate over `(name, value)` pairs.
 
-# Arguments
-- `model`: The probabilistic model being sampled
-- `sampler`: The MCMC sampler
-- `transition`: The current transition
-- `state`: The current sampler state
-- `params::Bool=true`: Include model parameters
-- `stats::Bool=false`: Include extra statistics (e.g., log probability)
-- `hyperparams::Bool=false`: Include sampler hyperparameters
-- `extras::Bool=false`: Include extra transition information
+# Fields
+- `params::P`: Parameter values (Vector, Dict, or OrderedDict)
+- `stats::S`: Statistics as a NamedTuple (e.g., `(lp=...,)`)
+- `extras::E`: Extra diagnostics as a NamedTuple
+
+# Example
+```julia
+pws = ParamsWithStats(model, sampler, transition, state; params=true, stats=true)
+for (name, value) in Base.pairs(pws)
+    println("\$name: \$value")
+end
+
+# Re-select to exclude stats:
+pws2 = ParamsWithStats(pws; params=true, stats=false)
+```
 """
-function names_and_values(
+struct ParamsWithStats{P,S,E}
+    params::P
+    stats::S
+    extras::E
+end
+
+"""
+    ParamsWithStats(model, sampler, transition, state; params=true, stats=false, extras=false)
+
+Construct a `ParamsWithStats` by extracting values from the MCMC state.
+
+- `params=true`: Include model parameters via `getparams(state)`
+- `stats=true`: Include statistics via `getstats(state)`
+- `extras=true`: Include extras (empty by default; samplers override to provide)
+"""
+function ParamsWithStats(
     model,
     sampler,
     transition,
     state;
     params::Bool=true,
     stats::Bool=false,
-    hyperparams::Bool=false,
     extras::Bool=false,
 )
+    p = params ? getparams(state) : nothing
+    s = stats ? getstats(state) : NamedTuple()
+    e = extras ? NamedTuple() : NamedTuple()  # Samplers can override for actual extras
+    return ParamsWithStats(p, s, e)
+end
+
+"""
+    ParamsWithStats(pws::ParamsWithStats; params=true, stats=true, extras=true)
+
+Create a new `ParamsWithStats` by selecting subsets of an existing one.
+
+This enables filtering without re-extracting from state:
+```julia
+pws = ParamsWithStats(model, sampler, transition, state; params=true, stats=true)
+pws_params_only = ParamsWithStats(pws; params=true, stats=false, extras=false)
+```
+"""
+function ParamsWithStats(
+    pws::ParamsWithStats; params::Bool=true, stats::Bool=true, extras::Bool=true
+)
+    p = params ? pws.params : nothing
+    s = stats ? pws.stats : NamedTuple()
+    e = extras ? pws.extras : NamedTuple()
+    return ParamsWithStats(p, s, e)
+end
+
+"""
+    Base.pairs(pws::ParamsWithStats)
+
+Return an iterator of `(name, value)` pairs for all selected data in `pws`.
+
+This is the canonical way to iterate over a `ParamsWithStats`:
+```julia
+for (name, value) in Base.pairs(pws)
+    @info name value
+end
+```
+"""
+function Base.pairs(pws::ParamsWithStats)
     iters = []
 
-    if params
-        try
-            p = getparams(state)
-            if !isempty(p) && first(p) isa Pair
-                # Already named pairs - use directly
-                push!(iters, p)
-            else
-                # Raw values - add default θ[i] names
-                push!(iters, zip(default_param_names_for_values(p), p))
-            end
-        catch
-            # No params available
+    # Handle params
+    if pws.params !== nothing && !isempty(pws.params)
+        if first(pws.params) isa Pair
+            # Already named pairs - use directly
+            push!(iters, pws.params)
+        else
+            # Raw values - add default θ[i] names
+            push!(iters, zip(default_param_names_for_values(pws.params), pws.params))
         end
     end
 
-    if stats
-        try
-            s = getstats(state)
-            if s isa NamedTuple && !isempty(s)
-                push!(iters, (string(k) => v for (k, v) in pairs(s)))
-            end
-        catch
-            # No stats available
-        end
+    # Handle stats
+    if !isempty(pws.stats)
+        push!(iters, (string(k) => v for (k, v) in Base.pairs(pws.stats)))
     end
 
-    # hyperparams and extras: default returns empty
-    # samplers should override names_and_values to provide these
+    # Handle extras
+    if !isempty(pws.extras)
+        push!(iters, (string(k) => v for (k, v) in Base.pairs(pws.extras)))
+    end
 
     return Iterators.flatten(iters)
+end
+
+function Base.isempty(pws::ParamsWithStats)
+    return (
+        (pws.params === nothing || isempty(pws.params)) &&
+        isempty(pws.stats) &&
+        isempty(pws.extras)
+    )
 end
 
 #################################
