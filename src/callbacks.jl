@@ -217,7 +217,13 @@ function Base.pairs(pws::ParamsWithStats)
             push!(iters, pws.params)
         else
             # Raw values - add default θ[i] names
-            push!(iters, (n => v for (n, v) in zip(default_param_names_for_values(pws.params), pws.params)))
+            push!(
+                iters,
+                (
+                    n => v for
+                    (n, v) in zip(default_param_names_for_values(pws.params), pws.params)
+                ),
+            )
         end
     end
 
