@@ -176,13 +176,12 @@ Navigate to `localhost:6006` in your browser to see the dashboard. You'll see re
 
 ## API Reference
 
-### Main Functions
-
 ```@docs
-mcmc_callback
+AbstractMCMC.mcmc_callback
+AbstractMCMC.ParamsWithStats
 ```
 
-## Default Values
+### Default Values 
 
 ### stats_options defaults
 
@@ -210,13 +209,9 @@ function my_callback(rng, model, sampler, transition, state, iteration; kwargs..
 end
 ```
 
-## ParamsWithStats - Public API
+## ParamsWithStats
 
-`ParamsWithStats` is the first-class container for extracting and iterating over MCMC parameters, statistics, and extras.
-
-```@docs
-AbstractMCMC.ParamsWithStats
-```
+`ParamsWithStats` is a container for extracting and iterating over MCMC parameters, statistics, and extras.
 
 ### Basic Usage
 
