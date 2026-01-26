@@ -122,8 +122,8 @@ cb = mcmc_callback(
     name_filter=(
         include=["mu", "sigma"],  # Only log these parameters
         exclude=["_internal"],     # Exclude matching names
-        extras=true,               # Include extra stats (log density, etc.)
-        hyperparams=true,          # Include hyperparameters (logged once)
+        stats=true,                # Include step-level statistics
+        extras=true,               # Include extra diagnostics
     ),
 )
 ```
@@ -176,13 +176,12 @@ Navigate to `localhost:6006` in your browser to see the dashboard. You'll see re
 
 ## API Reference
 
-### Main Functions
-
 ```@docs
-mcmc_callback
+AbstractMCMC.mcmc_callback
+AbstractMCMC.ParamsWithStats
 ```
 
-## Default Values
+### Default Values 
 
 ### stats_options defaults
 
@@ -198,8 +197,8 @@ mcmc_callback
 |--------------|------------|----------------------------------|
 | `include`    | `String[]` | Only log these (empty=all)       |
 | `exclude`    | `String[]` | Don't log these                  |
-| `extras`     | `false`    | Include extra stats              |
-| `hyperparams`| `false`    | Include hyperparameters          |
+| `stats`      | `false`    | Include step-level statistics    |
+| `extras`     | `false`    | Include extra diagnostics        |
 
 ## Implementing Custom Callbacks
 
@@ -208,6 +207,67 @@ Any callable with the following signature can be used as a callback:
 ```julia
 function my_callback(rng, model, sampler, transition, state, iteration; kwargs...)
     # Your callback logic here
+end
+```
+
+## ParamsWithStats
+
+`ParamsWithStats` is a container for extracting and iterating over MCMC parameters, statistics, and extras.
+
+### Basic Usage
+
+```julia
+# Extract params and stats from state
+pws = ParamsWithStats(model, sampler, transition, state; params=true, stats=true)
+
+# Iterate using Base.pairs
+for (name, value) in Base.pairs(pws)
+    @info name value
+end
+
+# Re-select to get only params
+pws_params = ParamsWithStats(pws; params=true, stats=false, extras=false)
+```
+
+### Overriding for Your Package
+
+To provide meaningful variable names, override the extraction hooks:
+
+```julia
+# Option 1: Return Vector{<:Real} - default names (θ[1], θ[2], ...) will be used
+function AbstractMCMC.getparams(state::MyState)
+    return [state.mu, state.sigma]
+end
+
+# Option 2: Return named pairs - will be converted to NamedTuple
+function AbstractMCMC.getparams(state::MyState)
+    return ["μ" => state.mu, "σ" => state.sigma]
+end
+
+# Override getstats to return step-level statistics as NamedTuple
+function AbstractMCMC.getstats(state::MyState)
+    return (lp=state.logp, acceptance_rate=state.accept_rate)
+end
+```
+
+The `ParamsWithStats` constructors normalize all inputs to `NamedTuple`:
+- `Vector{<:Real}` gets default `θ[i]` names
+- `Vector{Pair}` is converted to `NamedTuple` with the provided names
+- `NamedTuple` is used directly
+
+!!! note "stats vs extras"
+    Use `stats` for values that change once per MCMC iteration (e.g., log probability, acceptance rate).
+    Use `extras` for values that are constant across iterations (e.g., preconditioning matrix, number of particles)
+    or that change multiple times within a single iteration (e.g., leapfrog phase points).
+
+### Usage in TensorBoard Callback
+
+The TensorBoard callback uses `ParamsWithStats` with `Base.pairs`:
+
+```julia
+pws = ParamsWithStats(model, sampler, t, state; params=true, stats=true)
+for (k, val) in Base.pairs(pws)
+    @info "$k" val
 end
 ```
 
@@ -235,20 +295,3 @@ When using statistics, AbstractMCMC provides wrappers that modify how samples ar
 | `WindowStat(n, stat)` | Use a rolling window of `n` observations |
 
 These are applied automatically via `stats_options`, but can also be used directly if needed.
-
-### Internal Functions
-
-The unified `_names_and_values` function extracts all relevant data from a sampler state:
-
-```julia
-for (name, value) in AbstractMCMC._names_and_values(
-    model, sampler, transition, state;
-    params=true,
-    hyperparams=false,
-    extra=false,
-)
-    println("$name = $value")
-end
-```
-
-Samplers can override `AbstractMCMC.getparams(state)` and `AbstractMCMC.getstats(state)` to provide custom information extraction.
