@@ -52,7 +52,8 @@ end
 
 (f::NameFilter)(name, value) = f(name)
 function (f::NameFilter)(name)
-    return name ∉ f.exclude && (isempty(f.include) || name ∈ f.include)
+    str_name = string(name)
+    return str_name ∉ f.exclude && (isempty(f.include) || str_name ∈ f.include)
 end
 
 ##############################
@@ -115,22 +116,15 @@ end
 ################################
 
 """
-    default_param_names_for_values(x)
-
-Return an iterator of `θ[i]` for each element in `x`.
-"""
-default_param_names_for_values(x) = ("θ[$i]" for i in 1:length(x))
-
-"""
     ParamsWithStats{P,S,E}
 
 A container for MCMC parameters, statistics, and extras.
 
-This is the **public API** for extracting named values from MCMC states.
+All fields are stored as `NamedTuple`s to ensure a tight, well-defined interface.
 Use `Base.pairs(pws)` to iterate over `(name, value)` pairs.
 
 # Fields
-- `params::P`: Parameter values (Vector, Dict, or OrderedDict)
+- `params::P`: Parameter values as a NamedTuple
 - `stats::S`: Statistics as a NamedTuple (e.g., `(lp=...,)`)
 - `extras::E`: Extra diagnostics as a NamedTuple
 
@@ -145,10 +139,36 @@ end
 pws2 = ParamsWithStats(pws; params=true, stats=false)
 ```
 """
-struct ParamsWithStats{P,S,E}
+struct ParamsWithStats{P<:NamedTuple,S<:NamedTuple,E<:NamedTuple}
     params::P
     stats::S
     extras::E
+end
+
+# Constructor from Vector{<:Real} - adds default θ[i] names
+function ParamsWithStats(
+    v::AbstractVector{<:Real}, stats::S, extras::E
+) where {S<:NamedTuple,E<:NamedTuple}
+    names = ntuple(i -> Symbol("θ[$i]"), length(v))
+    params = NamedTuple{names}(Tuple(v))
+    return ParamsWithStats(params, stats, extras)
+end
+
+# Constructor from Vector{Pair} - converts to NamedTuple
+function ParamsWithStats(
+    v::AbstractVector{<:Pair}, stats::S, extras::E
+) where {S<:NamedTuple,E<:NamedTuple}
+    names = Tuple(Symbol(first(p)) for p in v)
+    values = Tuple(last(p) for p in v)
+    params = NamedTuple{names}(values)
+    return ParamsWithStats(params, stats, extras)
+end
+
+# Constructor for nothing params (when params=false)
+function ParamsWithStats(
+    ::Nothing, stats::S, extras::E
+) where {S<:NamedTuple,E<:NamedTuple}
+    return ParamsWithStats(NamedTuple(), stats, extras)
 end
 
 """
@@ -156,9 +176,13 @@ end
 
 Construct a `ParamsWithStats` by extracting values from the MCMC state.
 
+# Arguments
 - `params=true`: Include model parameters via `getparams(state)`.
-- `stats=true`: Include step-level statistics via `getstats(state)`.
-- `extras=true`: Include constant or iteration-level metadata (e.g. hyperparams).
+- `stats=true`: Include step-level statistics via `getstats(state)`. These are values that
+  change once per MCMC iteration (e.g., log probability, acceptance rate).
+- `extras=true`: Include extra diagnostics. These are values that remain constant across
+  MCMC iterations (e.g., preconditioning matrix, number of particles) or change multiple
+  times within a single iteration (e.g., leapfrog phase points in HMC).
 """
 function ParamsWithStats(
     model,
@@ -171,7 +195,7 @@ function ParamsWithStats(
 )
     p = params ? getparams(state) : nothing
     s = stats ? getstats(state) : NamedTuple()
-    e = extras ? NamedTuple() : NamedTuple()  # Samplers can override for actual extras
+    e = extras ? NamedTuple() : NamedTuple()
     return ParamsWithStats(p, s, e)
 end
 
@@ -189,7 +213,7 @@ pws_params_only = ParamsWithStats(pws; params=true, stats=false, extras=false)
 function ParamsWithStats(
     pws::ParamsWithStats; params::Bool=true, stats::Bool=true, extras::Bool=true
 )
-    p = params ? pws.params : nothing
+    p = params ? pws.params : NamedTuple()
     s = stats ? pws.stats : NamedTuple()
     e = extras ? pws.extras : NamedTuple()
     return ParamsWithStats(p, s, e)
@@ -208,41 +232,16 @@ end
 ```
 """
 function Base.pairs(pws::ParamsWithStats)
-    iters = []
-
-    # Handle params
-    if pws.params !== nothing && !isempty(pws.params)
-        if first(pws.params) isa Pair
-            # Already named pairs - use directly
-            push!(iters, pws.params)
-        else
-            # Raw values - add default θ[i] names
-            push!(
-                iters,
-                (
-                    n => v for
-                    (n, v) in zip(default_param_names_for_values(pws.params), pws.params)
-                ),
-            )
-        end
-    end
-
-    # Handle stats
-    if !isempty(pws.stats)
-        push!(iters, (string(k) => v for (k, v) in Base.pairs(pws.stats)))
-    end
-
-    # Handle extras
-    if !isempty(pws.extras)
-        push!(iters, (string(k) => v for (k, v) in Base.pairs(pws.extras)))
-    end
-
-    return Iterators.flatten(iters)
+    return Iterators.flatten((
+        pairs(pws.params),
+        pairs(pws.stats),
+        pairs(pws.extras),
+    ))
 end
 
 function Base.isempty(pws::ParamsWithStats)
     return (
-        (pws.params === nothing || isempty(pws.params)) &&
+        isempty(pws.params) &&
         isempty(pws.stats) &&
         isempty(pws.extras)
     )

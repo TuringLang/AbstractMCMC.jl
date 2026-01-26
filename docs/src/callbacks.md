@@ -122,8 +122,8 @@ cb = mcmc_callback(
     name_filter=(
         include=["mu", "sigma"],  # Only log these parameters
         exclude=["_internal"],     # Exclude matching names
-        extras=true,               # Include extra stats (log density, etc.)
-        hyperparams=true,          # Include hyperparameters (logged once)
+        stats=true,                # Include step-level statistics
+        extras=true,               # Include extra diagnostics
     ),
 )
 ```
@@ -197,6 +197,7 @@ AbstractMCMC.ParamsWithStats
 |--------------|------------|----------------------------------|
 | `include`    | `String[]` | Only log these (empty=all)       |
 | `exclude`    | `String[]` | Don't log these                  |
+| `stats`      | `false`    | Include step-level statistics    |
 | `extras`     | `false`    | Include extra diagnostics        |
 
 ## Implementing Custom Callbacks
@@ -233,16 +234,31 @@ pws_params = ParamsWithStats(pws; params=true, stats=false, extras=false)
 To provide meaningful variable names, override the extraction hooks:
 
 ```julia
-# Override getparams to return named pairs
+# Option 1: Return Vector{<:Real} - default names (θ[1], θ[2], ...) will be used
+function AbstractMCMC.getparams(state::MyState)
+    return [state.mu, state.sigma]
+end
+
+# Option 2: Return named pairs - will be converted to NamedTuple
 function AbstractMCMC.getparams(state::MyState)
     return ["μ" => state.mu, "σ" => state.sigma]
 end
 
-# Override getstats to return statistics
+# Override getstats to return step-level statistics as NamedTuple
 function AbstractMCMC.getstats(state::MyState)
     return (lp=state.logp, acceptance_rate=state.accept_rate)
 end
 ```
+
+The `ParamsWithStats` constructors normalize all inputs to `NamedTuple`:
+- `Vector{<:Real}` gets default `θ[i]` names
+- `Vector{Pair}` is converted to `NamedTuple` with the provided names
+- `NamedTuple` is used directly
+
+!!! note "stats vs extras"
+    Use `stats` for values that change once per MCMC iteration (e.g., log probability, acceptance rate).
+    Use `extras` for values that are constant across iterations (e.g., preconditioning matrix, number of particles)
+    or that change multiple times within a single iteration (e.g., leapfrog phase points).
 
 ### Usage in TensorBoard Callback
 
