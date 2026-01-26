@@ -165,9 +165,7 @@ function ParamsWithStats(
 end
 
 # Constructor for nothing params (when params=false)
-function ParamsWithStats(
-    ::Nothing, stats::S, extras::E
-) where {S<:NamedTuple,E<:NamedTuple}
+function ParamsWithStats(::Nothing, stats::S, extras::E) where {S<:NamedTuple,E<:NamedTuple}
     return ParamsWithStats(NamedTuple(), stats, extras)
 end
 
@@ -232,19 +230,11 @@ end
 ```
 """
 function Base.pairs(pws::ParamsWithStats)
-    return Iterators.flatten((
-        pairs(pws.params),
-        pairs(pws.stats),
-        pairs(pws.extras),
-    ))
+    return Iterators.flatten((pairs(pws.params), pairs(pws.stats), pairs(pws.extras)))
 end
 
 function Base.isempty(pws::ParamsWithStats)
-    return (
-        isempty(pws.params) &&
-        isempty(pws.stats) &&
-        isempty(pws.extras)
-    )
+    return (isempty(pws.params) && isempty(pws.stats) && isempty(pws.extras))
 end
 
 #################################

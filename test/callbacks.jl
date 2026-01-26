@@ -168,9 +168,7 @@ end
 
 @testset "ParamsWithStats" begin
     @testset "Constructor from NamedTuple" begin
-        pws = AbstractMCMC.ParamsWithStats(
-            (a=1.0, b=2.0), (lp=-10.0,), NamedTuple()
-        )
+        pws = AbstractMCMC.ParamsWithStats((a=1.0, b=2.0), (lp=-10.0,), NamedTuple())
         @test pws isa AbstractMCMC.ParamsWithStats
         @test pws.params == (a=1.0, b=2.0)
         @test pws.stats == (lp=-10.0,)
@@ -178,9 +176,7 @@ end
     end
 
     @testset "Constructor from Vector{Real} - default names" begin
-        pws = AbstractMCMC.ParamsWithStats(
-            [1.0, 2.0, 3.0], NamedTuple(), NamedTuple()
-        )
+        pws = AbstractMCMC.ParamsWithStats([1.0, 2.0, 3.0], NamedTuple(), NamedTuple())
         @test pws.params == (var"θ[1]"=1.0, var"θ[2]"=2.0, var"θ[3]"=3.0)
     end
 
@@ -203,9 +199,7 @@ end
     end
 
     @testset "Copy constructor with selection" begin
-        pws = AbstractMCMC.ParamsWithStats(
-            (a=1.0,), (lp=-10.0,), NamedTuple()
-        )
+        pws = AbstractMCMC.ParamsWithStats((a=1.0,), (lp=-10.0,), NamedTuple())
 
         # Select only params
         pws_params = AbstractMCMC.ParamsWithStats(pws; params=true, stats=false)
@@ -219,9 +213,7 @@ end
     end
 
     @testset "Base.pairs iteration" begin
-        pws = AbstractMCMC.ParamsWithStats(
-            (a=1.0, b=2.0), (lp=-10.0,), NamedTuple()
-        )
+        pws = AbstractMCMC.ParamsWithStats((a=1.0, b=2.0), (lp=-10.0,), NamedTuple())
         pairs_list = collect(Base.pairs(pws))
         @test length(pairs_list) == 3
         @test (:a => 1.0) in pairs_list
@@ -230,21 +222,19 @@ end
     end
 
     @testset "Base.isempty" begin
-        pws_full = AbstractMCMC.ParamsWithStats(
-            (a=1.0,), (lp=-10.0,), NamedTuple()
-        )
+        pws_full = AbstractMCMC.ParamsWithStats((a=1.0,), (lp=-10.0,), NamedTuple())
         @test !isempty(pws_full)
 
-        pws_empty = AbstractMCMC.ParamsWithStats(
-            NamedTuple(), NamedTuple(), NamedTuple()
-        )
+        pws_empty = AbstractMCMC.ParamsWithStats(NamedTuple(), NamedTuple(), NamedTuple())
         @test isempty(pws_empty)
     end
 
     @testset "Illegal states are unrepresentable" begin
         # Should not be able to construct with arbitrary types
         @test_throws MethodError AbstractMCMC.ParamsWithStats(1, 2, 3)
-        @test_throws MethodError AbstractMCMC.ParamsWithStats("bad", NamedTuple(), NamedTuple())
+        @test_throws MethodError AbstractMCMC.ParamsWithStats(
+            "bad", NamedTuple(), NamedTuple()
+        )
     end
 end
 
