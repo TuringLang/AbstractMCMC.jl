@@ -52,7 +52,8 @@ end
 
 (f::NameFilter)(name, value) = f(name)
 function (f::NameFilter)(name)
-    return name ∉ f.exclude && (isempty(f.include) || name ∈ f.include)
+    str_name = string(name)
+    return str_name ∉ f.exclude && (isempty(f.include) || str_name ∈ f.include)
 end
 
 ##############################
@@ -62,7 +63,7 @@ end
 const DEFAULT_STATS_OPTIONS = (; thin=0, skip=0, window=typemax(Int))
 
 const DEFAULT_NAME_FILTER = (;
-    include=String[], exclude=String[], extras=false, hyperparams=false
+    include=String[], exclude=String[], stats=false, extras=false
 )
 
 """
@@ -115,90 +116,125 @@ end
 ################################
 
 """
-    default_param_names_for_values(x)
+    ParamsWithStats{P,S,E}
 
-Return an iterator of `θ[i]` for each element in `x`.
+A container for MCMC parameters, statistics, and extras.
+
+All fields are stored as `NamedTuple`s to ensure a tight, well-defined interface.
+Use `Base.pairs(pws)` to iterate over `(name, value)` pairs.
+
+# Fields
+- `params::P`: Parameter values as a NamedTuple
+- `stats::S`: Statistics as a NamedTuple (e.g., `(lp=...,)`)
+- `extras::E`: Extra diagnostics as a NamedTuple
+
+# Example
+```julia
+pws = ParamsWithStats(model, sampler, transition, state; params=true, stats=true)
+for (name, value) in Base.pairs(pws)
+    println("\$name: \$value")
+end
+
+# Re-select to exclude stats:
+pws2 = ParamsWithStats(pws; params=true, stats=false)
+```
 """
-default_param_names_for_values(x) = ("θ[$i]" for i in 1:length(x))
+struct ParamsWithStats{P<:NamedTuple,S<:NamedTuple,E<:NamedTuple}
+    params::P
+    stats::S
+    extras::E
+end
+
+# Constructor from Vector{<:Real} - adds default θ[i] names
+function ParamsWithStats(
+    v::AbstractVector{<:Real}, stats::S, extras::E
+) where {S<:NamedTuple,E<:NamedTuple}
+    names = ntuple(i -> Symbol("θ[$i]"), length(v))
+    params = NamedTuple{names}(Tuple(v))
+    return ParamsWithStats(params, stats, extras)
+end
+
+# Constructor from Vector{Pair} - converts to NamedTuple
+function ParamsWithStats(
+    v::AbstractVector{<:Pair}, stats::S, extras::E
+) where {S<:NamedTuple,E<:NamedTuple}
+    names = Tuple(Symbol(first(p)) for p in v)
+    values = Tuple(last(p) for p in v)
+    params = NamedTuple{names}(values)
+    return ParamsWithStats(params, stats, extras)
+end
+
+# Constructor for nothing params (when params=false)
+function ParamsWithStats(::Nothing, stats::S, extras::E) where {S<:NamedTuple,E<:NamedTuple}
+    return ParamsWithStats(NamedTuple(), stats, extras)
+end
 
 """
-    _names_and_values(
-        model,
-        sampler,
-        transition,
-        state;
-        params::Bool = true,
-        hyperparams::Bool = false,
-        extra::Bool = false,
-        kwargs...
-    )
+    ParamsWithStats(model, sampler, transition, state; params=true, stats=false, extras=false)
 
-Return an iterator over parameter names and values.
+Construct a `ParamsWithStats` by extracting values from the MCMC state.
 
-This function is not part of the public API and may change or break at any time.
-
-## Keywords
-- `params`: include model parameters.
-- `hyperparams`: include sampler hyperparameters
-- `extra`: include additional statistics.
-- `kwargs...`: reserved for internal extensibility.
+# Arguments
+- `params=true`: Include model parameters via `getparams(state)`.
+- `stats=true`: Include step-level statistics via `getstats(state)`. These are values that
+  change once per MCMC iteration (e.g., log probability, acceptance rate).
+- `extras=true`: Include extra diagnostics. These are values that remain constant across
+  MCMC iterations (e.g., preconditioning matrix, number of particles) or change multiple
+  times within a single iteration (e.g., leapfrog phase points in HMC).
 """
-function _names_and_values(
+function ParamsWithStats(
     model,
     sampler,
     transition,
     state;
     params::Bool=true,
-    hyperparams::Bool=false,
-    extra::Bool=false,
-    kwargs...,
+    stats::Bool=false,
+    extras::Bool=false,
 )
-    iters = []
-
-    if params
-        try
-            p = getparams(state)
-            push!(iters, zip(default_param_names_for_values(p), p))
-        catch
-            # No params available
-        end
-    end
-
-    if hyperparams
-        hp = _hyperparams_impl(model, sampler, state; kwargs...)
-        if !isempty(hp)
-            push!(iters, hp)
-        end
-    end
-
-    if extra
-        try
-            stats = getstats(state)
-            if stats isa NamedTuple
-                push!(iters, pairs(stats))
-            end
-        catch
-            # No extras available
-        end
-    end
-
-    return Iterators.flatten(iters)
-end
-
-# Internal helper for hyperparams extraction
-function _hyperparams_impl(model, sampler, state; kwargs...)
-    return Pair{String,Any}[]
+    p = params ? getparams(state) : nothing
+    s = stats ? getstats(state) : NamedTuple()
+    e = extras ? NamedTuple() : NamedTuple()
+    return ParamsWithStats(p, s, e)
 end
 
 """
-    hyperparam_metrics(model, sampler[, state]; kwargs...)
+    ParamsWithStats(pws::ParamsWithStats; params=true, stats=true, extras=true)
 
-Return a Vector{String} of metrics for hyperparameters.
-Override this to specify which logged values should be used as hyperparam metrics in TensorBoard.
+Create a new `ParamsWithStats` by selecting subsets of an existing one.
+
+This enables filtering without re-extracting from state:
+```julia
+pws = ParamsWithStats(model, sampler, transition, state; params=true, stats=true)
+pws_params_only = ParamsWithStats(pws; params=true, stats=false, extras=false)
+```
 """
-hyperparam_metrics(model, sampler; kwargs...) = String[]
-function hyperparam_metrics(model, sampler, state; kwargs...)
-    return hyperparam_metrics(model, sampler; kwargs...)
+function ParamsWithStats(
+    pws::ParamsWithStats; params::Bool=true, stats::Bool=true, extras::Bool=true
+)
+    p = params ? pws.params : NamedTuple()
+    s = stats ? pws.stats : NamedTuple()
+    e = extras ? pws.extras : NamedTuple()
+    return ParamsWithStats(p, s, e)
+end
+
+"""
+    Base.pairs(pws::ParamsWithStats)
+
+Return an iterator of `(name, value)` pairs for all selected data in `pws`.
+
+This is the canonical way to iterate over a `ParamsWithStats`:
+```julia
+for (name, value) in Base.pairs(pws)
+    @info name value
+end
+```
+"""
+function Base.pairs(pws::ParamsWithStats)
+    return Iterators.flatten((pairs(pws.params), pairs(pws.stats), pairs(pws.extras)))
+end
+
+function Base.isempty(pws::ParamsWithStats)
+    return (isempty(pws.params) && isempty(pws.stats) && isempty(pws.extras))
 end
 
 #################################
@@ -242,7 +278,7 @@ Create a TensorBoard logging callback. **Requires TensorBoardLogger.jl to be loa
   - `true` or `:default`: Use default statistics (Mean, Variance, KHist) - requires OnlineStats
   - An OnlineStat or tuple of OnlineStats - requires OnlineStats
 - `stats_options`: NamedTuple with `thin`, `skip`, `window`
-- `name_filter`: NamedTuple with `include`, `exclude`, `extras`, `hyperparams`
+- `name_filter`: NamedTuple with `include`, `exclude`, `stats`, `hyperparams`
 
 # Examples
 ```julia

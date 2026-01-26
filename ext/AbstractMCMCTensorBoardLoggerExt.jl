@@ -4,8 +4,7 @@ using AbstractMCMC
 using AbstractMCMC:
     MultiCallback,
     NameFilter,
-    _names_and_values,
-    hyperparam_metrics,
+    ParamsWithStats,
     merge_with_defaults,
     create_stats_with_options,
     DEFAULT_STATS_OPTIONS,
@@ -13,6 +12,10 @@ using AbstractMCMC:
 using TensorBoardLogger
 using TensorBoardLogger: TBLogger
 using Logging: AbstractLogger, with_logger, @info
+
+###########################
+### TensorBoardCallback ###
+###########################
 
 """
     TensorBoardCallback
@@ -25,8 +28,8 @@ struct TensorBoardCallback{L,S,P,F}
     stats::S
     stat_prototype::P
     variable_filter::F
+    include_stats::Bool
     include_extras::Bool
-    include_hyperparams::Bool
     param_prefix::String
     extras_prefix::String
 end
@@ -43,7 +46,7 @@ Create a TensorBoard logging callback.
   - `true` or `:default`: Use default statistics (Mean, Variance, KHist) - requires OnlineStats
   - An OnlineStat or tuple of OnlineStats - requires OnlineStats
 - `stats_options`: NamedTuple with `thin`, `skip`, `window`
-- `name_filter`: NamedTuple with `include`, `exclude`, `extras`, `hyperparams`
+- `name_filter`: NamedTuple with `include`, `exclude`, `stats`, `extras`
 - `num_bins`: Number of histogram bins (default: 100)
 
 # Examples
@@ -85,8 +88,8 @@ function AbstractMCMC.mcmc_callback(;
         stats_dict,
         prototype,
         variable_filter,
+        merged_name_filter.stats,
         merged_name_filter.extras,
-        merged_name_filter.hyperparams,
         "",
         "extras/",
     )
@@ -105,38 +108,19 @@ function (cb::TensorBoardCallback)(
     lg = cb.logger
     filter_fn = Base.Fix1(filter_name_and_value, cb)
 
-    if iteration == 1 && cb.include_hyperparams
-        hp_iter = _names_and_values(
-            model,
-            sampler,
-            transition,
-            state;
-            params=false,
-            hyperparams=true,
-            extra=false,
-            kwargs...,
-        )
-        hparams = Dict(hp_iter)
-        if !isempty(hparams)
-            TensorBoardLogger.write_hparams!(
-                lg, hparams, AbstractMCMC.hyperparam_metrics(model, sampler)
-            )
-        end
-    end
-
     with_logger(lg) do
-        all_values = _names_and_values(
+        # Use ParamsWithStats container with Base.pairs iteration
+        pws = ParamsWithStats(
             model,
             sampler,
             transition,
             state;
             params=true,
-            hyperparams=false,
-            extra=cb.include_extras,
-            kwargs...,
+            stats=cb.include_stats,
+            extras=(iteration == 1 && cb.include_extras),
         )
 
-        for (k, val) in Iterators.filter(filter_fn, all_values)
+        for (k, val) in Iterators.filter(filter_fn, Base.pairs(pws))
             @info "$(cb.param_prefix)$k" val
 
             if stats !== nothing

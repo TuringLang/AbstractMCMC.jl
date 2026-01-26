@@ -134,3 +134,6 @@ function AbstractMCMC.step(
     _state = state === nothing ? 1 : state + 1
     return MySample(θ, logdensity_θ), _state
 end
+
+AbstractMCMC.getparams(state::Integer) = Float64[]
+AbstractMCMC.getstats(state::Integer) = (iteration=state,)

@@ -93,8 +93,8 @@ end
     @testset "DEFAULT_NAME_FILTER" begin
         @test AbstractMCMC.DEFAULT_NAME_FILTER.include == String[]
         @test AbstractMCMC.DEFAULT_NAME_FILTER.exclude == String[]
+        @test AbstractMCMC.DEFAULT_NAME_FILTER.stats == false
         @test AbstractMCMC.DEFAULT_NAME_FILTER.extras == false
-        @test AbstractMCMC.DEFAULT_NAME_FILTER.hyperparams == false
     end
 end
 
@@ -154,16 +154,88 @@ end
         @test f("a", 1.0) == true
         @test f("c", 2.0) == false
     end
+
+    @testset "Symbol names (from NamedTuple iteration)" begin
+        f = AbstractMCMC.NameFilter(; include=["a", "b"])
+        @test f(:a) == true
+        @test f(:c) == false
+    end
 end
 
-@testset "default_param_names_for_values" begin
-    names = collect(AbstractMCMC.default_param_names_for_values([1.0, 2.0, 3.0]))
-    @test names == ["θ[1]", "θ[2]", "θ[3]"]
-end
+#########################
+### ParamsWithStats   ###
+#########################
 
-@testset "_names_and_values" begin
-    # Test that the internal unified function exists and has expected signature
-    @test hasmethod(AbstractMCMC._names_and_values, Tuple{Any,Any,Any,Any})
+@testset "ParamsWithStats" begin
+    @testset "Constructor from NamedTuple" begin
+        pws = AbstractMCMC.ParamsWithStats((a=1.0, b=2.0), (lp=-10.0,), NamedTuple())
+        @test pws isa AbstractMCMC.ParamsWithStats
+        @test pws.params == (a=1.0, b=2.0)
+        @test pws.stats == (lp=-10.0,)
+        @test pws.extras == NamedTuple()
+    end
+
+    @testset "Constructor from Vector{Real} - default names" begin
+        pws = AbstractMCMC.ParamsWithStats([1.0, 2.0, 3.0], NamedTuple(), NamedTuple())
+        @test pws.params == (var"θ[1]"=1.0, var"θ[2]"=2.0, var"θ[3]"=3.0)
+    end
+
+    @testset "Constructor from Vector{Pair} - named" begin
+        pws = AbstractMCMC.ParamsWithStats(
+            ["μ" => 1.0, "σ" => 2.0], NamedTuple(), NamedTuple()
+        )
+        @test pws.params == (μ=1.0, σ=2.0)
+    end
+
+    @testset "Constructor from state" begin
+        state = 5
+        pws = AbstractMCMC.ParamsWithStats(
+            MyModel(), MySampler(), nothing, state; params=true, stats=true
+        )
+        @test pws isa AbstractMCMC.ParamsWithStats
+        @test pws.params == NamedTuple()  # Empty vector becomes empty NamedTuple
+        @test pws.stats == (iteration=5,)
+        @test pws.extras == NamedTuple()
+    end
+
+    @testset "Copy constructor with selection" begin
+        pws = AbstractMCMC.ParamsWithStats((a=1.0,), (lp=-10.0,), NamedTuple())
+
+        # Select only params
+        pws_params = AbstractMCMC.ParamsWithStats(pws; params=true, stats=false)
+        @test pws_params.params == (a=1.0,)
+        @test pws_params.stats == NamedTuple()
+
+        # Select only stats
+        pws_stats = AbstractMCMC.ParamsWithStats(pws; params=false, stats=true)
+        @test pws_stats.params == NamedTuple()
+        @test pws_stats.stats == (lp=-10.0,)
+    end
+
+    @testset "Base.pairs iteration" begin
+        pws = AbstractMCMC.ParamsWithStats((a=1.0, b=2.0), (lp=-10.0,), NamedTuple())
+        pairs_list = collect(Base.pairs(pws))
+        @test length(pairs_list) == 3
+        @test (:a => 1.0) in pairs_list
+        @test (:b => 2.0) in pairs_list
+        @test (:lp => -10.0) in pairs_list
+    end
+
+    @testset "Base.isempty" begin
+        pws_full = AbstractMCMC.ParamsWithStats((a=1.0,), (lp=-10.0,), NamedTuple())
+        @test !isempty(pws_full)
+
+        pws_empty = AbstractMCMC.ParamsWithStats(NamedTuple(), NamedTuple(), NamedTuple())
+        @test isempty(pws_empty)
+    end
+
+    @testset "Illegal states are unrepresentable" begin
+        # Should not be able to construct with arbitrary types
+        @test_throws MethodError AbstractMCMC.ParamsWithStats(1, 2, 3)
+        @test_throws MethodError AbstractMCMC.ParamsWithStats(
+            "bad", NamedTuple(), NamedTuple()
+        )
+    end
 end
 
 using OnlineStats
@@ -234,7 +306,7 @@ using TensorBoardLogger
         cb = mcmc_callback(;
             logger=logger,
             name_filter=(
-                include=["mu", "sigma"], exclude=["internal"], extras=true, hyperparams=true
+                include=["mu", "sigma"], exclude=["internal"], stats=true, extras=true
             ),
         )
         @test cb isa AbstractMCMC.MultiCallback
@@ -285,6 +357,21 @@ using TensorBoardLogger
         # Also works with explicit OnlineStat
         cb = mcmc_callback(; logger=logger, stats=Mean())
         @test cb isa AbstractMCMC.MultiCallback
+    end
+
+    @testset "ParamsWithStats default implementation" begin
+        struct MockState
+            params::Vector{Float64}
+        end
+        AbstractMCMC.getparams(s::MockState) = s.params
+
+        state = MockState([10.0, 20.0])
+        pws = AbstractMCMC.ParamsWithStats(nothing, nothing, nothing, state; params=true)
+        result = collect(Base.pairs(pws))
+
+        @test length(result) == 2
+        @test result[1] == (Symbol("θ[1]") => 10.0)
+        @test result[2] == (Symbol("θ[2]") => 20.0)
     end
 end
 
