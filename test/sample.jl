@@ -257,8 +257,8 @@
 
             using Logging
             using Random
+            include("utils.jl")
         end
-        @everywhere workers() include("utils.jl")
 
         # No dedicated chains type
         N = 10_000

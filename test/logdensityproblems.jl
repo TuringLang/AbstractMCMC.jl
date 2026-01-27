@@ -12,8 +12,8 @@
 
         using Logging
         using Random
+        include("utils.jl")
     end
-    @everywhere workers() include("utils.jl")
 
     @testset "LogDensityModel" begin
         ℓ = MyLogDensity(10)
