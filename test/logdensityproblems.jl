@@ -5,15 +5,15 @@
     pids = addprocs(Sys.iswindows() ? div(Sys.CPU_THREADS::Int, 2) : Sys.CPU_THREADS::Int)
 
     # Load all required packages (`utils.jl` needs LogDensityProblems, Logging, and Random).
-    @everywhere begin
+    @everywhere workers() begin
         using AbstractMCMC
         using AbstractMCMC: sample
         using LogDensityProblems
 
         using Logging
         using Random
-        include("utils.jl")
     end
+    @everywhere workers() include("utils.jl")
 
     @testset "LogDensityModel" begin
         ℓ = MyLogDensity(10)
