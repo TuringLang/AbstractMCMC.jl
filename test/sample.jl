@@ -250,7 +250,7 @@
         )
 
         # Load all required packages (`utils.jl` needs LogDensityProblems, Logging, and Random).
-        @everywhere begin
+        @everywhere workers() begin
             using AbstractMCMC
             using AbstractMCMC: sample
             using LogDensityProblems
