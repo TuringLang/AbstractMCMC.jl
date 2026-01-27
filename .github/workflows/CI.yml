@@ -58,7 +58,6 @@ jobs:
       - uses: julia-actions/julia-runtest@latest
         env:
           JULIA_NUM_THREADS: ${{ matrix.num_threads }}
-          CONDA_JL_USE_MINIFORGE: "1"
 
       - uses: julia-actions/julia-processcoverage@v1
         if: matrix.coverage
