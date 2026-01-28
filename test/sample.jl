@@ -646,9 +646,11 @@
         )
         @test length(chain_warmup) == N
         @test all(chain_warmup[i].a == ref_chain[i + discard_initial].a for i in 1:N)
-        # Check that the first `num_warmup - discard_initial` samples are warmup samples.
+        # Check that the first `num_warmup - discard_initial` steps (not including the
+        # initial step; hence the +1) are warmup samples.
         @test all(
-            chain_warmup[i].is_warmup == (i <= num_warmup - discard_initial) for i in 1:N
+            chain_warmup[i].is_warmup == (i <= num_warmup - discard_initial + 1) for
+            i in 1:N
         )
     end
 
@@ -668,6 +670,88 @@
         ref_chain = sample(MyModel(), MySampler(), N * thinning; progress=VERSION < v"1.6")
         @test all(chain[i].a == ref_chain[(i - 1) * thinning + 1].a for i in 2:N)
         @test all(chain[i].b == ref_chain[(i - 1) * thinning + 1].b for i in 1:N)
+    end
+
+    @testset "Interaction between thinning, warmup and discard" begin
+        struct M <: AbstractMCMC.AbstractModel end
+        struct S <: AbstractMCMC.AbstractSampler end
+        struct T
+            is_warmup::Bool
+            i::Int
+        end
+        function AbstractMCMC.step_warmup(rng, ::M, ::S; kwargs...)
+            return T(true, 1), 1
+        end
+        function AbstractMCMC.step_warmup(rng, ::M, ::S, i::Int; kwargs...)
+            return T(true, i + 1), i + 1
+        end
+        function AbstractMCMC.step(rng, ::M, ::S; kwargs...)
+            return T(false, 1), 1
+        end
+        function AbstractMCMC.step(rng, ::M, ::S, i::Int; kwargs...)
+            return T(false, i + 1), i + 1
+        end
+
+        @testset "num_warmup + thinning" begin
+            N = 5
+            num_warmup = 5
+            thinning = 2
+            chain = sample(M(), S(), N; thinning, num_warmup)
+            @test length(chain) == N
+            @test [chain[n].i for n in 1:N] == range(; start=num_warmup + 1, step=thinning, length=N)
+            # The first step is reached by warming up, but the others shouldn't
+            @test chain[1].is_warmup
+            @test all(chain[n].is_warmup == false for n in 2:N)
+        end
+
+        @testset "num_warmup + discard_initial" begin
+            N = 5
+            num_warmup = 5
+            discard_initial = 2
+            chain = sample(M(), S(), N; num_warmup, discard_initial)
+            @test length(chain) == N
+            @test [chain[n].i for n in 1:N] == range(; start=discard_initial + 1, step=1, length=N)
+            last_warmup_step = num_warmup - discard_initial + 1
+            @test all([chain[n].is_warmup for n in 1:4])
+            @test all([!chain[n].is_warmup for n in 5:5])
+        end
+
+        @testset "discard_initial + thinning" begin
+            N = 5
+            thinning = 3
+            discard_initial = 2
+            chain = sample(M(), S(), N; discard_initial, thinning)
+            @test length(chain) == N
+            @test [chain[n].i for n in 1:N] == range(; start=discard_initial + 1, step=thinning, length=N)
+            @test all([!chain[n].is_warmup for n in 1:N])
+        end
+
+        @testset "(num_warmup < discard_initial) + thinning" begin
+            N = 5
+            thinning = 3
+            discard_initial = 10
+            num_warmup = 5
+            chain = sample(M(), S(), N; discard_initial, thinning, num_warmup)
+            @test length(chain) == N
+            @test [chain[n].i for n in 1:N] == range(; start=discard_initial + 1, step=thinning, length=N)
+            @test all([!chain[n].is_warmup for n in 1:N])
+        end
+
+        @testset "(num_warmup > discard_initial) + thinning" begin
+            N = 5
+            thinning = 3
+            discard_initial = 2
+            num_warmup = 5
+            chain = sample(M(), S(), N; discard_initial, thinning, num_warmup)
+            # Note that num_warmup=5 means that the sixth step should be
+            # obtained via step_warmup. Because we discard the first two
+            # steps, the steps in the returned chain are 3, 6, 9, 12, 15.
+            # That means that the first two returned steps are warmup steps.
+            @test length(chain) == N
+            @test [chain[n].i for n in 1:N] == range(; start=discard_initial + 1, step=thinning, length=N)
+            @test all([chain[n].is_warmup for n in 1:2])
+            @test all([!chain[n].is_warmup for n in 3:N])
+        end
     end
 
     @testset "Sample without predetermined N" begin
@@ -731,6 +815,36 @@
             end
             chain_numbers = collect(channel)
             @test sort(chain_numbers) == repeat(1:4; inner=niters)
+        end
+    end
+
+    @testset "discard_sample keyword argument" begin
+        struct M2 <: AbstractMCMC.AbstractModel end
+        struct S2 <: AbstractMCMC.AbstractSampler end
+        # If any sample with discard_sample == true is returned, the test will fail.
+        function AbstractMCMC.step(
+            rng, ::M2, ::S2, state=nothing; discard_sample, kwargs...
+        )
+            return discard_sample, nothing
+        end
+        function AbstractMCMC.step(
+            rng, ::M2, ::S2, state=nothing; discard_sample, kwargs...
+        )
+            return discard_sample, nothing
+        end
+        N = 10
+        for kwargs in [
+            (; num_warmup=5),
+            (; discard_initial=5),
+            (; num_warmup=5, discard_initial=2),
+            (; num_warmup=5, discard_initial=10),
+            (; thinning=2),
+        ]
+            chain = sample(M2(), S2(), N; kwargs...)
+            @test all(!x for x in chain)
+            # test with thinning too
+            chain = sample(M2(), S2(), N; kwargs..., thinning=2)
+            @test all(!x for x in chain)
         end
     end
 

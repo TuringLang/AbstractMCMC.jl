@@ -61,7 +61,7 @@ function _bundle_samples(
 end
 
 """
-    step(rng, model, sampler[, state; kwargs...])
+    step(rng, model, sampler[, state]; kwargs...)
 
 Return a 2-tuple of the next sample and the next state of the MCMC `sampler` for `model`.
 
@@ -70,11 +70,23 @@ might include a vector of parameters sampled from a prior distribution.
 
 When sampling using [`sample`](@ref), every `step` call after the first has access to the
 current `state` of the sampler.
+
+## Keyword arguments
+
+If the step being taken is going to be discarded (e.g. during burn-in, or if thinning is
+performed), this method will be called with a `discard_sample=true` keyword argument.
+Conversely, if the step being taken is to be retained, this method will be called with
+`discard_sample=false`. This allows implementations of `step` to customize their behavior
+based on whether or not the sample will be kept.
+
+Other keyword arguments are passed through from the call to [`sample`](@ref). Because there
+is no way of knowing in advance which keyword arguments will be passed, implementations of
+`step` should include a `kwargs...` argument to capture any additional keyword arguments.
 """
 function step end
 
 """
-    step_warmup(rng, model, sampler[, state; kwargs...])
+    step_warmup(rng, model, sampler[, state]; kwargs...)
 
 Return a 2-tuple of the next sample and the next state of the MCMC `sampler` for `model`.
 
@@ -83,11 +95,25 @@ When sampling using [`sample`](@ref), this takes the place of [`AbstractMCMC.ste
 This is useful if the sampler has an initial "warmup"-stage that is different from the
 standard iteration.
 
+By default, this defers to [`AbstractMCMC.step`](@ref), meaning that if a sampler does not
+have special warmup behaviour, it only needs to implement `step`.
+
+## Keyword arguments
+
 The total number of warmup steps requested in sampling will be passed to the `step_warmup`
 function as the `num_warmup` keyword argument. This allows implementations of `step_warmup`
 to customise their behavior based on this information.
 
-By default, this simply calls [`AbstractMCMC.step`](@ref).
+If the step being taken is going to be discarded (e.g. during burn-in, or if thinning is
+performed), this method will be called with a `discard_sample=true` keyword argument.
+Conversely, if the step being taken is to be retained, this method will be called with
+`discard_sample=false`. This allows implementations of `step_warmup` to customize their
+behavior based on whether or not the sample will be kept.
+
+Other keyword arguments are passed through from the call to [`sample`](@ref). Because there
+is no way of knowing in advance which keyword arguments will be passed, implementations of
+`step_warmup` should include a `kwargs...` argument to capture any additional keyword
+arguments.
 """
 step_warmup(rng, model, sampler; kwargs...) = step(rng, model, sampler; kwargs...)
 function step_warmup(rng, model, sampler, state; kwargs...)
