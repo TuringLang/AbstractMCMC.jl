@@ -119,6 +119,17 @@ function _filter_initial_params_kwarg(kwargs)
     return pairs((; (k => v for (k, v) in pairs(kwargs) if k !== :initial_parameters)...))
 end
 
+# Utility function to dispatch to step or step_warmup based on the number of steps run so
+# far. `nsteps` is the number of steps taken so far (prior to calling this function).
+function _step_or_step_warmup(nsteps::Int, num_warmup::Int, args...; kwargs...)
+    sample, state = if nsteps < num_warmup
+        step_warmup(args...; kwargs...)
+    else
+        nsteps(args...; kwargs...)
+    end
+    return (nsteps + 1, sample, state)
+end
+
 # Default implementations of regular and parallel sampling.
 function mcmcsample(
     rng::Random.AbstractRNG,
@@ -176,41 +187,57 @@ function mcmcsample(
             threshold = Ntotal / n_updates
             next_update = threshold
 
+            # Number of steps taken so far. This is incremented by every call to
+            # `_step_or_step_warmup`.
+            nsteps = 1
+
             # Obtain the initial sample and state.
-            sample, state = if num_warmup > 0
-                if initial_state === nothing
-                    step_warmup(rng, model, sampler; num_warmup, kwargs...)
-                else
-                    step_warmup(rng, model, sampler, initial_state; num_warmup, kwargs...)
-                end
-            else
-                if initial_state === nothing
-                    step(rng, model, sampler; kwargs...)
-                else
-                    step(rng, model, sampler, initial_state; kwargs...)
-                end
-            end
+            initial_kwargs =
+                initial_state === nothing ? (;) : (initial_state=initial_state,)
+            nsteps, sample, state = _step_or_step_warmup(
+                nsteps,
+                num_warmup,
+                rng,
+                model,
+                sampler;
+                num_warmup,
+                # If discard_initial == 0 then this is the actual first sample that
+                # we will end up keeping
+                discard_sample=(discard_initial > 0),
+                initial_kwargs...,
+                kwargs...,
+            )
 
             # Start the progress bar.
-            itotal = 1
-            if itotal >= next_update
-                update_progress!(progress, itotal / Ntotal)
+            if nsteps >= next_update
+                update_progress!(progress, nsteps / Ntotal)
                 next_update += threshold
             end
 
             # Discard initial samples.
+            # NOTE(penelopeysm): This is actually not very pretty: what this does is
+            # generates the samples 2:(discard_initial + 1). If discard_initial is positive,
+            # then the last sample generated in this loop is the actual first one that is
+            # kept. It would be nice to refactor this, but it also gets a bit finicky with
+            # the initial_state keyword argument.
             for j in 1:discard_initial
+                discard_sample = j < discard_initial
                 # Obtain the next sample and state.
-                sample, state = if j ≤ num_warmup
-                    step_warmup(rng, model, sampler, state; num_warmup, kwargs...)
-                else
-                    step(rng, model, sampler, state; kwargs...)
-                end
+                nsteps, sample, state = _step_or_step_warmup(
+                    nsteps,
+                    num_warmup,
+                    rng,
+                    model,
+                    sampler,
+                    state;
+                    num_warmup,
+                    discard_sample,
+                    kwargs...,
+                )
 
                 # Update the progress bar.
-                itotal += 1
-                if itotal >= next_update
-                    update_progress!(progress, itotal / Ntotal)
+                if nsteps >= next_update
+                    update_progress!(progress, nsteps / Ntotal)
                     next_update += threshold
                 end
             end
