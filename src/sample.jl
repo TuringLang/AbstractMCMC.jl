@@ -421,7 +421,6 @@ function mcmcsample(
             # If discard_initial == 0 then this is the actual first sample that
             # we will end up keeping
             discard_sample=(discard_initial > 0),
-            initial_kwargs...,
             kwargs...,
         )
 
