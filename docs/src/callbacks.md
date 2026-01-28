@@ -122,7 +122,7 @@ cb = mcmc_callback(
     name_filter=(
         include=["mu", "sigma"],  # Only log these parameters
         exclude=["_internal"],     # Exclude matching names
-        stats=true,                # Include step-level statistics
+        stats=false,               # Include step-level statistics
         extras=true,               # Include extra diagnostics
     ),
 )
@@ -143,8 +143,8 @@ cb = mcmc_callback(
     stats_options=(skip=50, thin=2),
     name_filter=(
         exclude=["_internal"],
+        stats=false,
         extras=true,
-        hyperparams=true,
     ),
 )
 
