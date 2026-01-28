@@ -818,6 +818,36 @@
         end
     end
 
+    @testset "discard_sample keyword argument" begin
+        struct M2 <: AbstractMCMC.AbstractModel end
+        struct S2 <: AbstractMCMC.AbstractSampler end
+        # If any sample with discard_sample == true is returned, the test will fail.
+        function AbstractMCMC.step(
+            rng, ::M2, ::S2, state=nothing; discard_sample, kwargs...
+        )
+            return discard_sample, nothing
+        end
+        function AbstractMCMC.step(
+            rng, ::M2, ::S2, state=nothing; discard_sample, kwargs...
+        )
+            return discard_sample, nothing
+        end
+        N = 10
+        for kwargs in [
+            (; num_warmup=5),
+            (; discard_initial=5),
+            (; num_warmup=5, discard_initial=2),
+            (; num_warmup=5, discard_initial=10),
+            (; thinning=2),
+        ]
+            chain = sample(M2(), S2(), N; kwargs...)
+            @test all(!x for x in chain)
+            # test with thinning too
+            chain = sample(M2(), S2(), N; kwargs..., thinning=2)
+            @test all(!x for x in chain)
+        end
+    end
+
     @testset "Sample vector of `NamedTuple`s" begin
         chain = sample(MyModel(), MySampler(), 1_000; chain_type=Vector{NamedTuple})
         # Check output type
