@@ -219,18 +219,17 @@ function mcmcsample(
             nsteps_kept = 0
 
             # Obtain the initial sample and state.
-            initial_kwargs =
-                initial_state === nothing ? (;) : (initial_state=initial_state,)
+            initial_arg = initial_state === nothing ? () : (initial_state,)
             nsteps, sample, state = _step_or_step_warmup(
                 nsteps,
                 num_warmup,
                 rng,
                 model,
-                sampler;
+                sampler,
+                initial_arg...;
                 # If discard_initial == 0 then this is the actual first sample that
                 # we will end up keeping
                 discard_sample=(discard_initial > 0),
-                initial_kwargs...,
                 kwargs...,
             )
 
@@ -411,13 +410,14 @@ function mcmcsample(
         nsteps_kept = 0
 
         # Obtain the initial sample and state.
-        initial_kwargs = initial_state === nothing ? (;) : (initial_state=initial_state,)
+        initial_arg = initial_state === nothing ? () : (initial_state,)
         nsteps, sample, state = _step_or_step_warmup(
             nsteps,
             num_warmup,
             rng,
             model,
-            sampler;
+            sampler,
+            initial_arg...;
             # If discard_initial == 0 then this is the actual first sample that
             # we will end up keeping
             discard_sample=(discard_initial > 0),
