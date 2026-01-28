@@ -119,15 +119,45 @@ function _filter_initial_params_kwarg(kwargs)
     return pairs((; (k => v for (k, v) in pairs(kwargs) if k !== :initial_parameters)...))
 end
 
-# Utility function to dispatch to step or step_warmup based on the number of steps run so
-# far. `nsteps` is the number of steps taken so far (prior to calling this function).
+# Dispatch to step or step_warmup based on the number of steps run so far. `nsteps` is the
+# number of steps taken so far (prior to calling this function).
 function _step_or_step_warmup(nsteps::Int, num_warmup::Int, args...; kwargs...)
-    sample, state = if nsteps < num_warmup
-        step_warmup(args...; kwargs...)
+    sample, state = if nsteps <= num_warmup
+        step_warmup(args...; num_warmup=num_warmup, kwargs...)
     else
-        nsteps(args...; kwargs...)
+        step(args...; kwargs...)
     end
     return (nsteps + 1, sample, state)
+end
+
+# Save and perform callback. Just like _step_or_step_warmup, this function is abstracted to
+# ensure that callbacks and saving is always done together. `nsteps_kept` is the number of
+# steps kept so far (prior to calling this function); i.e., the first time it's called,
+# it's 0.
+function _save!!_and_callback(
+    nsteps_kept::Integer,
+    samples,
+    sample,
+    state,
+    model,
+    sampler,
+    # `nothing` if no predefined number of samples
+    N::Union{Integer,Nothing},
+    callback,
+    rng;
+    kwargs...,
+)
+    nsteps_kept = nsteps_kept + 1
+    if callback !== nothing
+        callback(rng, model, sampler, sample, state, nsteps_kept; kwargs...)
+    end
+    samples = if N === nothing
+        # no predefined number of samples -- e.g. in convergence sampling
+        save!!(samples, sample, nsteps_kept, model, sampler; kwargs...)
+    else
+        save!!(samples, sample, nsteps_kept, model, sampler, N; kwargs...)
+    end
+    return nsteps_kept, samples
 end
 
 # Default implementations of regular and parallel sampling.
@@ -167,11 +197,6 @@ function mcmcsample(
         progress = NoLogging()
     end
 
-    # Determine how many samples to drop from `num_warmup` and the
-    # main sampling process before we start saving samples.
-    discard_from_warmup = min(num_warmup, discard_initial)
-    keep_from_warmup = num_warmup - discard_from_warmup
-
     # Start the timer
     start = time()
     local state
@@ -189,7 +214,9 @@ function mcmcsample(
 
             # Number of steps taken so far. This is incremented by every call to
             # `_step_or_step_warmup`.
-            nsteps = 1
+            nsteps = 0
+            # Number of steps that have been saved so far.
+            nsteps_kept = 0
 
             # Obtain the initial sample and state.
             initial_kwargs =
@@ -200,7 +227,6 @@ function mcmcsample(
                 rng,
                 model,
                 sampler;
-                num_warmup,
                 # If discard_initial == 0 then this is the actual first sample that
                 # we will end up keeping
                 discard_sample=(discard_initial > 0),
@@ -214,12 +240,16 @@ function mcmcsample(
                 next_update += threshold
             end
 
-            # Discard initial samples.
-            # NOTE(penelopeysm): This is actually not very pretty: what this does is
+            # Generate initial samples to be discarded.
+            #
+            # TODO(penelopeysm): This is actually not very pretty: what this does is
             # generates the samples 2:(discard_initial + 1). If discard_initial is positive,
             # then the last sample generated in this loop is the actual first one that is
             # kept. It would be nice to refactor this, but it also gets a bit finicky with
             # the initial_state keyword argument.
+            # This could be solved more nicely by having a separate function to generate
+            # the initial sample and state. see
+            # https://github.com/TuringLang/AbstractMCMC.jl/issues/135
             for j in 1:discard_initial
                 discard_sample = j < discard_initial
                 # Obtain the next sample and state.
@@ -230,7 +260,6 @@ function mcmcsample(
                     model,
                     sampler,
                     state;
-                    num_warmup,
                     discard_sample,
                     kwargs...,
                 )
@@ -242,51 +271,76 @@ function mcmcsample(
                 end
             end
 
-            # Run callback.
-            callback === nothing ||
-                callback(rng, model, sampler, sample, state, 1; kwargs...)
-
-            # Save the sample.
+            # Of those (1 + discard_initial) samples, we're going to save one of them (the
+            # last one).
+            # This is the first time we're saving a sample: need to initialise the samples
+            # object. (Note that samples() returns an empty vector.)
             samples = AbstractMCMC.samples(sample, model, sampler, N; kwargs...)
-            samples = save!!(samples, sample, 1, model, sampler, N; kwargs...)
+            nsteps_kept, samples = _save!!_and_callback(
+                nsteps_kept,
+                samples,
+                sample,
+                state,
+                model,
+                sampler,
+                N,
+                callback,
+                rng;
+                kwargs...,
+            )
 
             # Step through the sampler.
-            for i in 2:N
+            for _ in 2:N
                 # Discard thinned samples.
                 for _ in 1:(thinning - 1)
                     # Obtain the next sample and state.
-                    sample, state = if i ≤ keep_from_warmup
-                        step_warmup(rng, model, sampler, state; num_warmup, kwargs...)
-                    else
-                        step(rng, model, sampler, state; kwargs...)
-                    end
+                    nsteps, sample, state = _step_or_step_warmup(
+                        nsteps,
+                        num_warmup,
+                        rng,
+                        model,
+                        sampler,
+                        state;
+                        discard_sample=true,
+                        kwargs...,
+                    )
 
                     # Update progress bar.
-                    itotal += 1
-                    if itotal >= next_update
-                        update_progress!(progress, itotal / Ntotal)
+                    if nsteps >= next_update
+                        update_progress!(progress, nsteps / Ntotal)
                         next_update += threshold
                     end
                 end
 
                 # Obtain the next sample and state.
-                sample, state = if i ≤ keep_from_warmup
-                    step_warmup(rng, model, sampler, state; num_warmup, kwargs...)
-                else
-                    step(rng, model, sampler, state; kwargs...)
-                end
+                nsteps, sample, state = _step_or_step_warmup(
+                    nsteps,
+                    num_warmup,
+                    rng,
+                    model,
+                    sampler,
+                    state;
+                    discard_sample=false,
+                    kwargs...,
+                )
 
-                # Run callback.
-                callback === nothing ||
-                    callback(rng, model, sampler, sample, state, i; kwargs...)
-
-                # Save the sample.
-                samples = save!!(samples, sample, i, model, sampler, N; kwargs...)
+                # Run callback and save
+                nsteps_kept, samples = _save!!_and_callback(
+                    nsteps_kept,
+                    samples,
+                    sample,
+                    state,
+                    model,
+                    sampler,
+                    N,
+                    callback,
+                    rng;
+                    kwargs...,
+                )
 
                 # Update the progress bar.
-                itotal += 1
-                if itotal >= next_update
-                    update_progress!(progress, itotal / Ntotal)
+                if nsteps >= next_update
+                    update_progress!(progress, nsteps / Ntotal)
                     next_update += threshold
                 end
             end
@@ -295,6 +349,9 @@ function mcmcsample(
             stop = time()
             duration = stop - start
             stats = SamplingStats(start, stop, duration)
+
+            # Sanity check: ensure we have saved exactly N samples.
+            @assert nsteps_kept == N
 
             return bundle_samples(
                 samples,
@@ -341,78 +398,107 @@ function mcmcsample(
         progress = NoLogging()
     end
 
-    # Determine how many samples to drop from `num_warmup` and the
-    # main sampling process before we start saving samples.
-    discard_from_warmup = min(num_warmup, discard_initial)
-    keep_from_warmup = num_warmup - discard_from_warmup
-
     # Start the timer
     start = time()
     local state
 
     @maybewithricherlogger begin
         init_progress!(progress)
+        # Number of steps taken so far. This is incremented by every call to
+        # `_step_or_step_warmup`.
+        nsteps = 0
+        # Number of steps that have been saved so far.
+        nsteps_kept = 0
+
         # Obtain the initial sample and state.
-        sample, state = if num_warmup > 0
-            if initial_state === nothing
-                step_warmup(rng, model, sampler; num_warmup, kwargs...)
-            else
-                step_warmup(rng, model, sampler, initial_state; num_warmup, kwargs...)
-            end
-        else
-            if initial_state === nothing
-                step(rng, model, sampler; kwargs...)
-            else
-                step(rng, model, sampler, initial_state; kwargs...)
-            end
-        end
+        initial_kwargs = initial_state === nothing ? (;) : (initial_state=initial_state,)
+        nsteps, sample, state = _step_or_step_warmup(
+            nsteps,
+            num_warmup,
+            rng,
+            model,
+            sampler;
+            # If discard_initial == 0 then this is the actual first sample that
+            # we will end up keeping
+            discard_sample=(discard_initial > 0),
+            initial_kwargs...,
+            kwargs...,
+        )
 
-        # Discard initial samples.
+        # Discard initial samples. See method above for logic.
         for j in 1:discard_initial
+            discard_sample = j < discard_initial
             # Obtain the next sample and state.
-            sample, state = if j ≤ num_warmup
-                step_warmup(rng, model, sampler, state; num_warmup, kwargs...)
-            else
-                step(rng, model, sampler, state; kwargs...)
-            end
+            nsteps, sample, state = _step_or_step_warmup(
+                nsteps, num_warmup, rng, model, sampler, state; discard_sample, kwargs...
+            )
         end
-
-        # Run callback.
-        callback === nothing || callback(rng, model, sampler, sample, state, 1; kwargs...)
 
         # Save the sample.
         samples = AbstractMCMC.samples(sample, model, sampler; kwargs...)
-        samples = save!!(samples, sample, 1, model, sampler; kwargs...)
+        nsteps_kept, samples = _save!!_and_callback(
+            nsteps_kept,
+            samples,
+            sample,
+            state,
+            model,
+            sampler,
+            nothing,
+            callback,
+            rng;
+            kwargs...,
+        )
 
         # Step through the sampler until stopping.
-        i = 2
-        while !isdone(rng, model, sampler, samples, state, i; progress=progress, kwargs...)
+        while !isdone(
+            rng,
+            model,
+            sampler,
+            samples,
+            state,
+            (nsteps_kept + 1);
+            progress=progress,
+            kwargs...,
+        )
             # Discard thinned samples.
             for _ in 1:(thinning - 1)
-                # Obtain the next sample and state.
-                sample, state = if i ≤ keep_from_warmup
-                    step_warmup(rng, model, sampler, state; num_warmup, kwargs...)
-                else
-                    step(rng, model, sampler, state; kwargs...)
-                end
+                nsteps, sample, state = _step_or_step_warmup(
+                    nsteps,
+                    num_warmup,
+                    rng,
+                    model,
+                    sampler,
+                    state;
+                    discard_sample=true,
+                    kwargs...,
+                )
             end
 
             # Obtain the next sample and state.
-            sample, state = if i ≤ keep_from_warmup
-                step_warmup(rng, model, sampler, state; num_warmup, kwargs...)
-            else
-                step(rng, model, sampler, state; kwargs...)
-            end
+            nsteps, sample, state = _step_or_step_warmup(
+                nsteps,
+                num_warmup,
+                rng,
+                model,
+                sampler,
+                state;
+                discard_sample=false,
+                kwargs...,
+            )
 
             # Run callback.
-            callback === nothing ||
-                callback(rng, model, sampler, sample, state, i; kwargs...)
-
-            # Save the sample.
-            samples = save!!(samples, sample, i, model, sampler; kwargs...)
-
-            # Increment iteration counter.
-            i += 1
+            nsteps_kept, samples = _save!!_and_callback(
+                nsteps_kept,
+                samples,
+                sample,
+                state,
+                model,
+                sampler,
+                nothing,
+                callback,
+                rng;
+                kwargs...,
+            )
         end
         finish_progress!(progress)
     end
