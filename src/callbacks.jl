@@ -278,7 +278,7 @@ Create a TensorBoard logging callback. **Requires TensorBoardLogger.jl to be loa
   - `true` or `:default`: Use default statistics (Mean, Variance, KHist) - requires OnlineStats
   - An OnlineStat or tuple of OnlineStats - requires OnlineStats
 - `stats_options`: NamedTuple with `thin`, `skip`, `window`
-- `name_filter`: NamedTuple with `include`, `exclude`, `stats`, `hyperparams`
+- `name_filter`: NamedTuple with `include`, `exclude`, `stats`, `extras`
 
 # Examples
 ```julia
