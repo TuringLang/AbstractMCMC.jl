@@ -53,16 +53,23 @@ samples))` where `samples::Matrix{Tsample}`.
 function from_samples end
 
 """
-    AbstractMCMC.to_samples(::Type{T}, chains::AbstractChains) where {T}
+    AbstractMCMC.to_samples(::Type{T}, chains::AbstractChains[, model::AbstractModel]) where {T}
 
 Convert an `AbstractChains` object to an `Matrix` of parameter samples.
 
 Methods of this function should be implemented with the signature listed above, and should
 return a `Matrix{T}`.
 
+The `model` argument is optional: implementations that require model information to extract
+the parameter samples may accept it. If you do not need the model information, you can
+implement only the method without the `model` argument, and the three-argument version will
+default to calling the two-argument version.
+
 See also: [`from_samples`](@ref).
 """
-function to_samples end
+function to_samples(::Type{T}, chains::AbstractChains, model::AbstractModel) where {T}
+    return to_samples(T, chains)
+end
 
 """
     AbstractSampler
