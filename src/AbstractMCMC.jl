@@ -34,6 +34,26 @@ parameter samples generated through a MCMC process.
 abstract type AbstractChains end
 
 """
+    AbstractSampler
+
+The `AbstractSampler` type is intended to be inherited from when
+implementing a custom sampler. Any persistent state information should be
+saved in a subtype of `AbstractSampler`.
+
+When defining a new sampler, you should also overload the function
+`transition_type`, which tells the `sample` function what type of parameter
+it should expect to receive.
+"""
+abstract type AbstractSampler end
+
+"""
+    AbstractModel
+
+An `AbstractModel` represents a generic model type that can be used to perform inference.
+"""
+abstract type AbstractModel end
+
+"""
     AbstractMCMC.from_samples(::Type{T}, samples::Matrix) where {T<:AbstractChains}
 
 Convert a Matrix of parameter samples to an `AbstractChains` object.
@@ -53,36 +73,23 @@ samples))` where `samples::Matrix{Tsample}`.
 function from_samples end
 
 """
-    AbstractMCMC.to_samples(::Type{T}, chains::AbstractChains) where {T}
+    AbstractMCMC.to_samples(::Type{T}, chains::AbstractChains[, model::AbstractModel]) where {T}
 
 Convert an `AbstractChains` object to an `Matrix` of parameter samples.
 
 Methods of this function should be implemented with the signature listed above, and should
 return a `Matrix{T}`.
 
+The `model` argument is optional: implementations that require model information to extract
+the parameter samples may accept it. If you do not need the model information, you can
+implement only the method without the `model` argument, and the three-argument version will
+default to calling the two-argument version.
+
 See also: [`from_samples`](@ref).
 """
-function to_samples end
-
-"""
-    AbstractSampler
-
-The `AbstractSampler` type is intended to be inherited from when
-implementing a custom sampler. Any persistent state information should be
-saved in a subtype of `AbstractSampler`.
-
-When defining a new sampler, you should also overload the function
-`transition_type`, which tells the `sample` function what type of parameter
-it should expect to receive.
-"""
-abstract type AbstractSampler end
-
-"""
-    AbstractModel
-
-An `AbstractModel` represents a generic model type that can be used to perform inference.
-"""
-abstract type AbstractModel end
+function to_samples(::Type{T}, chains::AbstractChains, model::AbstractModel) where {T}
+    return to_samples(T, chains)
+end
 
 """
     AbstractMCMCEnsemble
