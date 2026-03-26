@@ -7,7 +7,6 @@ using LoggingExtras: LoggingExtras
 using ProgressLogging: ProgressLogging
 using StatsBase: StatsBase
 using TerminalLoggers: TerminalLoggers
-using Transducers: Transducers
 using FillArrays: FillArrays
 
 using Distributed: Distributed
@@ -197,7 +196,6 @@ include("logging.jl")
 include("interface.jl")
 include("sample.jl")
 include("stepper.jl")
-include("transducer.jl")
 include("logdensityproblems.jl")
 include("callbacks.jl")
 
