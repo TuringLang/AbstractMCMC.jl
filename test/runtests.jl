@@ -6,7 +6,6 @@ using LogDensityProblems
 using LoggingExtras: TeeLogger, EarlyFilteredLogger
 using TerminalLoggers: TerminalLogger
 using FillArrays: FillArrays
-using Transducers
 
 using Distributed
 using Logging: Logging
@@ -23,7 +22,6 @@ include("utils.jl")
 @testset "AbstractMCMC" begin
     include("sample.jl")
     include("stepper.jl")
-    include("transducer.jl")
     include("logdensityproblems.jl")
 end
 

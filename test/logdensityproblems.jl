@@ -65,13 +65,6 @@
         @test length(samples4) == N
         @test all(x.a == y.a && x.b == y.b for (x, y) in zip(samples, samples4))
 
-        # Same chain if sampling is performed with transducer
-        Random.seed!(1234)
-        xf = AbstractMCMC.Sample(ℓ, MySampler())
-        samples5 = collect(xf(1:N))
-        @test length(samples5) == N
-        @test all(x.a == y.a && x.b == y.b for (x, y) in zip(samples, samples5))
-
         # Parallel sampling
         for alg in (MCMCSerial(), MCMCDistributed(), MCMCThreads())
             chains = sample(ℓ, MySampler(), alg, N, 2)
@@ -91,7 +84,6 @@
             mylogdensity, MySampler(), MCMCDistributed(), N, 2
         )
         @test_throws ArgumentError AbstractMCMC.steps(mylogdensity, MySampler())
-        @test_throws ArgumentError AbstractMCMC.Sample(mylogdensity, MySampler())
     end
 
     # Remove workers
