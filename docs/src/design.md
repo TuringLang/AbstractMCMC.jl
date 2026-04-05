@@ -1,25 +1,19 @@
 # Design
 
 This page explains the default implementations and design choices of AbstractMCMC.
-It is not intended for users but for developers that want to implement the AbstractMCMC
-interface for Markov chain Monte Carlo sampling. The user-facing API is explained in
-[API](@ref).
+It is not intended for users but for developers that want to implement the AbstractMCMC interface for Markov chain Monte Carlo sampling.
+The user-facing API is explained in [API](@ref).
 
 ## Overview
 
-AbstractMCMC provides a default implementation of the user-facing interface described
-in [API](@ref). You can completely neglect these and define your own implementation of the
-interface. However, as described below, in most use cases the default implementation
-allows you to obtain support of parallel sampling, progress logging, callbacks, iterators,
-and transducers for free by just defining the sampling step of your inference algorithm,
-drastically reducing the amount of code you have to write. In general, the docstrings
-of the functions described below might be helpful if you intend to make use of the default
-implementations.
+AbstractMCMC provides a default implementation of the user-facing interface described in [API](@ref).
+You can completely neglect these and define your own implementation of the interface.
+However, as described below, in most use cases the default implementation allows you to obtain support of parallel sampling, progress logging, callbacks, and iterators for free by just defining the sampling step of your inference algorithm, drastically reducing the amount of code you have to write.
+In general, the docstrings of the functions described below might be helpful if you intend to make use of the default implementations.
 
 ## Basic structure
 
-The simplified structure for regular sampling (the actual implementation contains
-some additional error checks and support for progress logging and callbacks) is
+The simplified structure for regular sampling (the actual implementation contains some additional error checks and support for progress logging and callbacks) is
 
 ```julia
 StatsBase.sample(
@@ -50,14 +44,12 @@ StatsBase.sample(
 end
 ```
 
-All other default implementations make use of the same structure and in particular
-call the same methods.
+All other default implementations make use of the same structure and in particular call the same methods.
 
 ## Sampling step
 
-The only method for which no default implementation is provided (and hence which
-downstream packages *have* to implement) is [`AbstractMCMC.step`](@ref). It defines
-the sampling step of the inference method.
+The only method for which no default implementation is provided (and hence which downstream packages *have* to implement) is [`AbstractMCMC.step`](@ref).
+It defines the sampling step of the inference method.
 
 ```@docs
 AbstractMCMC.step
@@ -69,47 +61,40 @@ If one also has some special handling of the warmup-stage of sampling, then this
 AbstractMCMC.step_warmup
 ```
 
-which will be used for the first `num_warmup` iterations, as specified as a keyword argument to [`AbstractMCMC.sample`](@ref). 
+which will be used for the first `num_warmup` iterations, as specified as a keyword argument to [`AbstractMCMC.sample`](@ref).
 Note that this is optional; by default it simply calls [`AbstractMCMC.step`](@ref) from above.
 
 ## Collecting samples
 
 !!! note
-    This section does not apply to the iterator and transducer interface.
+    This section does not apply to the iterator interface.
 
-After the initial sample is obtained, the default implementations for regular and parallel sampling
-(not for the iterator and the transducer since it is not needed there) create a container for all
-samples (the initial one and all subsequent samples) using `AbstractMCMC.samples`.
+After the initial sample is obtained, the default implementations for regular and parallel sampling (not for the iterator since it is not needed there) create a container for all samples (the initial one and all subsequent samples) using `AbstractMCMC.samples`.
 
 ```@docs
 AbstractMCMC.samples
 ```
 
-In each step, the sample is saved in the container by `AbstractMCMC.save!!`. The notation `!!`
-follows the convention of the package [BangBang.jl](https://github.com/JuliaFolds/BangBang.jl)
-which is used in the default implementation of `AbstractMCMC.save!!`. It indicates that the
-sample is pushed to the container but a "widening" fallback is used if the container type
-does not allow saving the sample. Therefore `AbstractMCMC.save!!` *always has* to return the container.
+In each step, the sample is saved in the container by `AbstractMCMC.save!!`.
+The notation `!!` follows the convention of the package [BangBang.jl](https://github.com/JuliaFolds/BangBang.jl) which is used in the default implementation of `AbstractMCMC.save!!`.
+It indicates that the sample is pushed to the container but a "widening" fallback is used if the container type does not allow saving the sample.
+Therefore `AbstractMCMC.save!!` *always has* to return the container.
 
 ```@docs
 AbstractMCMC.save!!
 ```
 
-For most use cases the default implementation of `AbstractMCMC.samples` and `AbstractMCMC.save!!`
-should work out of the box and hence need not be overloaded in downstream code.
+For most use cases the default implementation of `AbstractMCMC.samples` and `AbstractMCMC.save!!` should work out of the box and hence need not be overloaded in downstream code.
 
 ## Creating chains
 
 !!! note
-    This section does not apply to the iterator and transducer interface.
+    This section does not apply to the iterator interface.
 
-At the end of the sampling procedure for regular and parallel sampling we transform
-the collection of samples to the desired output type by calling `AbstractMCMC.bundle_samples`.
+At the end of the sampling procedure for regular and parallel sampling we transform the collection of samples to the desired output type by calling `AbstractMCMC.bundle_samples`.
 
 ```@docs
 AbstractMCMC.bundle_samples
 ```
 
-The default implementation should be fine in most use cases, but downstream packages
-could, e.g., save the final state of the sampler as well if they overload
-`AbstractMCMC.bundle_samples`.
+The default implementation should be fine in most use cases, but downstream packages could, e.g., save the final state of the sampler as well if they overload `AbstractMCMC.bundle_samples`.
