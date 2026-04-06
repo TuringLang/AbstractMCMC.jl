@@ -7,7 +7,6 @@ using LoggingExtras: LoggingExtras
 using ProgressLogging: ProgressLogging
 using StatsBase: StatsBase
 using TerminalLoggers: TerminalLoggers
-using FillArrays: FillArrays
 
 using Distributed: Distributed
 using Logging: Logging
