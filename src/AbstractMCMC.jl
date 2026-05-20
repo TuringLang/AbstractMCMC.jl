@@ -197,6 +197,7 @@ include("sample.jl")
 include("stepper.jl")
 include("logdensityproblems.jl")
 include("callbacks.jl")
+include("gibbs.jl")
 
 if isdefined(Base.Experimental, :register_error_hint)
     function __init__()
