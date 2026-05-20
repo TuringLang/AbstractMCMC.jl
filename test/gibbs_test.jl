@@ -40,13 +40,18 @@ using Statistics
 
     @testset "Mismatched varnames/samplers raises ArgumentError" begin
         @test_throws ArgumentError AbstractMCMC.Gibbs(
-            ([@varname(μ), @varname(σ)],),
-            (MH(), MH()),
+            ([@varname(μ), @varname(σ)],), (MH(), MH())
         )
     end
 
     @testset "Existing Turing.Inference.Gibbs still works (no regression)" begin
-        chain = sample(rng, model, Turing.Inference.Gibbs(@varname(μ) => MH(), @varname(σ) => MH()), 500; progress=false)
+        chain = sample(
+            rng,
+            model,
+            Turing.Inference.Gibbs(@varname(μ) => MH(), @varname(σ) => MH()),
+            500;
+            progress=false,
+        )
         @test abs(mean(chain[:μ]) - mean(x_obs)) < 0.5
     end
 end

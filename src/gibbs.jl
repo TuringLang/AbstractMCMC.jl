@@ -1,4 +1,3 @@
-export Gibbs, GibbsState
 
 """
     AbstractMCMC.condition(model, target_varnames, global_values)
@@ -80,7 +79,9 @@ function step(
     sub_states = _gibbs_initial_steps(
         rng, model, sampler.varnames, sampler.samplers, global_values; kwargs...
     )
-    global_values = _collect_global_values(model, sampler.varnames, sampler.samplers, sub_states)
+    global_values = _collect_global_values(
+        model, sampler.varnames, sampler.samplers, sub_states
+    )
     return _build_gibbs_transition(global_values), GibbsState(global_values, sub_states)
 end
 
@@ -92,13 +93,20 @@ function step(
     kwargs...,
 )
     global_values, sub_states = _gibbs_sweep(
-        rng, model, sampler.varnames, sampler.samplers, state.sub_states, state.global_values;
+        rng,
+        model,
+        sampler.varnames,
+        sampler.samplers,
+        state.sub_states,
+        state.global_values;
         kwargs...,
     )
     return _build_gibbs_transition(global_values), GibbsState(global_values, sub_states)
 end
 
-function _gibbs_sweep(rng, model, varname_groups, samplers, sub_states, global_values; kwargs...)
+function _gibbs_sweep(
+    rng, model, varname_groups, samplers, sub_states, global_values; kwargs...
+)
     new_sub_states = ()
     for i in eachindex(varname_groups)
         target_vars = varname_groups[i]
@@ -110,13 +118,17 @@ function _gibbs_sweep(rng, model, varname_groups, samplers, sub_states, global_v
         _, new_sub_state = step(rng, cond_model, spl, synced_state; kwargs...)
 
         new_params = getparams(cond_model, new_sub_state)
-        global_values = _update_global_values(model, global_values, target_vars, cond_model, new_params)
+        global_values = _update_global_values(
+            model, global_values, target_vars, cond_model, new_params
+        )
         new_sub_states = (new_sub_states..., new_sub_state)
     end
     return global_values, new_sub_states
 end
 
-function _gibbs_initial_steps(rng, model, varname_groups, samplers, global_values; kwargs...)
+function _gibbs_initial_steps(
+    rng, model, varname_groups, samplers, global_values; kwargs...
+)
     sub_states = ()
     for i in eachindex(varname_groups)
         target_vars = varname_groups[i]
@@ -129,7 +141,9 @@ function _gibbs_initial_steps(rng, model, varname_groups, samplers, global_value
             global_values = _init_global_values(model, target_vars, cond_model, sub_state)
         else
             new_params = getparams(cond_model, sub_state)
-            global_values = _update_global_values(model, global_values, target_vars, cond_model, new_params)
+            global_values = _update_global_values(
+                model, global_values, target_vars, cond_model, new_params
+            )
         end
         sub_states = (sub_states..., sub_state)
     end
@@ -162,7 +176,11 @@ function _collect_global_values(model, varname_groups, samplers, sub_states)
             global_values = _init_global_values(model, target_vars, cond_model, sub_state)
         else
             global_values = _update_global_values(
-                model, global_values, target_vars, cond_model, getparams(cond_model, sub_state)
+                model,
+                global_values,
+                target_vars,
+                cond_model,
+                getparams(cond_model, sub_state),
             )
         end
     end
