@@ -63,6 +63,7 @@ jobs:
         if: matrix.coverage
 
       - uses: codecov/codecov-action@v6
+        if: github.actor != 'dependabot[bot]'
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
