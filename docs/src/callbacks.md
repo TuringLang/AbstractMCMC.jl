@@ -250,10 +250,16 @@ function AbstractMCMC.getstats(state::MyState)
 end
 ```
 
-The `ParamsWithStats` constructors normalize all inputs to `NamedTuple`:
+The default `ParamsWithStats` extraction constructors normalize common inputs to
+`NamedTuple`:
 - `Vector{<:Real}` gets default `θ[i]` names
 - `Vector{Pair}` is converted to `NamedTuple` with the provided names
 - `NamedTuple` is used directly
+
+Packages with a structured parameter representation can also construct
+`ParamsWithStats(params, stats)` directly. The parameter container must implement `pairs`
+and `isempty`; its keys do not need to be symbols. The two-argument constructor uses an
+empty `NamedTuple` for `extras`.
 
 !!! note "stats vs extras"
     Use `stats` for values that change once per MCMC iteration (e.g., log probability, acceptance rate).

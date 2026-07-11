@@ -166,6 +166,15 @@ end
 ### ParamsWithStats   ###
 #########################
 
+struct CustomParams{T}
+    data::T
+end
+Base.pairs(params::CustomParams) = pairs(params.data)
+Base.isempty(params::CustomParams) = isempty(params.data)
+Base.:(==)(a::CustomParams, b::CustomParams) = a.data == b.data
+Base.isequal(a::CustomParams, b::CustomParams) = isequal(a.data, b.data)
+Base.hash(params::CustomParams, h::UInt) = hash(params.data, h)
+
 @testset "ParamsWithStats" begin
     @testset "Constructor from NamedTuple" begin
         pws = AbstractMCMC.ParamsWithStats((a=1.0, b=2.0), (lp=-10.0,), NamedTuple())
@@ -178,6 +187,11 @@ end
     @testset "Constructor from Vector{Real} - default names" begin
         pws = AbstractMCMC.ParamsWithStats([1.0, 2.0, 3.0], NamedTuple(), NamedTuple())
         @test pws.params == (var"θ[1]"=1.0, var"θ[2]"=2.0, var"θ[3]"=3.0)
+
+        pws_without_extras = AbstractMCMC.ParamsWithStats([1.0, 2.0], (lp=-1.0,))
+        @test pws_without_extras.params == (var"θ[1]"=1.0, var"θ[2]"=2.0)
+        @test pws_without_extras.stats == (lp=-1.0,)
+        @test isempty(pws_without_extras.extras)
     end
 
     @testset "Constructor from Vector{Pair} - named" begin
@@ -185,6 +199,19 @@ end
             ["μ" => 1.0, "σ" => 2.0], NamedTuple(), NamedTuple()
         )
         @test pws.params == (μ=1.0, σ=2.0)
+    end
+
+    @testset "Constructor from custom parameter container" begin
+        params = CustomParams((x=[1.0, 2.0], y=3.0))
+        pws = AbstractMCMC.ParamsWithStats(params, (lp=-10.0,))
+        @test pws.params === params
+        @test pws.stats == (lp=-10.0,)
+        @test pws.extras == NamedTuple()
+        @test collect(pairs(pws)) == [:x => [1.0, 2.0], :y => 3.0, :lp => -10.0]
+        @test !isempty(pws)
+
+        empty_pws = AbstractMCMC.ParamsWithStats(CustomParams(NamedTuple()), NamedTuple())
+        @test isempty(empty_pws)
     end
 
     @testset "Constructor from state" begin
@@ -210,6 +237,11 @@ end
         pws_stats = AbstractMCMC.ParamsWithStats(pws; params=false, stats=true)
         @test pws_stats.params == NamedTuple()
         @test pws_stats.stats == (lp=-10.0,)
+
+        custom_params = CustomParams((x=1.0,))
+        custom_pws = AbstractMCMC.ParamsWithStats(custom_params, NamedTuple())
+        @test AbstractMCMC.ParamsWithStats(custom_pws; stats=false).params === custom_params
+        @test AbstractMCMC.ParamsWithStats(custom_pws; params=false).params == NamedTuple()
     end
 
     @testset "Base.pairs iteration" begin
@@ -230,11 +262,24 @@ end
     end
 
     @testset "Illegal states are unrepresentable" begin
-        # Should not be able to construct with arbitrary types
+        # Statistics and extras must be NamedTuples.
         @test_throws MethodError AbstractMCMC.ParamsWithStats(1, 2, 3)
-        @test_throws MethodError AbstractMCMC.ParamsWithStats(
-            "bad", NamedTuple(), NamedTuple()
+        @test_throws MethodError AbstractMCMC.ParamsWithStats("params", 2, NamedTuple())
+        @test_throws MethodError AbstractMCMC.ParamsWithStats("params", NamedTuple(), 3)
+    end
+
+    @testset "Equality" begin
+        pws1 = AbstractMCMC.ParamsWithStats(
+            CustomParams((x=[1.0, NaN],)), (lp=-10.0,), (step_size=0.1,)
         )
+        pws2 = AbstractMCMC.ParamsWithStats(
+            CustomParams((x=[1.0, NaN],)), (lp=-10.0,), (step_size=0.1,)
+        )
+        @test isequal(pws1, pws2)
+        @test hash(pws1) == hash(pws2)
+        @test !(pws1 == pws2)
+        @test pws1 !=
+            AbstractMCMC.ParamsWithStats(pws1.params, pws1.stats, (step_size=0.2,))
     end
 end
 

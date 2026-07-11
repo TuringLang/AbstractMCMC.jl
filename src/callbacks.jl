@@ -118,13 +118,12 @@ end
 """
     ParamsWithStats{P,S,E}
 
-A container for MCMC parameters, statistics, and extras.
-
-All fields are stored as `NamedTuple`s to ensure a tight, well-defined interface.
-Use `Base.pairs(pws)` to iterate over `(name, value)` pairs.
+A container for MCMC parameters, statistics, and extras. The parameter container can be any
+type implementing `pairs` and `isempty`; statistics and extras are stored as `NamedTuple`s.
+Use `Base.pairs(pws)` to iterate over all `(name, value)` pairs.
 
 # Fields
-- `params::P`: Parameter values as a NamedTuple
+- `params::P`: Parameter values in a container implementing `pairs` and `isempty`
 - `stats::S`: Statistics as a NamedTuple (e.g., `(lp=...,)`)
 - `extras::E`: Extra diagnostics as a NamedTuple
 
@@ -139,10 +138,19 @@ end
 pws2 = ParamsWithStats(pws; params=true, stats=false)
 ```
 """
-struct ParamsWithStats{P<:NamedTuple,S<:NamedTuple,E<:NamedTuple}
+struct ParamsWithStats{P,S<:NamedTuple,E<:NamedTuple}
     params::P
     stats::S
     extras::E
+end
+
+"""
+    ParamsWithStats(params, stats::NamedTuple)
+
+Construct a `ParamsWithStats` with no extra diagnostics.
+"""
+function ParamsWithStats(params, stats::NamedTuple)
+    return ParamsWithStats(params, stats, NamedTuple())
 end
 
 # Constructor from Vector{<:Real} - adds default θ[i] names
@@ -235,6 +243,21 @@ end
 
 function Base.isempty(pws::ParamsWithStats)
     return (isempty(pws.params) && isempty(pws.stats) && isempty(pws.extras))
+end
+
+function Base.:(==)(pws1::ParamsWithStats, pws2::ParamsWithStats)
+    return (pws1.params == pws2.params) & (pws1.stats == pws2.stats) &
+           (pws1.extras == pws2.extras)
+end
+
+function Base.isequal(pws1::ParamsWithStats, pws2::ParamsWithStats)
+    return isequal(pws1.params, pws2.params) &&
+           isequal(pws1.stats, pws2.stats) &&
+           isequal(pws1.extras, pws2.extras)
+end
+
+function Base.hash(pws::ParamsWithStats, h::UInt)
+    return hash(pws.extras, hash(pws.stats, hash(pws.params, hash(:ParamsWithStats, h))))
 end
 
 #################################
