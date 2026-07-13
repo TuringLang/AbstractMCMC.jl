@@ -118,9 +118,20 @@ end
 """
     ParamsWithStats{P,S,E}
 
-A container for MCMC parameters, statistics, and extras. The parameter container can be any
-type implementing `pairs` and `isempty`; statistics and extras are stored as `NamedTuple`s.
-Use `Base.pairs(pws)` to iterate over all `(name, value)` pairs.
+A container for MCMC parameters, statistics, and extras. The parameter container can be a
+structured type; statistics and extras are stored as `NamedTuple`s. Use `Base.pairs(pws)`
+to iterate over all `(name, value)` pairs.
+
+The parameter container must implement `pairs` and `isempty`. For `==`, `isequal`, and
+`hash` of `ParamsWithStats` to be meaningful it must also implement those (with `==`
+returning `Bool` or `missing`), and its keys should have a meaningful `string` form so
+that name-based filtering and logging callbacks work. Keys are not required to be
+`Symbol`s, so `pairs(pws)` may yield pairs with mixed key types; consumers should not
+assume `Symbol` keys or a concrete element type.
+
+Note that `AbstractVector{<:Real}` and `AbstractVector{<:Pair}` parameter inputs are not
+stored as given: the extraction constructors normalize them to `Symbol`-keyed
+`NamedTuple`s (see the constructor docs below).
 
 # Fields
 - `params::P`: Parameter values in a container implementing `pairs` and `isempty`
