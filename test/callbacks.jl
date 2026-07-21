@@ -275,11 +275,21 @@ Base.hash(params::CustomParams, h::UInt) = hash(params.data, h)
         pws2 = AbstractMCMC.ParamsWithStats(
             CustomParams((x=[1.0, NaN],)), (lp=-10.0,), (step_size=0.1,)
         )
+        # NaN params: isequal/hash match, but `==` is false (NaN != NaN).
         @test isequal(pws1, pws2)
         @test hash(pws1) == hash(pws2)
         @test !(pws1 == pws2)
-        @test pws1 !=
-            AbstractMCMC.ParamsWithStats(pws1.params, pws1.stats, (step_size=0.2,))
+
+        # A differing field alone makes `==` false (NaN-free, so params don't confound).
+        base = AbstractMCMC.ParamsWithStats(
+            CustomParams((x=1.0,)), (lp=-10.0,), (step_size=0.1,)
+        )
+        @test base == AbstractMCMC.ParamsWithStats(
+            CustomParams((x=1.0,)), (lp=-10.0,), (step_size=0.1,)
+        )
+        @test base != AbstractMCMC.ParamsWithStats(
+            CustomParams((x=1.0,)), (lp=-10.0,), (step_size=0.2,)
+        )
     end
 end
 

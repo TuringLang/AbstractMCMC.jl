@@ -257,7 +257,8 @@ function Base.isempty(pws::ParamsWithStats)
 end
 
 function Base.:(==)(pws1::ParamsWithStats, pws2::ParamsWithStats)
-    return (pws1.params == pws2.params) & (pws1.stats == pws2.stats) &
+    return (pws1.params == pws2.params) &
+           (pws1.stats == pws2.stats) &
            (pws1.extras == pws2.extras)
 end
 
