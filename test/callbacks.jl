@@ -174,8 +174,8 @@ end
 Base.string(k::StructuredKey) = k.name
 Base.:(==)(a::StructuredKey, b::StructuredKey) = a.name == b.name
 
-struct StructuredParams{P<:Pair}
-    data::Vector{P}
+struct StructuredParams
+    data::Vector{Pair{StructuredKey,Float64}}
 end
 Base.pairs(params::StructuredParams) = params.data
 Base.isempty(params::StructuredParams) = isempty(params.data)
@@ -206,33 +206,32 @@ Base.isempty(params::StructuredParams) = isempty(params.data)
         @test pws.params == (μ=1.0, σ=2.0)
     end
 
-    @testset "Constructor from custom parameter container" begin
-        params = StructuredParams([StructuredKey("x") => 1.0, StructuredKey("y") => 3.0])
+    @testset "Structured parameter container" begin
+        params = StructuredParams([StructuredKey("μ") => 1.0, StructuredKey("y") => 3.0])
+
+        # The two-argument constructor stores the container as-is and defaults extras.
         pws = AbstractMCMC.ParamsWithStats(params, (lp=-10.0,))
         @test pws.params === params
         @test pws.stats == (lp=-10.0,)
         @test pws.extras == NamedTuple()
-        @test collect(pairs(pws)) ==
-            [StructuredKey("x") => 1.0, StructuredKey("y") => 3.0, :lp => -10.0]
-        @test !isempty(pws)
 
-        empty_pws = AbstractMCMC.ParamsWithStats(
-            StructuredParams(Pair{StructuredKey,Float64}[]), NamedTuple()
-        )
-        @test isempty(empty_pws)
-    end
-
-    @testset "Mixed key types from params and stats" begin
-        params = StructuredParams([StructuredKey("μ") => 1.0])
+        # pairs flattens params/stats/extras and yields mixed key types.
         pws = AbstractMCMC.ParamsWithStats(params, (lp=-10.0,), (step_size=0.1,))
         pairs_list = collect(Base.pairs(pws))
-        @test pairs_list == [StructuredKey("μ") => 1.0, :lp => -10.0, :step_size => 0.1]
+        @test pairs_list == [
+            StructuredKey("μ") => 1.0,
+            StructuredKey("y") => 3.0,
+            :lp => -10.0,
+            :step_size => 0.1,
+        ]
         @test pairs_list[1][1] isa StructuredKey
-        @test pairs_list[2][1] isa Symbol
+        @test pairs_list[3][1] isa Symbol
+        @test !isempty(pws)
+        @test isempty(AbstractMCMC.ParamsWithStats(StructuredParams([]), NamedTuple()))
 
         # NameFilter stringifies keys, so non-Symbol parameter keys still filter.
         f = AbstractMCMC.NameFilter(; include=["μ", "lp"])
-        filtered = collect(Iterators.filter(((k, _),) -> f(k), pairs_list))
+        filtered = filter(p -> f(first(p)), pairs_list)
         @test filtered == [StructuredKey("μ") => 1.0, :lp => -10.0]
     end
 
@@ -247,20 +246,21 @@ Base.isempty(params::StructuredParams) = isempty(params.data)
         @test pws.extras == NamedTuple()
     end
 
-    @testset "Extraction constructor preserves custom parameter container" begin
-        struct StructuredState
-            params::StructuredParams
-        end
-        AbstractMCMC.getparams(s::StructuredState) = s.params
-        AbstractMCMC.getstats(s::StructuredState) = (lp=-3.0,)
+    @testset "Structured container through extraction and re-selection" begin
+        # Let the container act as its own state so getparams/getstats drive extraction.
+        AbstractMCMC.getparams(params::StructuredParams) = params
+        AbstractMCMC.getstats(::StructuredParams) = (lp=-3.0,)
 
         params = StructuredParams([StructuredKey("α") => 0.5])
-        state = StructuredState(params)
         pws = AbstractMCMC.ParamsWithStats(
-            MyModel(), MySampler(), nothing, state; params=true, stats=true
+            MyModel(), MySampler(), nothing, params; params=true, stats=true
         )
         @test pws.params === params
         @test collect(Base.pairs(pws)) == [StructuredKey("α") => 0.5, :lp => -3.0]
+
+        # Re-selection preserves the container; deselecting substitutes an empty NamedTuple.
+        @test AbstractMCMC.ParamsWithStats(pws; stats=false).params === params
+        @test AbstractMCMC.ParamsWithStats(pws; params=false).params == NamedTuple()
     end
 
     @testset "Copy constructor with selection" begin
@@ -275,11 +275,6 @@ Base.isempty(params::StructuredParams) = isempty(params.data)
         pws_stats = AbstractMCMC.ParamsWithStats(pws; params=false, stats=true)
         @test pws_stats.params == NamedTuple()
         @test pws_stats.stats == (lp=-10.0,)
-
-        custom_params = StructuredParams([StructuredKey("x") => 1.0])
-        custom_pws = AbstractMCMC.ParamsWithStats(custom_params, NamedTuple())
-        @test AbstractMCMC.ParamsWithStats(custom_pws; stats=false).params === custom_params
-        @test AbstractMCMC.ParamsWithStats(custom_pws; params=false).params == NamedTuple()
     end
 
     @testset "Base.pairs iteration" begin
