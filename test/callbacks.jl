@@ -166,6 +166,20 @@ end
 ### ParamsWithStats   ###
 #########################
 
+# StructuredKey: non-Symbol key with string form (VarName stand-in). StructuredParams
+# wraps a Vector of Pairs so AbstractVector{<:Pair} normalization does not kick in.
+struct StructuredKey
+    name::String
+end
+Base.string(k::StructuredKey) = k.name
+Base.:(==)(a::StructuredKey, b::StructuredKey) = a.name == b.name
+
+struct StructuredParams
+    data::Vector{Pair{StructuredKey,Float64}}
+end
+Base.pairs(params::StructuredParams) = params.data
+Base.isempty(params::StructuredParams) = isempty(params.data)
+
 @testset "ParamsWithStats" begin
     @testset "Constructor from NamedTuple" begin
         pws = AbstractMCMC.ParamsWithStats((a=1.0, b=2.0), (lp=-10.0,), NamedTuple())
@@ -178,6 +192,11 @@ end
     @testset "Constructor from Vector{Real} - default names" begin
         pws = AbstractMCMC.ParamsWithStats([1.0, 2.0, 3.0], NamedTuple(), NamedTuple())
         @test pws.params == (var"θ[1]"=1.0, var"θ[2]"=2.0, var"θ[3]"=3.0)
+
+        pws_without_extras = AbstractMCMC.ParamsWithStats([1.0, 2.0], (lp=-1.0,))
+        @test pws_without_extras.params == (var"θ[1]"=1.0, var"θ[2]"=2.0)
+        @test pws_without_extras.stats == (lp=-1.0,)
+        @test isempty(pws_without_extras.extras)
     end
 
     @testset "Constructor from Vector{Pair} - named" begin
@@ -185,6 +204,35 @@ end
             ["μ" => 1.0, "σ" => 2.0], NamedTuple(), NamedTuple()
         )
         @test pws.params == (μ=1.0, σ=2.0)
+    end
+
+    @testset "Structured parameter container" begin
+        params = StructuredParams([StructuredKey("μ") => 1.0, StructuredKey("y") => 3.0])
+
+        # The two-argument constructor stores the container as-is and defaults extras.
+        pws = AbstractMCMC.ParamsWithStats(params, (lp=-10.0,))
+        @test pws.params === params
+        @test pws.stats == (lp=-10.0,)
+        @test pws.extras == NamedTuple()
+
+        # pairs flattens params/stats/extras and yields mixed key types.
+        pws = AbstractMCMC.ParamsWithStats(params, (lp=-10.0,), (step_size=0.1,))
+        pairs_list = collect(Base.pairs(pws))
+        @test pairs_list == [
+            StructuredKey("μ") => 1.0,
+            StructuredKey("y") => 3.0,
+            :lp => -10.0,
+            :step_size => 0.1,
+        ]
+        @test pairs_list[1][1] isa StructuredKey
+        @test pairs_list[3][1] isa Symbol
+        @test !isempty(pws)
+        @test isempty(AbstractMCMC.ParamsWithStats(StructuredParams([]), NamedTuple()))
+
+        # NameFilter stringifies keys, so non-Symbol parameter keys still filter.
+        f = AbstractMCMC.NameFilter(; include=["μ", "lp"])
+        filtered = filter(p -> f(first(p)), pairs_list)
+        @test filtered == [StructuredKey("μ") => 1.0, :lp => -10.0]
     end
 
     @testset "Constructor from state" begin
@@ -196,6 +244,23 @@ end
         @test pws.params == NamedTuple()  # Empty vector becomes empty NamedTuple
         @test pws.stats == (iteration=5,)
         @test pws.extras == NamedTuple()
+    end
+
+    @testset "Structured container through extraction and re-selection" begin
+        # Let the container act as its own state so getparams/getstats drive extraction.
+        AbstractMCMC.getparams(params::StructuredParams) = params
+        AbstractMCMC.getstats(::StructuredParams) = (lp=-3.0,)
+
+        params = StructuredParams([StructuredKey("α") => 0.5])
+        pws = AbstractMCMC.ParamsWithStats(
+            MyModel(), MySampler(), nothing, params; params=true, stats=true
+        )
+        @test pws.params === params
+        @test collect(Base.pairs(pws)) == [StructuredKey("α") => 0.5, :lp => -3.0]
+
+        # Re-selection preserves the container; deselecting substitutes an empty NamedTuple.
+        @test AbstractMCMC.ParamsWithStats(pws; stats=false).params === params
+        @test AbstractMCMC.ParamsWithStats(pws; params=false).params == NamedTuple()
     end
 
     @testset "Copy constructor with selection" begin
@@ -229,12 +294,14 @@ end
         @test isempty(pws_empty)
     end
 
-    @testset "Illegal states are unrepresentable" begin
-        # Should not be able to construct with arbitrary types
+    @testset "Stats and extras are constrained" begin
+        # Statistics and extras must be NamedTuples. Params are not validated at
+        # construction (e.g. `1` still constructs; Base defines pairs/isempty for it).
         @test_throws MethodError AbstractMCMC.ParamsWithStats(1, 2, 3)
-        @test_throws MethodError AbstractMCMC.ParamsWithStats(
-            "bad", NamedTuple(), NamedTuple()
-        )
+        @test_throws MethodError AbstractMCMC.ParamsWithStats("params", 2, NamedTuple())
+        @test_throws MethodError AbstractMCMC.ParamsWithStats("params", NamedTuple(), 3)
+        @test AbstractMCMC.ParamsWithStats(1, NamedTuple(), NamedTuple()) isa
+            AbstractMCMC.ParamsWithStats
     end
 end
 

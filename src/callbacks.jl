@@ -118,13 +118,22 @@ end
 """
     ParamsWithStats{P,S,E}
 
-A container for MCMC parameters, statistics, and extras.
+A container for MCMC parameters, statistics, and extras. The parameter container can be a
+structured type; statistics and extras are stored as `NamedTuple`s. Use `Base.pairs(pws)`
+to iterate over all `(name, value)` pairs.
 
-All fields are stored as `NamedTuple`s to ensure a tight, well-defined interface.
-Use `Base.pairs(pws)` to iterate over `(name, value)` pairs.
+The parameter container must implement `pairs` and `isempty`. This is not validated at
+construction; some Base types already define those methods and will not fail later. Keys
+should have a meaningful `string` form so that name-based filtering and logging callbacks
+work. Keys are not required to be `Symbol`s, so `pairs(pws)` may yield pairs with mixed
+key types; consumers should not assume `Symbol` keys or a concrete element type.
+
+Note that `AbstractVector{<:Real}` and `AbstractVector{<:Pair}` parameter inputs are not
+stored as given: the extraction constructors normalize them to `Symbol`-keyed
+`NamedTuple`s (see the constructor docs below).
 
 # Fields
-- `params::P`: Parameter values as a NamedTuple
+- `params::P`: Parameter values in a container implementing `pairs` and `isempty`
 - `stats::S`: Statistics as a NamedTuple (e.g., `(lp=...,)`)
 - `extras::E`: Extra diagnostics as a NamedTuple
 
@@ -139,10 +148,19 @@ end
 pws2 = ParamsWithStats(pws; params=true, stats=false)
 ```
 """
-struct ParamsWithStats{P<:NamedTuple,S<:NamedTuple,E<:NamedTuple}
+struct ParamsWithStats{P,S<:NamedTuple,E<:NamedTuple}
     params::P
     stats::S
     extras::E
+end
+
+"""
+    ParamsWithStats(params, stats::NamedTuple)
+
+Construct a `ParamsWithStats` with no extra diagnostics.
+"""
+function ParamsWithStats(params, stats::NamedTuple)
+    return ParamsWithStats(params, stats, NamedTuple())
 end
 
 # Constructor from Vector{<:Real} - adds default θ[i] names
@@ -221,6 +239,10 @@ end
     Base.pairs(pws::ParamsWithStats)
 
 Return an iterator of `(name, value)` pairs for all selected data in `pws`.
+
+Parameter keys need not be `Symbol`s, so the iterator may yield mixed key types (e.g.
+structured parameter keys together with `Symbol` keys from `stats`/`extras`). Consumers
+should iterate generically and must not assume `Symbol` keys or a concrete element type.
 
 This is the canonical way to iterate over a `ParamsWithStats`:
 ```julia
