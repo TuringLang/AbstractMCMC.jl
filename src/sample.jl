@@ -666,7 +666,9 @@ function mcmcsample(
                                 )
                             end
 
-                            # Sample a chain and save it to the vector.
+                            # Sample a chain and save it to the vector. `deepcopy` the init
+                            # per chain -- a shared init object segfaults under ForwardDiff
+                            # (Julia GC bug; workaround for #214).
                             chains[chainidx] = StatsBase.sample(
                                 _rng,
                                 _model,
@@ -676,12 +678,12 @@ function mcmcsample(
                                 initial_params=if initial_params === nothing
                                     nothing
                                 else
-                                    initial_params[chainidx]
+                                    deepcopy(initial_params[chainidx])
                                 end,
                                 initial_state=if initial_state === nothing
                                     nothing
                                 else
-                                    initial_state[chainidx]
+                                    deepcopy(initial_state[chainidx])
                                 end,
                                 chain_number=chainidx,
                                 kwargs...,
@@ -889,15 +891,16 @@ function mcmcsample(
         # Seed a new random number generator with the pre-made seed.
         Random.seed!(rng, seed)
 
-        # Sample a chain.
+        # Sample a chain. `deepcopy` the init per chain -- a shared init object
+        # segfaults under ForwardDiff (Julia GC bug; workaround for #214).
         return StatsBase.sample(
             rng,
             model,
             sampler,
             N;
             progressname=string(progressname, " (Chain ", i, " of ", nchains, ")"),
-            initial_params=initial_params,
-            initial_state=initial_state,
+            initial_params=deepcopy(initial_params),
+            initial_state=deepcopy(initial_state),
             chain_number=i,
             kwargs...,
         )
