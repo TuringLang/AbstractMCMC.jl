@@ -258,11 +258,12 @@ The default `ParamsWithStats` extraction constructors normalize common inputs to
 
 Packages with a structured parameter representation can also construct
 `ParamsWithStats(params, stats)` directly. The parameter container must implement `pairs`
-and `isempty`; for `==`, `isequal`, and `hash` of the wrapper to be meaningful it should
-implement those as well, and its keys should have a meaningful `string` form so name-based
-filtering and logging work. The two-argument constructor uses an empty `NamedTuple` for
-`extras`. Note the normalization above applies to `AbstractVector` subtypes: a vector-like
-container is converted to a `Symbol`-keyed `NamedTuple` rather than stored as given.
+and `isempty`; this is not validated at construction (some Base types already define those
+methods and will not fail later). Keys should have a meaningful `string` form so
+name-based filtering and logging work. The two-argument constructor uses an empty
+`NamedTuple` for `extras`. Note the normalization above applies to `AbstractVector`
+subtypes: a vector-like container is converted to a `Symbol`-keyed `NamedTuple` rather
+than stored as given.
 
 !!! warning "Mixed key types"
     Because the parameter container's keys need not be `Symbol`s, `Base.pairs(pws)` may

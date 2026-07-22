@@ -122,12 +122,11 @@ A container for MCMC parameters, statistics, and extras. The parameter container
 structured type; statistics and extras are stored as `NamedTuple`s. Use `Base.pairs(pws)`
 to iterate over all `(name, value)` pairs.
 
-The parameter container must implement `pairs` and `isempty`. For `==`, `isequal`, and
-`hash` of `ParamsWithStats` to be meaningful it must also implement those (with `==`
-returning `Bool` or `missing`), and its keys should have a meaningful `string` form so
-that name-based filtering and logging callbacks work. Keys are not required to be
-`Symbol`s, so `pairs(pws)` may yield pairs with mixed key types; consumers should not
-assume `Symbol` keys or a concrete element type.
+The parameter container must implement `pairs` and `isempty`. This is not validated at
+construction; some Base types already define those methods and will not fail later. Keys
+should have a meaningful `string` form so that name-based filtering and logging callbacks
+work. Keys are not required to be `Symbol`s, so `pairs(pws)` may yield pairs with mixed
+key types; consumers should not assume `Symbol` keys or a concrete element type.
 
 Note that `AbstractVector{<:Real}` and `AbstractVector{<:Pair}` parameter inputs are not
 stored as given: the extraction constructors normalize them to `Symbol`-keyed
@@ -241,6 +240,10 @@ end
 
 Return an iterator of `(name, value)` pairs for all selected data in `pws`.
 
+Parameter keys need not be `Symbol`s, so the iterator may yield mixed key types (e.g.
+structured parameter keys together with `Symbol` keys from `stats`/`extras`). Consumers
+should iterate generically and must not assume `Symbol` keys or a concrete element type.
+
 This is the canonical way to iterate over a `ParamsWithStats`:
 ```julia
 for (name, value) in Base.pairs(pws)
@@ -254,22 +257,6 @@ end
 
 function Base.isempty(pws::ParamsWithStats)
     return (isempty(pws.params) && isempty(pws.stats) && isempty(pws.extras))
-end
-
-function Base.:(==)(pws1::ParamsWithStats, pws2::ParamsWithStats)
-    return (pws1.params == pws2.params) &
-           (pws1.stats == pws2.stats) &
-           (pws1.extras == pws2.extras)
-end
-
-function Base.isequal(pws1::ParamsWithStats, pws2::ParamsWithStats)
-    return isequal(pws1.params, pws2.params) &&
-           isequal(pws1.stats, pws2.stats) &&
-           isequal(pws1.extras, pws2.extras)
-end
-
-function Base.hash(pws::ParamsWithStats, h::UInt)
-    return hash(pws.extras, hash(pws.stats, hash(pws.params, hash(:ParamsWithStats, h))))
 end
 
 #################################

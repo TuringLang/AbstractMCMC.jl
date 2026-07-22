@@ -166,14 +166,19 @@ end
 ### ParamsWithStats   ###
 #########################
 
-struct CustomParams{T}
-    data::T
+# StructuredKey: non-Symbol key with string form (VarName stand-in). StructuredParams
+# wraps a Vector of Pairs so AbstractVector{<:Pair} normalization does not kick in.
+struct StructuredKey
+    name::String
 end
-Base.pairs(params::CustomParams) = pairs(params.data)
-Base.isempty(params::CustomParams) = isempty(params.data)
-Base.:(==)(a::CustomParams, b::CustomParams) = a.data == b.data
-Base.isequal(a::CustomParams, b::CustomParams) = isequal(a.data, b.data)
-Base.hash(params::CustomParams, h::UInt) = hash(params.data, h)
+Base.string(k::StructuredKey) = k.name
+Base.:(==)(a::StructuredKey, b::StructuredKey) = a.name == b.name
+
+struct StructuredParams{P<:Pair}
+    data::Vector{P}
+end
+Base.pairs(params::StructuredParams) = params.data
+Base.isempty(params::StructuredParams) = isempty(params.data)
 
 @testset "ParamsWithStats" begin
     @testset "Constructor from NamedTuple" begin
@@ -202,16 +207,33 @@ Base.hash(params::CustomParams, h::UInt) = hash(params.data, h)
     end
 
     @testset "Constructor from custom parameter container" begin
-        params = CustomParams((x=[1.0, 2.0], y=3.0))
+        params = StructuredParams([StructuredKey("x") => 1.0, StructuredKey("y") => 3.0])
         pws = AbstractMCMC.ParamsWithStats(params, (lp=-10.0,))
         @test pws.params === params
         @test pws.stats == (lp=-10.0,)
         @test pws.extras == NamedTuple()
-        @test collect(pairs(pws)) == [:x => [1.0, 2.0], :y => 3.0, :lp => -10.0]
+        @test collect(pairs(pws)) ==
+            [StructuredKey("x") => 1.0, StructuredKey("y") => 3.0, :lp => -10.0]
         @test !isempty(pws)
 
-        empty_pws = AbstractMCMC.ParamsWithStats(CustomParams(NamedTuple()), NamedTuple())
+        empty_pws = AbstractMCMC.ParamsWithStats(
+            StructuredParams(Pair{StructuredKey,Float64}[]), NamedTuple()
+        )
         @test isempty(empty_pws)
+    end
+
+    @testset "Mixed key types from params and stats" begin
+        params = StructuredParams([StructuredKey("μ") => 1.0])
+        pws = AbstractMCMC.ParamsWithStats(params, (lp=-10.0,), (step_size=0.1,))
+        pairs_list = collect(Base.pairs(pws))
+        @test pairs_list == [StructuredKey("μ") => 1.0, :lp => -10.0, :step_size => 0.1]
+        @test pairs_list[1][1] isa StructuredKey
+        @test pairs_list[2][1] isa Symbol
+
+        # NameFilter stringifies keys, so non-Symbol parameter keys still filter.
+        f = AbstractMCMC.NameFilter(; include=["μ", "lp"])
+        filtered = collect(Iterators.filter(((k, _),) -> f(k), pairs_list))
+        @test filtered == [StructuredKey("μ") => 1.0, :lp => -10.0]
     end
 
     @testset "Constructor from state" begin
@@ -223,6 +245,22 @@ Base.hash(params::CustomParams, h::UInt) = hash(params.data, h)
         @test pws.params == NamedTuple()  # Empty vector becomes empty NamedTuple
         @test pws.stats == (iteration=5,)
         @test pws.extras == NamedTuple()
+    end
+
+    @testset "Extraction constructor preserves custom parameter container" begin
+        struct StructuredState
+            params::StructuredParams
+        end
+        AbstractMCMC.getparams(s::StructuredState) = s.params
+        AbstractMCMC.getstats(s::StructuredState) = (lp=-3.0,)
+
+        params = StructuredParams([StructuredKey("α") => 0.5])
+        state = StructuredState(params)
+        pws = AbstractMCMC.ParamsWithStats(
+            MyModel(), MySampler(), nothing, state; params=true, stats=true
+        )
+        @test pws.params === params
+        @test collect(Base.pairs(pws)) == [StructuredKey("α") => 0.5, :lp => -3.0]
     end
 
     @testset "Copy constructor with selection" begin
@@ -238,7 +276,7 @@ Base.hash(params::CustomParams, h::UInt) = hash(params.data, h)
         @test pws_stats.params == NamedTuple()
         @test pws_stats.stats == (lp=-10.0,)
 
-        custom_params = CustomParams((x=1.0,))
+        custom_params = StructuredParams([StructuredKey("x") => 1.0])
         custom_pws = AbstractMCMC.ParamsWithStats(custom_params, NamedTuple())
         @test AbstractMCMC.ParamsWithStats(custom_pws; stats=false).params === custom_params
         @test AbstractMCMC.ParamsWithStats(custom_pws; params=false).params == NamedTuple()
@@ -261,35 +299,14 @@ Base.hash(params::CustomParams, h::UInt) = hash(params.data, h)
         @test isempty(pws_empty)
     end
 
-    @testset "Illegal states are unrepresentable" begin
-        # Statistics and extras must be NamedTuples.
+    @testset "Stats and extras are constrained" begin
+        # Statistics and extras must be NamedTuples. Params are not validated at
+        # construction (e.g. `1` still constructs; Base defines pairs/isempty for it).
         @test_throws MethodError AbstractMCMC.ParamsWithStats(1, 2, 3)
         @test_throws MethodError AbstractMCMC.ParamsWithStats("params", 2, NamedTuple())
         @test_throws MethodError AbstractMCMC.ParamsWithStats("params", NamedTuple(), 3)
-    end
-
-    @testset "Equality" begin
-        pws1 = AbstractMCMC.ParamsWithStats(
-            CustomParams((x=[1.0, NaN],)), (lp=-10.0,), (step_size=0.1,)
-        )
-        pws2 = AbstractMCMC.ParamsWithStats(
-            CustomParams((x=[1.0, NaN],)), (lp=-10.0,), (step_size=0.1,)
-        )
-        # NaN params: isequal/hash match, but `==` is false (NaN != NaN).
-        @test isequal(pws1, pws2)
-        @test hash(pws1) == hash(pws2)
-        @test !(pws1 == pws2)
-
-        # A differing field alone makes `==` false (NaN-free, so params don't confound).
-        base = AbstractMCMC.ParamsWithStats(
-            CustomParams((x=1.0,)), (lp=-10.0,), (step_size=0.1,)
-        )
-        @test base == AbstractMCMC.ParamsWithStats(
-            CustomParams((x=1.0,)), (lp=-10.0,), (step_size=0.1,)
-        )
-        @test base != AbstractMCMC.ParamsWithStats(
-            CustomParams((x=1.0,)), (lp=-10.0,), (step_size=0.2,)
-        )
+        @test AbstractMCMC.ParamsWithStats(1, NamedTuple(), NamedTuple()) isa
+            AbstractMCMC.ParamsWithStats
     end
 end
 
