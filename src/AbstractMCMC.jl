@@ -15,7 +15,7 @@ using UUIDs: UUIDs
 
 # Reexport sample
 using StatsBase: sample
-export sample
+export sample, SamplingOutput
 
 # Parallel sampling types
 export MCMCThreads, MCMCDistributed, MCMCSerial
@@ -193,6 +193,7 @@ end
 include("samplingstats.jl")
 include("logging.jl")
 include("interface.jl")
+include("chains.jl")
 include("sample.jl")
 include("stepper.jl")
 include("logdensityproblems.jl")

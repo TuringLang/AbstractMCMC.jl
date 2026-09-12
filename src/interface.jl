@@ -27,7 +27,10 @@ Bundle all `samples` that were sampled from the `model` with the given `sampler`
 The final `state` of the `sampler` can be included in the chain. The type of the chain can
 be specified with the `chain_type` argument.
 
-By default, this method returns `samples`.
+For an `AbstractChains` output type, the default implementation collects a vector or matrix
+of samples and its metadata in a [`SamplingOutput`](@ref), then calls `convert(chain_type, chain)`.
+Chain packages can implement this conversion instead of overloading `bundle_samples`.
+Otherwise, this method returns `samples` (or converts its entries for `Vector{T}` output).
 """
 function bundle_samples(
     samples, model::AbstractModel, sampler::AbstractSampler, state, ::Type{T}; kwargs...
