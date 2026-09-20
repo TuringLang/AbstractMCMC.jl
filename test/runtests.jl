@@ -25,6 +25,7 @@ include("utils.jl")
 
 @testset "AbstractMCMC" begin
     include("sample.jl")
+    include("chains.jl")
     include("stepper.jl")
     include("logdensityproblems.jl")
 end
