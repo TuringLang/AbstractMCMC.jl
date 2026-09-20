@@ -27,11 +27,11 @@ Bundle all `samples` that were sampled from the `model` with the given `sampler`
 The final `state` of the `sampler` can be included in the chain. The type of the chain can
 be specified with the `chain_type` argument.
 
-For an `AbstractChains` output type, the default `_bundle_samples` collects a vector or matrix
-of samples and its metadata in a [`SamplingOutput`](@ref), AbstractMCMC's internal chain
-representation, then calls `convert(chain_type, chain)`. Chain packages can implement
-`Base.convert(::Type{MyChains}, output::SamplingOutput)` and use this default without
-overloading `bundle_samples` or its internal helper `_bundle_samples`.
+For a [`SamplingOutput`](@ref) output type, the default `_bundle_samples` collects a vector
+or matrix of samples and its metadata in that representation. Chain packages can implement
+`Base.convert(::Type{MyChains}, output::SamplingOutput)` for explicit conversion after
+sampling with `chain_type=SamplingOutput`. Other chain types retain their existing bundling
+behavior; defining `convert` alone does not opt them into this helper.
 Otherwise, this method returns `samples` (or converts its entries for `Vector{T}` output).
 """
 function bundle_samples(

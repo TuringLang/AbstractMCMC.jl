@@ -71,7 +71,7 @@ function _bundle_samples(
     discard_initial=0,
     thinning=1,
     kwargs...,
-) where {C<:AbstractChains}
+) where {C<:SamplingOutput}
     samples = samples isa Array ? samples : collect(samples)
     samples = samples isa Vector ? reshape(samples, :, 1) : samples
     chain = SamplingOutput(

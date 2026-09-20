@@ -55,14 +55,14 @@ Base.convert(::Type{ConvertedChain}, chain::SamplingOutput) = ConvertedChain(cha
     @test_throws ArgumentError chainscat(chain, SamplingOutput(samples; iterations=2:3))
 
     converted = sample(
-        Xoshiro(1), Model(), Sampler(), 3; chain_type=ConvertedChain, opts...
+        Xoshiro(1), Model(), Sampler(), 3; chain_type=SamplingOutput, opts...
     )
-    converted = converted.chain
+    converted = convert(ConvertedChain, converted).chain
     @test converted.iterations == 3:3:9
     @test converted.sampler_states == [9]
     @test only(converted.sampling_stats).duration >= 0
     @test_throws ArgumentError from_samples(typeof(converted), converted.samples)
-    for chain_type in (Any, Vector{NamedTuple})
+    for chain_type in (Any, Vector{NamedTuple}, ConvertedChain, AbstractMCMC.AbstractChains)
         raw = sample(Xoshiro(1), Model(), Sampler(), 3; chain_type, progress=false)
         @test raw isa Vector{<:NamedTuple}
     end
