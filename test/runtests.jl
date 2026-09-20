@@ -1,7 +1,6 @@
 using AbstractMCMC
 using BangBang
 using ConsoleProgressMonitor: ProgressLogger
-using IJulia
 using LogDensityProblems
 using LoggingExtras: TeeLogger, EarlyFilteredLogger
 using TerminalLoggers: TerminalLogger
@@ -16,6 +15,11 @@ using Test: collect_test_logs
 
 const LOGGERS = Set()
 const CURRENT_LOGGER = Logging.current_logger()
+
+# Logger selection only reads `Main.IJulia.inited`; no notebook runtime is needed.
+module IJulia
+inited = false
+end
 
 include("utils.jl")
 

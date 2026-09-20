@@ -31,7 +31,6 @@ AbstractMCMCTensorBoardLoggerExt = "TensorBoardLogger"
 BangBang = "0.3.19, 0.4"
 ConsoleProgressMonitor = "0.1"
 FillArrays = "1"
-IJulia = "1"
 LogDensityProblems = "2"
 LoggingExtras = "0.4, 0.5, 1"
 OnlineStats = "1.5"
@@ -45,11 +44,10 @@ julia = "1.10"
 
 [extras]
 FillArrays = "1a297f60-69ca-5386-bcde-b61e274b549b"
-IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
 OnlineStats = "a15396b6-48d5-5d58-9928-6d29437db91e"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 TensorBoardLogger = "899adc3e-224a-11e9-021f-63837185c80f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["FillArrays", "IJulia", "OnlineStats", "Statistics", "TensorBoardLogger", "Test"]
+test = ["FillArrays", "OnlineStats", "Statistics", "TensorBoardLogger", "Test"]
