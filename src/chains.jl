@@ -10,6 +10,7 @@ iteration indices before thinning.
 `sampling_stats` contains one `SamplingStats` or `missing` per chain, and `sampler_states`
 contains one saved state or `missing` per chain. Both default to `missing`; sampler states
 are retained only when sampling with `save_state=true`.
+Specialize `Base.show(io::IO, ::MIME"text/plain", ::SamplingOutput{<:MyDraw})` for custom display.
 """
 struct SamplingOutput{T,I<:AbstractRange{<:Integer},S<:Union{SamplingStats,Missing},L} <:
        AbstractChains
@@ -38,6 +39,8 @@ end
 
 Base.size(chain::SamplingOutput, args...) = size(chain.samples, args...)
 Base.getindex(chain::SamplingOutput, args...) = getindex(chain.samples, args...)
+Base.firstindex(chain::SamplingOutput, args...) = firstindex(chain.samples, args...)
+Base.lastindex(chain::SamplingOutput, args...) = lastindex(chain.samples, args...)
 
 function Base.show(io::IO, ::MIME"text/plain", output::SamplingOutput)
     n, m = size(output)
@@ -80,6 +83,8 @@ function _bundle_samples(
     return convert(C, chain)
 end
 
+chainsstack(chains::AbstractVector{<:SamplingOutput}) = chainscat(chains...)
+
 function chainscat(chain::SamplingOutput, chains::SamplingOutput...)
     all(c -> c.iterations == chain.iterations, chains) ||
         throw(ArgumentError("chains must have matching iteration indices"))
@@ -92,8 +97,13 @@ function chainscat(chain::SamplingOutput, chains::SamplingOutput...)
     )
 end
 
-function to_samples(::Type{T}, chain::SamplingOutput{<:T}) where {T}
-    return chain.samples
+function to_samples(::Type{T}, chain::SamplingOutput) where {T}
+    return convert(Matrix{T}, chain.samples)
 end
 
 from_samples(::Type{SamplingOutput}, samples::Matrix) = SamplingOutput(samples)
+function from_samples(::Type{C}, samples::Matrix) where {T,C<:SamplingOutput{T}}
+    chain = SamplingOutput(convert(Matrix{T}, samples))
+    chain isa C || throw(ArgumentError("cannot reconstruct $C from samples alone"))
+    return chain
+end
