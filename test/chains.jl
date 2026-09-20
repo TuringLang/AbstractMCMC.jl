@@ -53,11 +53,11 @@ Base.convert(::Type{ConvertedChain}, chain::SamplingOutput) = ConvertedChain(cha
     )
     @test_throws DimensionMismatch SamplingOutput(samples; sampler_states=[])
     @test_throws ArgumentError chainscat(chain, SamplingOutput(samples; iterations=2:3))
-
     converted = sample(
-        Xoshiro(1), Model(), Sampler(), 3; chain_type=SamplingOutput, opts...
+        Xoshiro(1), Model(), Sampler(), 3; chain_type=SamplingOutput{NamedTuple}, opts...
     )
     converted = convert(ConvertedChain, converted).chain
+    @test converted isa SamplingOutput{NamedTuple}
     @test converted.iterations == 3:3:9
     @test converted.sampler_states == [9]
     @test only(converted.sampling_stats).duration >= 0

@@ -30,8 +30,8 @@ be specified with the `chain_type` argument.
 For a [`SamplingOutput`](@ref) output type, the default `_bundle_samples` collects a vector
 or matrix of samples and its metadata in that representation. Chain packages can implement
 `Base.convert(::Type{MyChains}, output::SamplingOutput)` for explicit conversion after
-sampling with `chain_type=SamplingOutput`. Other chain types retain their existing bundling
-behavior; defining `convert` alone does not opt them into this helper.
+sampling with `chain_type=SamplingOutput`, or overload `bundle_samples` to construct their
+chain objects directly from raw samples.
 Otherwise, this method returns `samples` (or converts its entries for `Vector{T}` output).
 """
 function bundle_samples(

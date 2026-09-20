@@ -74,13 +74,13 @@ function _bundle_samples(
 ) where {C<:SamplingOutput}
     samples = samples isa Array ? samples : collect(samples)
     samples = samples isa Vector ? reshape(samples, :, 1) : samples
-    chain = SamplingOutput(
+    return from_samples(
+        C,
         samples;
         iterations=range(discard_initial + 1; step=thinning, length=size(samples, 1)),
         sampling_stats=fill(stats, size(samples, 2)),
         sampler_states=fill(save_state ? state : missing, size(samples, 2)),
     )
-    return convert(C, chain)
 end
 
 chainsstack(chains::AbstractVector{<:SamplingOutput}) = chainscat(chains...)
@@ -101,9 +101,9 @@ function to_samples(::Type{T}, chain::SamplingOutput) where {T}
     return convert(Matrix{T}, chain.samples)
 end
 
-from_samples(::Type{SamplingOutput}, samples::Matrix) = SamplingOutput(samples)
-function from_samples(::Type{C}, samples::Matrix) where {T,C<:SamplingOutput{T}}
-    chain = SamplingOutput(convert(Matrix{T}, samples))
-    chain isa C || throw(ArgumentError("cannot reconstruct $C from samples alone"))
+from_samples(::Type{SamplingOutput}, s::Matrix; kw...) = SamplingOutput(s; kw...)
+function from_samples(::Type{C}, samples::Matrix; kw...) where {T,C<:SamplingOutput{T}}
+    chain = SamplingOutput(convert(Matrix{T}, samples); kw...)
+    chain isa C || throw(ArgumentError("samples and metadata cannot construct $C"))
     return chain
 end
