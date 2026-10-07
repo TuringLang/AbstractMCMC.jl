@@ -120,9 +120,14 @@ function _filter_initial_params_kwarg(kwargs)
 end
 
 # Dispatch to step or step_warmup based on the number of steps run so far. `nsteps` is the
-# number of steps taken so far (prior to calling this function).
-function _step_or_step_warmup(nsteps::Int, num_warmup::Int, args...; kwargs...)
-    sample, state = if nsteps <= num_warmup
+# number of steps taken so far (prior to calling this function). The first step of a fresh
+# chain only initialises it, so it is followed by `num_warmup` warm-up steps. A chain resumed
+# from `initial_state` (`resumed == true`) has no initialisation step, so its first
+# `num_warmup` steps are the warm-up steps.
+function _step_or_step_warmup(
+    nsteps::Int, num_warmup::Int, resumed::Bool, args...; kwargs...
+)
+    sample, state = if nsteps + resumed <= num_warmup
         step_warmup(args...; num_warmup=num_warmup, kwargs...)
     else
         step(args...; kwargs...)
@@ -215,6 +220,8 @@ function mcmcsample(
             # Number of steps taken so far. This is incremented by every call to
             # `_step_or_step_warmup`.
             nsteps = 0
+            # Whether the chain is resumed from `initial_state`, i.e. has no initialisation step.
+            resumed = initial_state !== nothing
             # Number of steps that have been saved so far.
             nsteps_kept = 0
 
@@ -223,6 +230,7 @@ function mcmcsample(
             nsteps, sample, state = _step_or_step_warmup(
                 nsteps,
                 num_warmup,
+                resumed,
                 rng,
                 model,
                 sampler,
@@ -255,6 +263,7 @@ function mcmcsample(
                 nsteps, sample, state = _step_or_step_warmup(
                     nsteps,
                     num_warmup,
+                    resumed,
                     rng,
                     model,
                     sampler,
@@ -296,6 +305,7 @@ function mcmcsample(
                     nsteps, sample, state = _step_or_step_warmup(
                         nsteps,
                         num_warmup,
+                        resumed,
                         rng,
                         model,
                         sampler,
@@ -315,6 +325,7 @@ function mcmcsample(
                 nsteps, sample, state = _step_or_step_warmup(
                     nsteps,
                     num_warmup,
+                    resumed,
                     rng,
                     model,
                     sampler,
@@ -406,6 +417,8 @@ function mcmcsample(
         # Number of steps taken so far. This is incremented by every call to
         # `_step_or_step_warmup`.
         nsteps = 0
+        # Whether the chain is resumed from `initial_state`, i.e. has no initialisation step.
+        resumed = initial_state !== nothing
         # Number of steps that have been saved so far.
         nsteps_kept = 0
 
@@ -414,6 +427,7 @@ function mcmcsample(
         nsteps, sample, state = _step_or_step_warmup(
             nsteps,
             num_warmup,
+            resumed,
             rng,
             model,
             sampler,
@@ -429,7 +443,15 @@ function mcmcsample(
             discard_sample = j < discard_initial
             # Obtain the next sample and state.
             nsteps, sample, state = _step_or_step_warmup(
-                nsteps, num_warmup, rng, model, sampler, state; discard_sample, kwargs...
+                nsteps,
+                num_warmup,
+                resumed,
+                rng,
+                model,
+                sampler,
+                state;
+                discard_sample,
+                kwargs...,
             )
         end
 
@@ -464,6 +486,7 @@ function mcmcsample(
                 nsteps, sample, state = _step_or_step_warmup(
                     nsteps,
                     num_warmup,
+                    resumed,
                     rng,
                     model,
                     sampler,
@@ -477,6 +500,7 @@ function mcmcsample(
             nsteps, sample, state = _step_or_step_warmup(
                 nsteps,
                 num_warmup,
+                resumed,
                 rng,
                 model,
                 sampler,

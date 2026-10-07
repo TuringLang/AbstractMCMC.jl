@@ -754,6 +754,48 @@
         end
     end
 
+    @testset "Warm-up when resuming from `initial_state`" begin
+        # The state counts (warm-up, regular) transitions. The initial step takes neither, so
+        # fresh and resumed chains should both take exactly `num_warmup` warm-up transitions.
+        struct CountModel <: AbstractMCMC.AbstractModel end
+        struct CountSampler <: AbstractMCMC.AbstractSampler end
+        AbstractMCMC.step(rng, ::CountModel, ::CountSampler; kwargs...) = (0, 0), (0, 0)
+        function AbstractMCMC.step(
+            rng, ::CountModel, ::CountSampler, state::Tuple{Int,Int}; kwargs...
+        )
+            new_state = (state[1], state[2] + 1)
+            return new_state, new_state
+        end
+        function AbstractMCMC.step_warmup(
+            rng, ::CountModel, ::CountSampler, state::Tuple{Int,Int}; kwargs...
+        )
+            new_state = (state[1] + 1, state[2])
+            return new_state, new_state
+        end
+
+        N = 6
+        isdone(rng, model, sampler, samples, state, iteration; kwargs...) = iteration > N
+        @testset "num_warmup=$num_warmup, discard_initial=$discard_initial" for num_warmup in
+                                                                                (0, 1, 3),
+            discard_initial in (0, 2)
+
+            kwargs = (; num_warmup, discard_initial, progress=false)
+            fresh = last(sample(CountModel(), CountSampler(), N; kwargs...))
+            @test fresh[1] == num_warmup
+
+            resumed = last(
+                sample(CountModel(), CountSampler(), N; initial_state=fresh, kwargs...)
+            )
+            @test resumed[1] - fresh[1] == num_warmup
+
+            # The same for the method that samples until `isdone` returns `true`.
+            resumed = last(
+                sample(CountModel(), CountSampler(), isdone; initial_state=fresh, kwargs...)
+            )
+            @test resumed[1] - fresh[1] == num_warmup
+        end
+    end
+
     @testset "Sample without predetermined N" begin
         Random.seed!(1234)
         chain = sample(MyModel(), MySampler())
