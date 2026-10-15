@@ -940,4 +940,22 @@
             end
         end
     end
+
+    @testset "Non-vector initial_params and initial_state with $mode" for mode in [
+        MCMCSerial(), MCMCThreads(), MCMCDistributed()
+    ]
+        nchains = 4
+        @test_throws ArgumentError sample(
+            MyModel(),
+            MySampler(),
+            mode,
+            3,
+            nchains;
+            progress=false,
+            initial_params=(a=randn(), b=rand()),
+        )
+        @test_throws ArgumentError sample(
+            MyModel(), MySampler(), mode, 3, nchains; progress=false, initial_state=10
+        )
+    end
 end
