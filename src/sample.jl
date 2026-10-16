@@ -936,11 +936,14 @@ end
 tighten_eltype(x) = x
 tighten_eltype(x::Vector{Any}) = map(identity, x)
 
-@nospecialize check_initial_params(x, n) = throw(
-    ArgumentError(
-        "initial_params must be specified as a vector of length equal to the number of chains or `nothing`",
-    ),
-)
+function check_initial_params(x, n)
+    @nospecialize
+    throw(
+        ArgumentError(
+            "initial_params must be specified as a vector of length equal to the number of chains or `nothing`",
+        ),
+    )
+end
 check_initial_params(::Nothing, n) = nothing
 function check_initial_params(x::AbstractArray, n)
     if length(x) != n
@@ -954,11 +957,14 @@ function check_initial_params(x::AbstractArray, n)
     return nothing
 end
 
-@nospecialize check_initial_state(x, n) = throw(
-    ArgumentError(
-        "initial_state must be specified as a vector of length equal to the number of chains or `nothing`",
-    ),
-)
+function check_initial_state(x, n)
+    @nospecialize
+    throw(
+        ArgumentError(
+            "initial_state must be specified as a vector of length equal to the number of chains or `nothing`",
+        ),
+    )
+end
 check_initial_state(::Nothing, n) = nothing
 function check_initial_state(x::AbstractArray, n)
     if length(x) != n
