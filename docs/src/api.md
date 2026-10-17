@@ -76,8 +76,9 @@ Common keyword arguments for regular and parallel sampling are:
 - `discard_initial` (default: `num_warmup`): number of initial samples that are discarded. Note that
   if `discard_initial < num_warmup`, warm-up samples will also be included in the resulting samples.
 - `thinning` (default: `1`): factor by which to thin samples.
-- `initial_state` (default: `nothing`): if `initial_state !== nothing`, the first call to [`AbstractMCMC.step`](@ref)
-  is passed `initial_state` as the `state` argument.
+- `initial_state` (default: `nothing`): if `initial_state !== nothing`, sampling resumes from `initial_state`:
+  the first call to [`AbstractMCMC.step_warmup`](@ref), or to [`AbstractMCMC.step`](@ref) if `num_warmup == 0`,
+  is passed `initial_state` as the `state` argument, and no initialisation step is taken.
 
 !!! info
     The common keyword arguments `progress`, `chain_type`, and `callback` are not supported by the iterator [`AbstractMCMC.steps`](@ref).
