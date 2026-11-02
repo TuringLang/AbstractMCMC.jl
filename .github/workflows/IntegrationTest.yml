@@ -41,6 +41,11 @@ jobs:
             # force it to use this PR's version of the package
             Pkg.develop(PackageSpec(path="."))  # resolver may fail with main deps
             Pkg.update()
+            if "${{ matrix.package.repo }}" == "MCMCChains.jl"
+              # FFTA 0.3.2 makes plan_rfft ambiguous with FFTW.
+              Pkg.add(PackageSpec(name="FFTA", version=v"0.3.1"))
+              Pkg.pin("FFTA")
+            end
             Pkg.test()  # resolver may fail with test time deps
           catch err
             err isa Pkg.Resolve.ResolverError || rethrow()
