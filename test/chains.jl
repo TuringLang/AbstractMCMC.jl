@@ -35,7 +35,7 @@ Base.convert(::Type{ConvertedChain}, chain::SamplingOutput) = ConvertedChain(cha
     @test indexed[end] == matrix[end]
     @test indexed[begin, end] == matrix[begin, end]
     @test indexed[end, begin] == matrix[end, begin]
-    @test indexed[begin:end, begin:end] == matrix
+    @test indexed[begin:end, begin:end].samples == matrix
     @test convert(SamplingOutput, chain) === chain
     @test convert(typeof(chain), chain) === chain
     @test all(ismissing, chain.sampling_stats)
@@ -84,6 +84,65 @@ Base.convert(::Type{ConvertedChain}, chain::SamplingOutput) = ConvertedChain(cha
         @test all(==(9), chain.sampler_states)
         @test all(s -> s.duration >= 0, chain.sampling_stats)
         @test all(c -> getproperty.(c, :iteration) == 3:3:9, eachcol(chain.samples))
+    end
+end
+
+@testset "SamplingOutput selection" begin
+    draws = [(x=[i, j],) for i in 1:5, j in 1:3]
+    stats = [AbstractMCMC.SamplingStats(j, j + 1, 1) for j in 1:3]
+    states = [[j] for j in 1:3]
+    output = SamplingOutput(
+        draws; iterations=101:2:109, sampling_stats=stats, sampler_states=states
+    )
+    rows = (:, 2, 1:2:5, [1, 2, 5], [true, false, true, false, true], Int[], 1:0)
+    columns = (:, 2, 1:2:3, [3, 1, 3], [false, true, true], Int[], Int8[1, 3])
+    for r in rows, c in columns
+        if r isa Integer && c isa Integer
+            @test output[r, c] === draws[r, c]
+            continue
+        end
+        ri, ci = r isa Integer ? [r] : r, c isa Integer ? [c] : c
+        selected = output[r, c]
+        @test selected isa SamplingOutput
+        @test selected.samples == draws[ri, ci]
+        @test selected.iterations == output.iterations[ri]
+        @test selected.sampling_stats == stats[ci]
+        @test selected.sampler_states == states[ci]
+        @test selected.samples !== draws
+    end
+    selected = output[2:4, 2]
+    @test selected[1, 1].x === output[2, 2].x
+    @test only(selected.sampler_states) === states[2]
+    selected.samples[1, 1] = (x=[0, 0],)
+    @test output[2, 2].x == [2, 2]
+    @test output[begin:end, end].samples == draws[:, 3:3]
+    @test output[end, begin:end].samples == draws[5:5, :]
+    @test output[:] == draws[:]
+    @test output[CartesianIndex(2, 3)] === draws[2, 3]
+    for r in ([3, 1], [1, 1], 5:-1:1)
+        @test output[r, 2] isa Vector
+        @test output[r, 2] == draws[r, 2]
+    end
+    for (r, c) in ((0, :), (:, 4), ([1, 6], :), (:, [1, 4]))
+        @test_throws BoundsError output[r, c]
+    end
+    @test_throws BoundsError output[[true], :]
+    @test_throws ArgumentError output[true, :]
+    @test_throws ArgumentError output[:, false]
+    @testset "Iteration labels" begin
+        irregular = SamplingOutput(draws[1:3, :]; iterations=[101, 103, 109])
+        @test irregular[2:3, 2].iterations == [103, 109]
+        @test chainscat(irregular, irregular).iterations == [101, 103, 109]
+        @test occursin("thinning = missing", sprint(show, MIME"text/plain"(), irregular))
+        regular = SamplingOutput(draws; iterations=collect(101:2:109))
+        @test occursin("thinning = 2", sprint(show, MIME"text/plain"(), regular))
+        @test occursin(
+            "discard_initial = missing", sprint(show, MIME"text/plain"(), output[Int[], :])
+        )
+        @test size(output[:, Int[]]) == (5, 0)
+        @test_throws ArgumentError SamplingOutput(draws[1:3, :]; iterations=[1, 1, 2])
+        @test_throws ArgumentError SamplingOutput(draws[1:3, :]; iterations=[3, 2, 1])
+        @test_throws DimensionMismatch SamplingOutput(draws; iterations=[1, 3])
     end
 end
 end
