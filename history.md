@@ -1,5 +1,9 @@
 # History
 
+## Unreleased
+
+- Selecting draws and chains from `SamplingOutput` preserves the container, iteration indices and chain metadata while sharing sample storage through a view ([#228](https://github.com/TuringLang/AbstractMCMC.jl/pull/228)).
+
 ## 5.17.1
 
 - Chains resumed from `initial_state` now take exactly `num_warmup` warm-up steps. Previously they took `num_warmup + 1`, including one when `num_warmup = 0` ([#220](https://github.com/TuringLang/AbstractMCMC.jl/issues/220)).
