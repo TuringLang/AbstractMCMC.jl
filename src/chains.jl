@@ -10,28 +10,35 @@ iteration indices before thinning.
 Two-index selections with increasing iteration indices keep a `SamplingOutput` unless both indices are scalars.
 Rows and columns may be integers, ranges, integer vectors, Boolean masks, or `:`.
 Iteration indices may be an increasing vector for uneven selections.
-Reversed or repeated draw selections return an array.
-Selections copy the sample matrix and share values inside each draw.
+Reversed or repeated draw selections throw an `ArgumentError`.
+Selections share the sample matrix through a view.
 Sampling statistics and saved states still describe the original runs.
 `sampling_stats` contains one `SamplingStats` or `missing` per chain, and `sampler_states`
 contains one saved state or `missing` per chain. Both default to `missing`; sampler states
 are retained only when sampling with `save_state=true`.
 Specialize `Base.show(io::IO, ::MIME"text/plain", ::SamplingOutput{<:MyDraw})` for custom display.
 """
-struct SamplingOutput{T,I<:AbstractVector{<:Integer},S<:Union{SamplingStats,Missing},L} <:
-       AbstractChains
-    samples::Matrix{T}
+struct SamplingOutput{
+    T,I<:AbstractVector{<:Integer},S<:Union{SamplingStats,Missing},L,A<:AbstractMatrix{T}
+} <: AbstractChains
+    samples::A
     iterations::I
     sampling_stats::Vector{S}
     sampler_states::Vector{L}
 
     function SamplingOutput(
-        samples::Matrix{T};
+        samples::A;
         iterations::I=1:size(samples, 1),
         sampling_stats::Vector{S}=fill(missing, size(samples, 2)),
         sampler_states::Vector{L}=fill(missing, size(samples, 2)),
-    ) where {T,I<:AbstractVector{<:Integer},S<:Union{SamplingStats,Missing},L}
-        Base.require_one_based_indexing(iterations)
+    ) where {
+        T,
+        I<:AbstractVector{<:Integer},
+        S<:Union{SamplingStats,Missing},
+        L,
+        A<:AbstractMatrix{T},
+    }
+        Base.require_one_based_indexing(samples, iterations)
         length(iterations) == size(samples, 1) ||
             throw(DimensionMismatch("one iteration index is required per sample row"))
         _increasing_iterations(iterations) ||
@@ -41,14 +48,14 @@ struct SamplingOutput{T,I<:AbstractVector{<:Integer},S<:Union{SamplingStats,Miss
                 "one sampling-statistics and sampler-state entry is required per chain"
             ),
         )
-        return new{T,I,S,L}(samples, iterations, sampling_stats, sampler_states)
+        return new{T,I,S,L,A}(samples, iterations, sampling_stats, sampler_states)
     end
 end
 
 function _increasing_iterations(iterations::AbstractRange)
     return isempty(iterations) || Base.step(iterations) > 0
 end
-_increasing_iterations(iterations::AbstractVector) = issorted(iterations; lt=<=)
+_increasing_iterations(iterations::AbstractVector) = issorted(iterations; lt=(<=))
 
 Base.size(chain::SamplingOutput, args...) = size(chain.samples, args...)
 Base.getindex(chain::SamplingOutput, args...) = getindex(chain.samples, args...)
@@ -61,12 +68,12 @@ function Base.getindex(
     columns::Union{Colon,Integer,AbstractVector{<:Integer}},
 )
     indices = Base.to_indices(output.samples, (rows, columns))
+    checkbounds(output.samples, indices...)
     rows, columns = indices
-    rows = rows isa Integer ? (rows:rows) : rows
-    columns = columns isa Integer ? (columns:columns) : columns
-    samples = output.samples[rows, columns]
+    rows = rows isa Integer ? (rows:rows) : copy(rows)
+    columns = columns isa Integer ? (columns:columns) : copy(columns)
+    samples = view(output.samples, rows, columns)
     iterations = output.iterations[rows]
-    _increasing_iterations(iterations) || return output.samples[indices...]
     return SamplingOutput(
         samples;
         iterations,
@@ -143,9 +150,11 @@ function to_samples(::Type{T}, chain::SamplingOutput) where {T}
     return convert(Matrix{T}, chain.samples)
 end
 
-from_samples(::Type{SamplingOutput}, s::Matrix; kw...) = SamplingOutput(s; kw...)
-function from_samples(::Type{C}, samples::Matrix; kw...) where {T,C<:SamplingOutput{T}}
-    chain = SamplingOutput(convert(Matrix{T}, samples); kw...)
+from_samples(::Type{SamplingOutput}, s::AbstractMatrix; kw...) = SamplingOutput(s; kw...)
+function from_samples(
+    ::Type{C}, samples::AbstractMatrix; kw...
+) where {T,C<:SamplingOutput{T}}
+    chain = SamplingOutput(convert(AbstractMatrix{T}, samples); kw...)
     chain isa C || throw(ArgumentError("samples and metadata cannot construct $C"))
     return chain
 end

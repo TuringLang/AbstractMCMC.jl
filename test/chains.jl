@@ -109,19 +109,30 @@ end
         @test selected.sampling_stats == stats[ci]
         @test selected.sampler_states == states[ci]
         @test selected.samples !== draws
+        @test selected.samples isa SubArray
     end
     selected = output[2:4, 2]
     @test selected[1, 1].x === output[2, 2].x
     @test only(selected.sampler_states) === states[2]
+    original = output[2, 2]
     selected.samples[1, 1] = (x=[0, 0],)
-    @test output[2, 2].x == [2, 2]
+    @test output[2, 2].x == [0, 0]
+    output.samples[2, 2] = original
+    @test selected[1, 1] === original
+    @test (@inferred output[2:4, 2]).samples == draws[2:4, 2:2]
+    row_indices, chain_indices = [1, 3], [3, 1]
+    indexed = output[row_indices, chain_indices]
+    row_indices[1], chain_indices[1] = 2, 2
+    @test indexed.samples == draws[[1, 3], [3, 1]]
+    @test indexed.iterations == [101, 105]
+    @test indexed.sampler_states == states[[3, 1]]
     @test output[begin:end, end].samples == draws[:, 3:3]
     @test output[end, begin:end].samples == draws[5:5, :]
     @test output[:] == draws[:]
     @test output[CartesianIndex(2, 3)] === draws[2, 3]
     for r in ([3, 1], [1, 1], 5:-1:1)
-        @test output[r, 2] isa Vector
-        @test output[r, 2] == draws[r, 2]
+        @test_throws ArgumentError output[r, 2]
+        @test_throws ArgumentError output[r, :]
     end
     for (r, c) in ((0, :), (:, 4), ([1, 6], :), (:, [1, 4]))
         @test_throws BoundsError output[r, c]
@@ -132,6 +143,9 @@ end
     @testset "Iteration labels" begin
         irregular = SamplingOutput(draws[1:3, :]; iterations=[101, 103, 109])
         @test irregular[2:3, 2].iterations == [103, 109]
+        @test output[[1, 3, 5], :][2:3, 2].iterations == [105, 109]
+        @test from_samples(SamplingOutput, irregular[2:3, 2].samples).samples isa SubArray
+        @test to_samples(eltype(draws), output[2:3, 2]) == draws[2:3, 2:2]
         @test chainscat(irregular, irregular).iterations == [101, 103, 109]
         @test occursin("thinning = missing", sprint(show, MIME"text/plain"(), irregular))
         regular = SamplingOutput(draws; iterations=collect(101:2:109))
