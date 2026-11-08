@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Selecting draws and chains from `SamplingOutput` preserves the container, iteration indices and chain metadata while sharing sample storage through a view ([#228](https://github.com/TuringLang/AbstractMCMC.jl/pull/228)).
+- `SamplingOutput` files saved with Julia's `Serialization` in AbstractMCMC 5.17.0 must be loaded with the old package versions ([#228](https://github.com/TuringLang/AbstractMCMC.jl/pull/228)).
 
 ## 5.17.1
 
