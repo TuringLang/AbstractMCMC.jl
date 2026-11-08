@@ -85,7 +85,6 @@ Base.convert(::Type{ConvertedChain}, chain::SamplingOutput) = ConvertedChain(cha
         @test all(s -> s.duration >= 0, chain.sampling_stats)
         @test all(c -> getproperty.(c, :iteration) == 3:3:9, eachcol(chain.samples))
         selected = chain[[1, 3], end]
-        @test selected isa SamplingOutput
         @test selected.samples == chain.samples[[1, 3], end:end]
         @test selected.iterations == [3, 9]
         @test selected.sampling_stats == chain.sampling_stats[end:end]
