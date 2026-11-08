@@ -7,18 +7,14 @@ Rows are iterations and columns are chains. Each entry holds a draw, including a
 recorded sampler statistics. The entry type is parametric: for example, a sampler can use
 a `NamedTuple` or its own type for parameters and statistics. `iterations` records the
 iteration indices before thinning.
-Two-index selections with increasing iteration indices keep a `SamplingOutput` unless both indices are scalars.
-Rows and columns may be integers, ranges, integer vectors, Boolean masks, or `:`.
-Iteration indices may be an increasing vector for uneven selections.
-Reversed or repeated draw selections throw an `ArgumentError`.
-Chains may be reordered or repeated.
-Selections share the sample matrix through a view.
-Sampling statistics and saved states still describe the original runs.
-Iteration labels supplied to the constructor are shared and must remain increasing.
+Iteration labels may be a vector; they are shared and must remain strictly increasing.
+Two-index selections wrap a sample view in `SamplingOutput` unless both are scalars.
+Selectors may be integers, ranges, integer vectors, Boolean masks, or `:`. Reversed or
+repeated draws throw an `ArgumentError`; chains may be reordered or repeated.
+Selected statistics and states describe the original runs.
 `sampling_stats` contains one `SamplingStats` or `missing` per chain, and `sampler_states`
 contains one saved state or `missing` per chain. Both default to `missing`; sampler states
 are retained only when sampling with `save_state=true`.
-Files saved with `Serialization.serialize` in AbstractMCMC 5.17.0 must be loaded with the old package versions.
 Specialize `Base.show(io::IO, ::MIME"text/plain", ::SamplingOutput{<:MyDraw})` for custom display.
 """
 struct SamplingOutput{
