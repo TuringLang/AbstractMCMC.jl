@@ -44,8 +44,12 @@ struct SamplingOutput{
         Base.require_one_based_indexing(samples, iterations)
         length(iterations) == size(samples, 1) ||
             throw(DimensionMismatch("one iteration index is required per sample row"))
-        _increasing_iterations(iterations) ||
-            throw(ArgumentError("iteration indices must increase"))
+        increasing = if iterations isa AbstractRange
+            isempty(iterations) || Base.step(iterations) > 0
+        else
+            issorted(iterations; lt=(<=))
+        end
+        increasing || throw(ArgumentError("iteration indices must increase"))
         length(sampling_stats) == length(sampler_states) == size(samples, 2) || throw(
             DimensionMismatch(
                 "one sampling-statistics and sampler-state entry is required per chain"
@@ -54,11 +58,6 @@ struct SamplingOutput{
         return new{T,I,S,L,A}(samples, iterations, sampling_stats, sampler_states)
     end
 end
-
-function _increasing_iterations(iterations::AbstractRange)
-    return isempty(iterations) || Base.step(iterations) > 0
-end
-_increasing_iterations(iterations::AbstractVector) = issorted(iterations; lt=(<=))
 
 Base.size(chain::SamplingOutput, args...) = size(chain.samples, args...)
 Base.getindex(chain::SamplingOutput, args...) = getindex(chain.samples, args...)
@@ -75,11 +74,9 @@ function Base.getindex(
     rows, columns = indices
     rows = rows isa Integer ? (rows:rows) : copy(rows)
     columns = columns isa Integer ? (columns:columns) : copy(columns)
-    samples = view(output.samples, rows, columns)
-    iterations = output.iterations[rows]
     return SamplingOutput(
-        samples;
-        iterations,
+        view(output.samples, rows, columns);
+        iterations=output.iterations[rows],
         sampling_stats=output.sampling_stats[columns],
         sampler_states=output.sampler_states[columns],
     )
