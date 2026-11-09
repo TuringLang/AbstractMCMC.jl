@@ -7,38 +7,76 @@ Rows are iterations and columns are chains. Each entry holds a draw, including a
 recorded sampler statistics. The entry type is parametric: for example, a sampler can use
 a `NamedTuple` or its own type for parameters and statistics. `iterations` records the
 iteration indices before thinning.
+Iteration labels may be a vector; they are shared and must remain strictly increasing.
+Two-index selections wrap a sample view in `SamplingOutput` unless both are scalars.
+Selectors may be integers, ranges, integer vectors, Boolean masks, or `:`. Reversed or
+repeated draws throw an `ArgumentError`; chains may be reordered or repeated.
+Selected statistics and states describe the original runs.
 `sampling_stats` contains one `SamplingStats` or `missing` per chain, and `sampler_states`
 contains one saved state or `missing` per chain. Both default to `missing`; sampler states
 are retained only when sampling with `save_state=true`.
 Specialize `Base.show(io::IO, ::MIME"text/plain", ::SamplingOutput{<:MyDraw})` for custom display.
 """
-struct SamplingOutput{T,I<:AbstractRange{<:Integer},S<:Union{SamplingStats,Missing},L} <:
-       AbstractChains
-    samples::Matrix{T}
+struct SamplingOutput{
+    T,I<:AbstractVector{<:Integer},S<:Union{SamplingStats,Missing},L,A<:AbstractMatrix{T}
+} <: AbstractChains
+    samples::A
     iterations::I
     sampling_stats::Vector{S}
     sampler_states::Vector{L}
 
     function SamplingOutput(
-        samples::Matrix{T};
+        samples::A;
         iterations::I=1:size(samples, 1),
         sampling_stats::Vector{S}=fill(missing, size(samples, 2)),
         sampler_states::Vector{L}=fill(missing, size(samples, 2)),
-    ) where {T,I<:AbstractRange{<:Integer},S<:Union{SamplingStats,Missing},L}
+    ) where {
+        T,
+        I<:AbstractVector{<:Integer},
+        S<:Union{SamplingStats,Missing},
+        L,
+        A<:AbstractMatrix{T},
+    }
+        Base.require_one_based_indexing(samples, iterations)
         length(iterations) == size(samples, 1) ||
             throw(DimensionMismatch("one iteration index is required per sample row"))
-        Base.step(iterations) > 0 || throw(ArgumentError("iteration indices must increase"))
+        increasing = if iterations isa AbstractRange
+            isempty(iterations) || Base.step(iterations) > 0
+        else
+            issorted(iterations; lt=(<=))
+        end
+        increasing || throw(ArgumentError("iteration indices must increase"))
         length(sampling_stats) == length(sampler_states) == size(samples, 2) || throw(
             DimensionMismatch(
                 "one sampling-statistics and sampler-state entry is required per chain"
             ),
         )
-        return new{T,I,S,L}(samples, iterations, sampling_stats, sampler_states)
+        return new{T,I,S,L,A}(samples, iterations, sampling_stats, sampler_states)
     end
 end
 
 Base.size(chain::SamplingOutput, args...) = size(chain.samples, args...)
 Base.getindex(chain::SamplingOutput, args...) = getindex(chain.samples, args...)
+function Base.getindex(output::SamplingOutput, row::Integer, column::Integer)
+    return output.samples[row, column]
+end
+function Base.getindex(
+    output::SamplingOutput,
+    rows::Union{Colon,Integer,AbstractVector{<:Integer}},
+    columns::Union{Colon,Integer,AbstractVector{<:Integer}},
+)
+    indices = Base.to_indices(output.samples, (rows, columns))
+    checkbounds(output.samples, indices...)
+    rows, columns = indices
+    rows = rows isa Integer ? (rows:rows) : copy(rows)
+    columns = columns isa Integer ? (columns:columns) : copy(columns)
+    return SamplingOutput(
+        view(output.samples, rows, columns);
+        iterations=output.iterations[rows],
+        sampling_stats=output.sampling_stats[columns],
+        sampler_states=output.sampler_states[columns],
+    )
+end
 Base.firstindex(chain::SamplingOutput, args...) = firstindex(chain.samples, args...)
 Base.lastindex(chain::SamplingOutput, args...) = lastindex(chain.samples, args...)
 
@@ -48,8 +86,15 @@ function Base.show(io::IO, ::MIME"text/plain", output::SamplingOutput)
     timing = isempty(times) ? missing : (min=minimum(times), max=maximum(times))
     chains = m == 1 ? "chain" : "chains"
     println(io, "SamplingOutput: $m $chains, $n draws each")
-    discard_initial = first(output.iterations) - 1
-    thinning = Base.step(output.iterations)
+    discard_initial = isempty(output.iterations) ? missing : first(output.iterations) - 1
+    thinning = if output.iterations isa AbstractRange
+        Base.step(output.iterations)
+    elseif length(output.iterations) > 1
+        deltas = diff(output.iterations)
+        all(==(first(deltas)), deltas) ? first(deltas) : missing
+    else
+        missing
+    end
     println(io, "  Total draws:    $(n * m) ", (; discard_initial, thinning))
     println(io, "  Time/chain (s): ", timing)
     println(io)
@@ -101,9 +146,11 @@ function to_samples(::Type{T}, chain::SamplingOutput) where {T}
     return convert(Matrix{T}, chain.samples)
 end
 
-from_samples(::Type{SamplingOutput}, s::Matrix; kw...) = SamplingOutput(s; kw...)
-function from_samples(::Type{C}, samples::Matrix; kw...) where {T,C<:SamplingOutput{T}}
-    chain = SamplingOutput(convert(Matrix{T}, samples); kw...)
+from_samples(::Type{SamplingOutput}, s::AbstractMatrix; kw...) = SamplingOutput(s; kw...)
+function from_samples(
+    ::Type{C}, samples::AbstractMatrix; kw...
+) where {T,C<:SamplingOutput{T}}
+    chain = SamplingOutput(convert(AbstractMatrix{T}, samples); kw...)
     chain isa C || throw(ArgumentError("samples and metadata cannot construct $C"))
     return chain
 end

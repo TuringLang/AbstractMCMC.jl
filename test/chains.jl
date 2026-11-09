@@ -35,7 +35,7 @@ Base.convert(::Type{ConvertedChain}, chain::SamplingOutput) = ConvertedChain(cha
     @test indexed[end] == matrix[end]
     @test indexed[begin, end] == matrix[begin, end]
     @test indexed[end, begin] == matrix[end, begin]
-    @test indexed[begin:end, begin:end] == matrix
+    @test indexed[begin:end, begin:end].samples == matrix
     @test convert(SamplingOutput, chain) === chain
     @test convert(typeof(chain), chain) === chain
     @test all(ismissing, chain.sampling_stats)
@@ -84,6 +84,13 @@ Base.convert(::Type{ConvertedChain}, chain::SamplingOutput) = ConvertedChain(cha
         @test all(==(9), chain.sampler_states)
         @test all(s -> s.duration >= 0, chain.sampling_stats)
         @test all(c -> getproperty.(c, :iteration) == 3:3:9, eachcol(chain.samples))
+        selected = chain[[1, 3], end]
+        @test selected.samples == chain.samples[[1, 3], end:end]
+        @test selected.iterations == [3, 9]
+        @test selected.sampling_stats == chain.sampling_stats[end:end]
+        @test selected.sampler_states == chain.sampler_states[end:end]
+        @test parent(selected.samples) === chain.samples
+        @test_throws ArgumentError chain[[3, 1], :]
     end
 end
 end
